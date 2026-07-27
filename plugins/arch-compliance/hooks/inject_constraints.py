@@ -25,8 +25,9 @@ _PYTHON_ROOT = _PLUGIN_ROOT / "python"
 if str(_PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(_PYTHON_ROOT))
 
-from acf.exceptions import RegistryLoadError  # noqa: E402
-from acf.registry import load_mandates  # noqa: E402
+# NOTE: acf imports are deferred into main() so this hook stays a true no-op
+# (exit 0, no third-party imports) in repos without .acf/enabled — the hook
+# fires in every repo once the plugin is installed.
 
 _TEMPLATE = _HOOKS_DIR / "constraints_template.md"
 _MANDATES_REL = Path("config") / "architecture" / "mandates.yml"
@@ -79,6 +80,19 @@ def main(argv: list[str] | None = None) -> int:
     if not mandates_path.is_file():
         print(
             f"acf: .acf/enabled present but mandates missing: {mandates_path.as_posix()}",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        from acf.exceptions import RegistryLoadError
+        from acf.registry import load_mandates
+    except ImportError as exc:
+        print(
+            "acf: ACF is enabled here but its Python dependencies are missing "
+            f"({exc}). Install the acf package into this interpreter: "
+            'pip install -e ".[dev]" from the arch-compliance-for-superpowers '
+            "checkout (see plugin README).",
             file=sys.stderr,
         )
         return 1

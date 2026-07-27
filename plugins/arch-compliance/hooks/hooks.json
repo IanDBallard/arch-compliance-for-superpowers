@@ -1,5 +1,5 @@
 {
-  "description": "ACF SubagentStart constraint injection and PostToolUse Tier-1 gate. Active only when the host has `.acf/enabled` (written by /acf-setup).",
+  "description": "ACF SubagentStart constraint injection and PostToolUse Tier-1 gate (exit 2 on BLOCK findings). Requires `python` on PATH with the acf package installed; no-ops until the host has `.acf/enabled` (written by /acf-setup).",
   "hooks": {
     "SubagentStart": [
       {

@@ -25,11 +25,9 @@ _PYTHON_ROOT = _PLUGIN_ROOT / "python"
 if str(_PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(_PYTHON_ROOT))
 
-from acf.detectors.python_pack import scan_python_file  # noqa: E402
-from acf.detectors.typescript_bridge import scan_typescript_file  # noqa: E402
-from acf.exceptions import DetectorPackError, RegistryLoadError  # noqa: E402
-from acf.finding import Finding, Severity  # noqa: E402
-from acf.registry import load_mandates  # noqa: E402
+# NOTE: acf imports are deferred into main() so this hook stays a true no-op
+# (exit 0, no third-party imports) in repos without .acf/enabled — the hook
+# fires on every Write/Edit in every repo once the plugin is installed.
 
 _MANDATES_REL = Path("config") / "architecture" / "mandates.yml"
 _ENABLED_REL = Path(".acf") / "enabled"
@@ -90,21 +88,49 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        load_mandates(mandates_path)
+        from acf.enforcement import apply_registry
+        from acf.exceptions import DetectorPackError, RegistryLoadError
+        from acf.finding import Severity
+        from acf.registry import load_mandates
+    except ImportError as exc:
+        print(
+            "acf: ACF is enabled here but its Python dependencies are missing "
+            f"({exc}). Install the acf package into this interpreter: "
+            'pip install -e ".[dev]" from the arch-compliance-for-superpowers '
+            "checkout (see plugin README).",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        registry = load_mandates(mandates_path)
     except RegistryLoadError as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
     paths = _collect_paths(args.paths, stdin_payload, repo)
     try:
-        findings = _scan_paths(repo, paths)
+        raw_findings, file_lines = _scan_paths(repo, paths)
     except DetectorPackError as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
+    def _line_lookup(posix: str, line: int) -> str:
+        lines = file_lines.get(posix)
+        if not lines or not (0 < line <= len(lines)):
+            return ""
+        return lines[line - 1]
+
+    findings = apply_registry(raw_findings, registry, _line_lookup)
+    has_block = any(f.severity == Severity.BLOCK for f in findings)
+
     if out_format == "json":
         print(json.dumps([f.model_dump(mode="json") for f in findings], indent=2))
     elif out_format == "hook":
+        if has_block:
+            # Exit 2 feeds stderr back to Claude as blocking feedback.
+            print(_format_findings(findings), file=sys.stderr)
+            return 2
         event = "PostToolUse"
         if isinstance(stdin_payload, dict):
             event = str(stdin_payload.get("hook_event_name") or event)
@@ -122,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(_format_findings(findings))
 
-    if out_format != "hook" and any(f.severity == Severity.BLOCK for f in findings):
+    if out_format != "hook" and has_block:
         return 1
     return 0
 
@@ -184,8 +210,14 @@ def _collect_paths(
     return resolved
 
 
-def _scan_paths(repo: Path, paths: list[Path]) -> list[Finding]:
+def _scan_paths(
+    repo: Path, paths: list[Path]
+) -> tuple[list[Finding], dict[str, list[str]]]:
+    from acf.detectors.python_pack import scan_python_file
+    from acf.detectors.typescript_bridge import scan_typescript_file
+
     findings: list[Finding] = []
+    file_lines: dict[str, list[str]] = {}
     for abs_path in paths:
         if not abs_path.is_file():
             continue
@@ -197,12 +229,16 @@ def _scan_paths(repo: Path, paths: list[Path]) -> list[Finding]:
         except ValueError:
             rel = abs_path.as_posix()
 
+        text = abs_path.read_text(encoding="utf-8")
+        file_lines[rel] = text.splitlines()
         if suffix == ".py":
-            text = abs_path.read_text(encoding="utf-8")
             findings.extend(scan_python_file(text, rel, added_lines=None))
         else:
-            findings.extend(scan_typescript_file(abs_path, added_lines=None))
-    return findings
+            findings.extend(
+                f.model_copy(update={"path": rel})
+                for f in scan_typescript_file(abs_path, added_lines=None)
+            )
+    return findings, file_lines
 
 
 def _format_findings(findings: list[Finding]) -> str:
