@@ -4,9 +4,11 @@ Architecture Compliance Framework (ACF) companion for [Superpowers](https://gith
 
 **Full guide:** [docs/guides/SUPERPOWERS_COMPLEMENT.md](docs/guides/SUPERPOWERS_COMPLEMENT.md)
 
-## Prerequisite
+## Prerequisites
 
-Install **Superpowers** first (`superpowers@claude-plugins-official` or equivalent). ACF complements Superpowers; it does not replace it.
+- **Superpowers** installed first (`superpowers@claude-plugins-official` or equivalent). ACF complements Superpowers; it does not replace it.
+- **`python` (3.11+) on PATH** — hooks invoke `python`, not `python3`. On macOS/Linux make sure `python` resolves to Python 3 (venv, conda, pyenv, or `python-is-python3`), with the `acf` package installed into it (see below).
+- **Node.js** — only for TypeScript hosts; `/acf-setup` runs `npm ci` in the plugin's `detectors/typescript/` directory.
 
 ## Install (Claude Code)
 
@@ -46,21 +48,28 @@ From this repo root (developers / CI):
 
 ```bash
 pip install -e ".[dev]"
-acf-check-diff --mode staged   # or --mode worktree
+acf-check-diff --mode staged        # local: staged or --mode worktree
+acf-check-diff --base origin/main   # CI: diff vs merge-base (needs full git history)
 pytest
 ```
 
-`acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host (or fixture) mandate registry. `BLOCK` findings exit non-zero.
+`acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host mandate registry. `BLOCK` findings exit non-zero. In CI use `--base` — a fresh checkout has an empty staged/worktree diff.
+
+The registry drives enforcement: `status: unenforced` rows never gate, severity comes from the registry row, and a finding line can be exempted inline with a reason — `# <token>: reason` (Python) or `// <token>: reason` (TypeScript), using the row's `exemption_tokens`.
 
 ## Hooks
 
 Plugin `hooks/hooks.json` registers:
 
 - **SubagentStart** — `inject_constraints.py` injects host mandates + an ARCHITECTURE excerpt into subagent context.
-- **PostToolUse** (`Write|Edit|MultiEdit`) — `posttooluse_gate.py` runs Tier-1 detectors on edited `.py`/`.ts`/`.tsx` files and returns findings.
+- **PostToolUse** (`Write|Edit|MultiEdit`) — `posttooluse_gate.py` runs Tier-1 detectors on edited `.py`/`.ts`/`.tsx` files. `BLOCK` findings exit 2 so Claude receives them as blocking feedback; `WARN` findings come back as additional context.
 
-Hooks no-op until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` fails loud (non-zero).
+Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message.
 
 ## Friend success bar
 
 After `/acf-setup` on a React repo: plant a Tier-1 violation → gate fails; fix it → gate passes — without reading Historic Mansions. Customize with `/acf-mandate`; audit with `/architecture-review`.
+
+## License
+
+[GPL-3.0](LICENSE).

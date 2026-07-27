@@ -1,8 +1,11 @@
 {
   "name": "arch-compliance",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Architecture Compliance Framework companion for Superpowers (Claude Code).",
   "author": {
     "name": "IanDBallard"
-  }
+  },
+  "homepage": "https://github.com/IanDBallard/arch-compliance-for-superpowers",
+  "repository": "https://github.com/IanDBallard/arch-compliance-for-superpowers",
+  "license": "GPL-3.0-only"
 }

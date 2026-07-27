@@ -16,12 +16,13 @@ Complete these steps in order. Create a todo per step and check each off.
 1. Confirm Superpowers prerequisite
 2. Resolve plugin root + host root
 3. Detect languages
-4. Copy or merge profile(s) into host `config/architecture/`
-5. Align ARCHITECTURE.md (prompt if host already has one)
-6. Write `.acf/enabled` marker
-7. Print pre-commit / CI snippets
-8. Smoke-run `acf-check-diff`
-9. Summarize what was written and next steps (`/acf-mandate`, `/architecture-review`)
+4. Install runtime dependencies (Python package; TS detector `npm ci` when TypeScript detected)
+5. Copy or merge profile(s) into host `config/architecture/`
+6. Align ARCHITECTURE.md (prompt if host already has one)
+7. Write `.acf/enabled` marker
+8. Print pre-commit / CI snippets
+9. Smoke-run `acf-check-diff`
+10. Summarize what was written and next steps (`/acf-mandate`, `/architecture-review`)
 
 ## Step 1 — Superpowers prerequisite
 
@@ -61,7 +62,32 @@ Both may be true (polyglot host). Neither → ask the user which profile(s) to i
 
 Announce detection result before copying, e.g. `Detected: typescript` / `python` / `both`.
 
-## Step 4 — Copy or merge into `config/architecture/`
+## Step 4 — Install runtime dependencies
+
+The hooks and CLI need two things on the host machine:
+
+1. **Python package** — the `acf` package importable by the `python` on PATH:
+
+   ```bash
+   pip install -e ".[dev]"   # from the arch-compliance-for-superpowers checkout root
+   ```
+
+   Hooks invoke `python` (not `python3`). Verify `python -c "import acf"` succeeds with the
+   interpreter that `python` resolves to. On macOS/Linux where only `python3` exists, ensure
+   `python` resolves to Python 3.11+ (venv, conda, pyenv, or `python-is-python3`).
+
+2. **TypeScript detector node_modules** (only when TypeScript was detected):
+
+   ```bash
+   npm ci --prefix "${CLAUDE_PLUGIN_ROOT}/detectors/typescript"
+   ```
+
+   Without this, any `.ts`/`.tsx` scan fails loud with a `DetectorPackError` telling the
+   user to run exactly that command.
+
+Do not proceed to the smoke check until both succeed (skip the npm step for Python-only hosts).
+
+## Step 5 — Copy or merge into `config/architecture/`
 
 Target directory (create if missing):
 
@@ -102,7 +128,7 @@ config/architecture/react-app.mandates.yml.bak
 config/architecture/python-service.mandates.yml.bak
 ```
 
-## Step 5 — ARCHITECTURE.md path
+## Step 6 — ARCHITECTURE.md path
 
 After copy/merge:
 
@@ -111,7 +137,7 @@ After copy/merge:
    - replace the stub with a copy/symlink/pointer note to their real doc, ensuring every `arch_anchor` from `mandates.yml` still appears as an exact heading substring in the file ACF will use.
 2. Remind: mandate `arch_anchor` values are matched as literal substrings of ARCHITECTURE.md — renaming headings without updating mandates breaks drift checks.
 
-## Step 6 — Enable hooks marker
+## Step 7 — Enable hooks marker
 
 Write an empty (or one-line) marker file:
 
@@ -142,7 +168,7 @@ python "${CLAUDE_PLUGIN_ROOT}/hooks/posttooluse_gate.py" --repo . path/to/edited
 
 If `CLAUDE_PLUGIN_ROOT` is unset, use the absolute path to `plugins/arch-compliance` in this marketplace checkout.
 
-## Step 7 — Print pre-commit / CI snippets
+## Step 8 — Print pre-commit / CI snippets
 
 Print these for the user to paste (adapt package manager / paths as needed). Do not silently edit their CI unless they ask.
 
@@ -169,15 +195,21 @@ python -m acf.cli_check_diff --mode staged
 
 ### CI (GitHub Actions sketch)
 
+In CI the checkout is clean, so `--mode staged` / `--mode worktree` see an empty
+diff and always pass. Use `--base` to diff the branch against its merge-base:
+
 ```yaml
-- name: Architecture compliance (diff)
-  run: acf-check-diff --mode worktree --repo .
-  # or: python -m acf.cli_check_diff --mode worktree --repo .
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0   # --base needs history for merge-base
+- name: Architecture compliance (diff vs base)
+  run: acf-check-diff --base "origin/${{ github.base_ref || 'main' }}" --repo .
+  # or: python -m acf.cli_check_diff --base origin/main --repo .
 ```
 
 Remind them the CLI defaults to `<repo>/config/architecture/mandates.yml`. Install the `acf` package into the environment used by hooks/CI (`pip install` from the marketplace plugin’s Python package / editable install as documented in the repo README).
 
-## Step 8 — Smoke check
+## Step 9 — Smoke check
 
 From the **host** root, run one of:
 
@@ -195,7 +227,7 @@ Success criteria:
 
 Optional friend-bar tip: plant a temporary empty `catch {}` (TS) or bare `except:` (Python), stage it, re-run with `--mode staged`, confirm BLOCK/WARN, then revert.
 
-## Step 9 — Done summary
+## Step 10 — Done summary
 
 Tell the user:
 

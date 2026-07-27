@@ -73,11 +73,12 @@ From the marketplace repo root:
 
 ```bash
 pip install -e ".[dev]"
-acf-check-diff --mode worktree
+acf-check-diff --mode worktree      # local working-tree diff
+acf-check-diff --base origin/main   # CI: diff vs merge-base
 pytest
 ```
 
-Plugin hooks live under `plugins/arch-compliance/hooks/hooks.json`. They no-op until the host has `.acf/enabled`; with that marker present, a missing `config/architecture/mandates.yml` fails loud.
+Plugin hooks live under `plugins/arch-compliance/hooks/hooks.json` and invoke `python` — ensure `python` on PATH is Python 3.11+ with the `acf` package installed. Hooks are a true no-op until the host has `.acf/enabled`; with that marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud. The PostToolUse gate exits 2 on `BLOCK` findings so Claude receives them as blocking feedback. Enforcement follows the host registry: `unenforced` rows never gate, severity comes from the row, and `exemption_tokens` work as inline `# token: reason` / `// token: reason` comments.
 
 ## Related docs
 
