@@ -1,0 +1,33 @@
+- id: fail-loud.empty-catch
+  title: Empty catch blocks must not swallow errors
+  severity: BLOCK
+  detection: ast
+  detector: empty_catch
+  languages: typescript
+  call_sites: [ci, hook]
+  exemption_tokens: [fail-loud.empty-catch-ok]
+  status: enforced
+  arch_anchor: "## Fail loud"
+
+- id: no-shims.explicit-any
+  title: No explicit any escape hatches
+  severity: WARN
+  detection: ast
+  detector: explicit_any
+  languages: typescript
+  call_sites: [ci, hook]
+  exemption_tokens: [no-shims.explicit-any-ok]
+  status: enforced
+  arch_anchor: "## No shims"
+
+- id: soft.react-boundaries
+  title: Keep domain logic out of React views
+  severity: WARN
+  detection: llm
+  detector: llm_react_boundaries
+  languages: typescript
+  call_sites: [ci, audit]
+  exemption_tokens: [soft.react-boundaries-ok]
+  status: partial
+  arch_anchor: "## React boundaries"
+  auditor: react-boundaries

@@ -1,0 +1,33 @@
+- id: fail-loud.bare-except
+  title: Bare except and broad Exception handlers
+  severity: BLOCK
+  detection: ast
+  detector: fail_loud_bare_except
+  languages: python
+  call_sites: [ci, hook]
+  exemption_tokens: [fail-loud.bare-except-ok]
+  status: enforced
+  arch_anchor: "## Fail loud"
+
+- id: no-shims.hasattr
+  title: No hasattr shims for optional attributes
+  severity: WARN
+  detection: ast
+  detector: no_shims_hasattr
+  languages: python
+  call_sites: [ci]
+  exemption_tokens: [no-shims.hasattr-ok]
+  status: enforced
+  arch_anchor: "## No shims"
+
+- id: soft.fail-loud
+  title: Soft fail-loud smells needing judgment
+  severity: WARN
+  detection: llm
+  detector: llm_fail_loud
+  languages: python
+  call_sites: [ci, audit]
+  exemption_tokens: [soft.fail-loud-ok]
+  status: partial
+  arch_anchor: "## Soft fail-loud smells"
+  auditor: fail-loud
