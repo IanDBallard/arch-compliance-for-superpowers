@@ -17,8 +17,8 @@ def test_missing_file_fails_loud():
         load_mandates(FIXTURES / "does-not-exist.yml")
 
 
-def test_enforced_unknown_detector_fails():
-    path = FIXTURES / "mandates_bad_detector.yml"
+def test_enforced_unknown_detector_fails(tmp_path: Path):
+    path = tmp_path / "mandates_bad_detector.yml"
     path.write_text(
         "- id: x\n  title: t\n  severity: BLOCK\n  detection: ast\n"
         "  detector: not_a_real_detector\n  languages: python\n"
