@@ -10,7 +10,7 @@ from typing import Literal, Protocol
 import httpx
 from pydantic import BaseModel
 
-from acf.exceptions import JudgeNotConfiguredError
+from acf.exceptions import JudgeNotConfiguredError, JudgeResponseError
 from acf.finding import Finding, Severity
 from acf.registry import Mandate
 
@@ -120,8 +120,12 @@ def run_judge(
 
 
 def _to_finding(result: JudgeResult, mandate: Mandate) -> Finding:
+    # Registry severity is the ceiling; the judge can only demote — either
+    # explicitly (its own WARN verdict) or via sub-high confidence.
     severity = Severity(mandate.severity)
-    if severity == Severity.BLOCK and result.confidence != "high":
+    if severity == Severity.BLOCK and (
+        result.severity == "WARN" or result.confidence != "high"
+    ):
         severity = Severity.WARN
     return Finding(
         mandate_id=result.mandate_id,
@@ -157,7 +161,7 @@ def _extract_text(body: dict) -> str:
         parts = body["candidates"][0]["content"]["parts"]
         return "".join(str(p.get("text", "")) for p in parts)
     except (KeyError, IndexError, TypeError) as e:
-        raise JudgeNotConfiguredError(f"unexpected Gemini response shape: {e}") from e
+        raise JudgeResponseError(f"unexpected Gemini response shape: {e}") from e
 
 
 def _parse_json_object(text: str) -> dict:
@@ -167,8 +171,8 @@ def _parse_json_object(text: str) -> dict:
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", text, flags=re.DOTALL)
         if not match:
-            raise JudgeNotConfiguredError("Gemini response was not JSON") from None
+            raise JudgeResponseError("Gemini response was not JSON") from None
         data = json.loads(match.group(0))
     if not isinstance(data, dict):
-        raise JudgeNotConfiguredError("Gemini JSON root must be an object")
+        raise JudgeResponseError("Gemini JSON root must be an object")
     return data

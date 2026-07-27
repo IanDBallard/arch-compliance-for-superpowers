@@ -15,7 +15,11 @@ class UnknownDetectorError(AcfError):
 
 
 class JudgeNotConfiguredError(AcfError):
-    pass
+    """LLM judge required (enforced detection:llm mandate) but no key/provider."""
+
+
+class JudgeResponseError(AcfError):
+    """The judge provider returned an unusable response (not a config issue)."""
 
 
 class EmptyTargetTreeError(AcfError):

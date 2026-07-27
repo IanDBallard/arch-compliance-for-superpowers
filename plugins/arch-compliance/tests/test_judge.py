@@ -5,9 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from acf.exceptions import JudgeNotConfiguredError
+from acf.exceptions import JudgeNotConfiguredError, JudgeResponseError
 from acf.finding import Severity
-from acf.judge import LLM_PROMPT_IDS, JudgeResult, run_judge
+from acf.judge import (
+    LLM_PROMPT_IDS,
+    JudgeResult,
+    _extract_text,
+    _parse_json_object,
+    run_judge,
+)
 from acf.registry import Mandate
 
 CORPUS = Path(__file__).parent / "fixtures" / "judge_corpus"
@@ -104,6 +110,38 @@ def test_high_confidence_keeps_block() -> None:
     )
     assert len(findings) == 1
     assert findings[0].severity == Severity.BLOCK
+
+
+def test_llm_warn_severity_demotes_block_even_at_high_confidence() -> None:
+    """The judge's own WARN verdict must not be silently escalated back to
+    BLOCK by the mandate row."""
+    mandate = _llm_mandate(severity="BLOCK")
+
+    class WarnProvider:
+        def review(self, *, diff_text: str, mandate: Mandate) -> JudgeResult:
+            return JudgeResult(
+                mandate_id=mandate.id,
+                severity="WARN",
+                confidence="high",
+                message="Borderline; not blocking",
+                path="src/App.tsx",
+                line=9,
+            )
+
+    findings = run_judge(diff_text="...", mandates=[mandate], provider=WarnProvider())
+    assert len(findings) == 1
+    assert findings[0].severity == Severity.WARN
+
+
+def test_malformed_gemini_response_raises_response_error() -> None:
+    with pytest.raises(JudgeResponseError):
+        _parse_json_object("this is not json at all")
+    with pytest.raises(JudgeResponseError):
+        _extract_text({"unexpected": "shape"})
+
+
+def test_response_error_is_not_configuration_error() -> None:
+    assert not issubclass(JudgeResponseError, JudgeNotConfiguredError)
 
 
 def test_corpus_fixtures_with_fake_provider() -> None:
