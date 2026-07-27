@@ -1,0 +1,13 @@
+{
+  "name": "arch-compliance-for-superpowers",
+  "owner": {
+    "name": "IanDBallard"
+  },
+  "plugins": [
+    {
+      "name": "arch-compliance",
+      "source": "./plugins/arch-compliance",
+      "description": "Architecture compliance spine that complements Superpowers: mandate registry, dual TS/Python gates, LLM judge, audit."
+    }
+  ]
+}
