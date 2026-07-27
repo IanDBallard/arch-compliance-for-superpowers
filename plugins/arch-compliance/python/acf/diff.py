@@ -26,22 +26,33 @@ def _git(repo: Path, *args: str) -> str:
     return proc.stdout
 
 
-def _diff_args(mode: DiffMode) -> list[str]:
+def _diff_args(mode: DiffMode, base: str | None) -> list[str]:
+    if base is not None:
+        # Three-dot: diff from merge-base(base, HEAD) to HEAD — the CI scope.
+        return [f"{base}...HEAD"]
     if mode == "staged":
         return ["--cached"]
     return []
 
 
-def changed_files(repo: Path, mode: DiffMode = "staged") -> list[str]:
-    """Return paths changed in the given mode (repo-relative, as git reports them)."""
-    out = _git(repo, "diff", *_diff_args(mode), "--name-only", "--diff-filter=ACMR")
+def changed_files(
+    repo: Path, mode: DiffMode = "staged", base: str | None = None
+) -> list[str]:
+    """Return paths changed in the given scope (repo-relative, as git reports
+    them). ``base`` overrides ``mode`` and diffs merge-base(base, HEAD)..HEAD."""
+    out = _git(repo, "diff", *_diff_args(mode, base), "--name-only", "--diff-filter=ACMR")
     return [line.strip() for line in out.splitlines() if line.strip()]
 
 
-def added_lines(repo: Path, path: str | Path, mode: DiffMode = "staged") -> set[int]:
-    """Return 1-based line numbers added for ``path`` in the given mode."""
+def added_lines(
+    repo: Path,
+    path: str | Path,
+    mode: DiffMode = "staged",
+    base: str | None = None,
+) -> set[int]:
+    """Return 1-based line numbers added for ``path`` in the given scope."""
     rel = Path(path).as_posix()
-    out = _git(repo, "diff", *_diff_args(mode), "-U0", "--", rel)
+    out = _git(repo, "diff", *_diff_args(mode, base), "-U0", "--", rel)
     return _parse_added_lines(out)
 
 
