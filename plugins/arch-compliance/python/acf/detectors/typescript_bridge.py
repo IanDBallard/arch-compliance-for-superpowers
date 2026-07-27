@@ -27,6 +27,12 @@ def scan_typescript_file(
     file_path = Path(path).resolve()
     if not _PACK_ROOT.is_dir():
         raise DetectorPackError(f"TypeScript detector pack not found: {_PACK_ROOT}")
+    if not (_PACK_ROOT / "node_modules").is_dir():
+        raise DetectorPackError(
+            "TypeScript detector dependencies are not installed. "
+            f"Run: npm ci --prefix {_PACK_ROOT.as_posix()} "
+            f"(or npm ci inside {_PACK_ROOT.as_posix()})"
+        )
 
     cmd = [
         "npx",

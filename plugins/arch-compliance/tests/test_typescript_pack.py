@@ -1,6 +1,10 @@
 from pathlib import Path
 
+import pytest
+
+from acf.detectors import typescript_bridge
 from acf.detectors.typescript_bridge import TS_DETECTOR_IDS, scan_typescript_file
+from acf.exceptions import DetectorPackError
 from acf.finding import Severity
 
 FIX = Path(__file__).parent / "fixtures" / "typescript"
@@ -8,6 +12,21 @@ FIX = Path(__file__).parent / "fixtures" / "typescript"
 
 def test_detector_ids():
     assert TS_DETECTOR_IDS == frozenset({"empty_catch", "explicit_any"})
+
+
+def test_missing_node_modules_error_is_actionable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fresh plugin install has no node_modules in the pack dir; the error
+    must say exactly how to fix it, not fail with an opaque npx error."""
+    fake_pack = tmp_path / "typescript"
+    (fake_pack / "src").mkdir(parents=True)
+    monkeypatch.setattr(typescript_bridge, "_PACK_ROOT", fake_pack)
+    with pytest.raises(DetectorPackError) as exc_info:
+        scan_typescript_file(FIX / "bad.tsx")
+    message = str(exc_info.value)
+    assert "npm ci" in message
+    assert fake_pack.as_posix() in message
 
 
 def test_empty_catch_via_bridge():
