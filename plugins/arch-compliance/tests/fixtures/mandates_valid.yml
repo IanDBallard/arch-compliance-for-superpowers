@@ -1,0 +1,32 @@
+- id: fail-loud.bare-except
+  title: Bare except and broad Exception handlers
+  severity: BLOCK
+  detection: ast
+  detector: fail_loud_bare_except
+  languages: python
+  call_sites: [ci, hook]
+  exemption_tokens: [fail-loud.bare-except-ok]
+  status: enforced
+  arch_anchor: "# Fail loud"
+
+- id: no-shims.hasattr
+  title: No hasattr shims for optional attributes
+  severity: WARN
+  detection: ast
+  detector: no_shims_hasattr
+  languages: python
+  call_sites: [ci]
+  exemption_tokens: [no-shims.hasattr-ok]
+  status: enforced
+  arch_anchor: "# No shims"
+
+- id: fail-loud.empty-catch
+  title: Empty catch blocks must not swallow errors
+  severity: BLOCK
+  detection: ast
+  detector: empty_catch
+  languages: typescript
+  call_sites: [ci, hook]
+  exemption_tokens: [fail-loud.empty-catch-ok]
+  status: enforced
+  arch_anchor: "# Fail loud"
