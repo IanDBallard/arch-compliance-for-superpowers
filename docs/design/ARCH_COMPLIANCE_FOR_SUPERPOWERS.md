@@ -1,6 +1,6 @@
 # Architecture Compliance for Superpowers — Design Spec
 
-**Status:** Approved design (brainstorming complete) — pending implementation plan.  
+**Status:** Implementing / plan approved.  
 **Author:** Cursor agent with project owner.  
 **Date:** 2026-07-27.  
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`  
