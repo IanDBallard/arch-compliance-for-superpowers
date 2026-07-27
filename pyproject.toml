@@ -1,7 +1,7 @@
 [project]
 name = "acf"
 version = "0.1.0"
-license = {text = "GPL-3.0-only"}
+license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.0",

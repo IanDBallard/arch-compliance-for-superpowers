@@ -72,4 +72,4 @@ After `/acf-setup` on a React repo: plant a Tier-1 violation → gate fails; fix
 
 ## License
 
-[GPL-3.0](LICENSE).
+[GPL-3.0-or-later](LICENSE).
