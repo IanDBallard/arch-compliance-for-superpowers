@@ -24,3 +24,7 @@ class EmptyTargetTreeError(AcfError):
 
 class DetectorPackError(AcfError):
     pass
+
+
+class BaselineError(AcfError):
+    """Malformed, missing, or unwritable compliance baseline."""
