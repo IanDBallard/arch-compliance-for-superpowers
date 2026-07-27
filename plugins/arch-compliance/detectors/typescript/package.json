@@ -1,0 +1,16 @@
+{
+  "name": "acf-typescript-detectors",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scan": "tsx src/scan.ts",
+    "test": "tsx src/scan.ts --self-test"
+  },
+  "dependencies": {
+    "ts-morph": "^24.0.0",
+    "typescript": "^5.6.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}
