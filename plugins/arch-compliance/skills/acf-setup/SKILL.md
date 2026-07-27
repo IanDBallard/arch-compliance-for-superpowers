@@ -119,9 +119,28 @@ Write an empty (or one-line) marker file:
 <host>/.acf/enabled
 ```
 
-Create `.acf/` if needed. Task 10 hooks no-op until this file exists; once present, missing `config/architecture/mandates.yml` is a hard failure. Do **not** write the marker before mandates are in place.
+Create `.acf/` if needed. Plugin hooks (see below) no-op until this file exists; once present, missing `config/architecture/mandates.yml` is a hard failure. Do **not** write the marker before mandates are in place.
 
 Suggest adding `.acf/` to git if the team wants hooks enabled for everyone; otherwise document that each clone needs the marker.
+
+### Hook registration (Claude Code)
+
+The plugin ships `hooks/hooks.json` which registers:
+
+| Event | Script | Purpose |
+|-------|--------|---------|
+| `SubagentStart` | `hooks/inject_constraints.py --format hook` | Inject host mandates + ARCHITECTURE excerpt into subagent context |
+| `PostToolUse` (`Write\|Edit\|MultiEdit`) | `hooks/posttooluse_gate.py --format hook` | Run Tier-1 Python/TS detectors on edited paths; feed findings back |
+
+No host-side hook copy is required when the plugin is installed — Claude Code loads plugin `hooks/hooks.json` automatically. Manual smoke:
+
+```bash
+# from host repo (with .acf/enabled + mandates)
+python "${CLAUDE_PLUGIN_ROOT}/hooks/inject_constraints.py" --repo .
+python "${CLAUDE_PLUGIN_ROOT}/hooks/posttooluse_gate.py" --repo . path/to/edited.py
+```
+
+If `CLAUDE_PLUGIN_ROOT` is unset, use the absolute path to `plugins/arch-compliance` in this marketplace checkout.
 
 ## Step 7 — Print pre-commit / CI snippets
 
