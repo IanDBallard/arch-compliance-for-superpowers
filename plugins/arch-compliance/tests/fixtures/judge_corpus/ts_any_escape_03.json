@@ -1,0 +1,15 @@
+{
+  "id": "ts_any_escape_03",
+  "language": "typescript",
+  "mandate_id": "soft.no-shims",
+  "detector": "llm_no_shims",
+  "mandate_severity": "BLOCK",
+  "diff_text": "diff --git a/src/parse.ts b/src/parse.ts\n--- a/src/parse.ts\n+++ b/src/parse.ts\n@@ -1,5 +1,6 @@\n export function parseRow(raw: unknown): Row {\n-  return RowSchema.parse(raw)\n+  const row = raw as any\n+  return { id: row.id, name: row.name }\n }\n",
+  "expected_label": "violation",
+  "expected_confidence": "high",
+  "expected_severity": "BLOCK",
+  "path": "src/parse.ts",
+  "line": 2,
+  "message": "any cast used to bypass schema validation",
+  "notes": "TS soft shim / escape hatch"
+}

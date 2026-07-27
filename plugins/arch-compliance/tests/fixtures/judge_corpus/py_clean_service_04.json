@@ -1,0 +1,11 @@
+{
+  "id": "py_clean_service_04",
+  "language": "python",
+  "mandate_id": "soft.layer-boundaries",
+  "detector": "llm_no_shims",
+  "mandate_severity": "BLOCK",
+  "diff_text": "diff --git a/app/api.py b/app/api.py\n--- a/app/api.py\n+++ b/app/api.py\n@@ -1,4 +1,5 @@\n from app.services.users import UserService\n def create_user(payload):\n+    UserService.validate(payload)\n     return UserService.create(payload)\n",
+  "expected_label": "clean",
+  "expected_confidence": "high",
+  "notes": "Clean layered call — no finding expected"
+}

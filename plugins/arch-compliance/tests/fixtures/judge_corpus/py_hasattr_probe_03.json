@@ -1,0 +1,15 @@
+{
+  "id": "py_hasattr_probe_03",
+  "language": "python",
+  "mandate_id": "soft.no-shims",
+  "detector": "llm_no_shims",
+  "mandate_severity": "BLOCK",
+  "diff_text": "diff --git a/adapters/client.py b/adapters/client.py\n--- a/adapters/client.py\n+++ b/adapters/client.py\n@@ -10,3 +10,6 @@\n def ping(client):\n-    return client.health()\n+    if hasattr(client, \"health\"):\n+        return client.health()\n+    return True\n",
+  "expected_label": "violation",
+  "expected_confidence": "high",
+  "expected_severity": "BLOCK",
+  "path": "adapters/client.py",
+  "line": 11,
+  "message": "hasattr used as optional-interface shim",
+  "notes": "Soft shim smell for LLM judge"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "ts_logic_in_view_01",
+  "language": "typescript",
+  "mandate_id": "soft.react-boundaries",
+  "detector": "llm_react_boundaries",
+  "mandate_severity": "BLOCK",
+  "diff_text": "diff --git a/src/UserPage.tsx b/src/UserPage.tsx\n--- a/src/UserPage.tsx\n+++ b/src/UserPage.tsx\n@@ -1,8 +1,14 @@\n export function UserPage({ id }: Props) {\n-  const user = useUser(id)\n+  const [user, setUser] = useState(null)\n+  useEffect(() => {\n+    fetch(`/api/users/${id}`).then(r => r.json()).then(setUser)\n+  }, [id])\n+  const total = (user?.orders || []).reduce((a, o) => a + o.amount, 0)\n   return <div>{user?.name}: {total}</div>\n }\n",
+  "expected_label": "violation",
+  "expected_confidence": "high",
+  "expected_severity": "BLOCK",
+  "path": "src/UserPage.tsx",
+  "line": 4,
+  "message": "View fetches and aggregates domain data inline",
+  "notes": "React boundary soft smell"
+}

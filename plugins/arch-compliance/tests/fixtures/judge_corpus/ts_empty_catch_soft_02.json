@@ -1,0 +1,16 @@
+{
+  "id": "ts_empty_catch_soft_02",
+  "language": "typescript",
+  "mandate_id": "soft.fail-loud",
+  "detector": "llm_fail_loud",
+  "mandate_severity": "BLOCK",
+  "diff_text": "diff --git a/src/load.ts b/src/load.ts\n--- a/src/load.ts\n+++ b/src/load.ts\n@@ -2,6 +2,9 @@\n export async function loadProfile(id: string) {\n   try {\n     return await api.getProfile(id)\n-  } catch (err) {\n-    throw new ProfileError(id, err)\n+  } catch {\n+    console.log('ignore')\n+    return null\n   }\n }\n",
+  "expected_label": "violation",
+  "expected_confidence": "low",
+  "expected_severity": "BLOCK",
+  "expected_finding_severity": "WARN",
+  "path": "src/load.ts",
+  "line": 5,
+  "message": "Catch swallows error and returns null",
+  "notes": "Low confidence → gated to WARN"
+}

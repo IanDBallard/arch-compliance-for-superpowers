@@ -1,0 +1,11 @@
+{
+  "id": "ts_clean_hook_04",
+  "language": "typescript",
+  "mandate_id": "soft.react-boundaries",
+  "detector": "llm_react_boundaries",
+  "mandate_severity": "BLOCK",
+  "diff_text": "diff --git a/src/UserPage.tsx b/src/UserPage.tsx\n--- a/src/UserPage.tsx\n+++ b/src/UserPage.tsx\n@@ -1,6 +1,7 @@\n export function UserPage({ id }: Props) {\n   const user = useUser(id)\n+  const total = useOrderTotal(user)\n   return <UserSummary user={user} total={total} />\n }\n",
+  "expected_label": "clean",
+  "expected_confidence": "high",
+  "notes": "Clean React boundaries via hooks — no finding"
+}

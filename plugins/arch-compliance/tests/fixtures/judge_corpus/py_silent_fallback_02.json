@@ -1,0 +1,16 @@
+{
+  "id": "py_silent_fallback_02",
+  "language": "python",
+  "mandate_id": "soft.fail-loud",
+  "detector": "llm_fail_loud",
+  "mandate_severity": "BLOCK",
+  "diff_text": "diff --git a/svc/loader.py b/svc/loader.py\n--- a/svc/loader.py\n+++ b/svc/loader.py\n@@ -4,5 +4,8 @@\n def load_config(path):\n     try:\n         return json.loads(path.read_text())\n-    except json.JSONDecodeError as e:\n-        raise ConfigError(path) from e\n+    except Exception:\n+        # soft fallback instead of failing loud\n+        return {}\n",
+  "expected_label": "violation",
+  "expected_confidence": "medium",
+  "expected_severity": "BLOCK",
+  "expected_finding_severity": "WARN",
+  "path": "svc/loader.py",
+  "line": 7,
+  "message": "Broad catch returns empty config instead of failing",
+  "notes": "Medium confidence → gated to WARN"
+}
