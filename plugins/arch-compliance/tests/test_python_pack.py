@@ -36,3 +36,23 @@ def test_hasattr_detected():
         f.mandate_id == "no-shims.hasattr" and f.severity == Severity.WARN
         for f in findings
     )
+
+
+def test_str_pathy_in_yaml_dump_detected():
+    text = (
+        "import yaml\n"
+        "def save(path):\n"
+        "    yaml.safe_dump({'p': str(path)}, open('o.yml','w'))\n"
+    )
+    findings = scan_python_file(text, "ser.py", added_lines=frozenset({3}))
+    assert any(
+        f.mandate_id == "posix-paths.str-serialization"
+        and f.detector == "posix_paths_str_serialization"
+        for f in findings
+    )
+
+
+def test_str_pathy_outside_serialization_not_flagged():
+    text = "def f(path):\n    return str(path)\n"
+    findings = scan_python_file(text, "ok.py", added_lines=frozenset({2}))
+    assert not any(f.mandate_id == "posix-paths.str-serialization" for f in findings)

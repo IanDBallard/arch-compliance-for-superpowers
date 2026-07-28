@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 import yaml
 from pydantic import BaseModel
 from acf.exceptions import RegistryLoadError, UnknownDetectorError
@@ -22,6 +22,7 @@ class Mandate(BaseModel):
     status: Status
     arch_anchor: str
     auditor: str | None = None
+    params: dict[str, Any] | None = None
 
 
 class MandateRegistry(BaseModel):
@@ -52,7 +53,9 @@ def load_mandates(
         raise RegistryLoadError(f"mandate validation failed: {e}") from e
     if known_detectors is not None:
         for m in mandates:
-            if m.status == "enforced" and m.detection == "ast" and m.detector not in known_detectors:
+            if m.status != "enforced":
+                continue
+            if m.detection in {"ast", "guard"} and m.detector not in known_detectors:
                 raise UnknownDetectorError(
                     f"enforced mandate {m.id!r} references unknown detector {m.detector!r}"
                 )

@@ -13,6 +13,10 @@ that only comment. Prefer explicit handling, rethrow, or reporting.
 Avoid type escape hatches. Explicit `any` annotations and `as any` assertions hide
 contract breaks; prefer typed boundaries and narrow casts when unavoidable.
 
+## Build artifacts
+
+Do not stage or commit generated trees such as `dist/` or `build/`.
+
 ## React boundaries
 
 Views render and wire UI; data fetching, domain aggregation, and business rules live

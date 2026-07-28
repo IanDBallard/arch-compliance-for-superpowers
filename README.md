@@ -55,6 +55,18 @@ pytest
 
 `acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host mandate registry. `BLOCK` findings exit non-zero. In CI use `--base` — a fresh checkout has an empty staged/worktree diff.
 
+Portable Python detectors (enable via profile / `/acf-mandate`):
+
+| Detector id | Mandate id | Notes |
+|---|---|---|
+| `fail_loud_bare_except` | `fail-loud.bare-except` | AST |
+| `no_shims_hasattr` | `no-shims.hasattr` | AST |
+| `posix_paths_str_serialization` | `posix-paths.str-serialization` | AST |
+| `no_build_artifacts` | `ops.no-build-artifacts` | Guard; `params.path_prefixes` |
+| `fail_loud_ratchet` | `fail-loud.ratchet` | Guard; needs baseline JSON |
+| `forbid_facade_sink` | `facade.forbid-sink` | Config AST; `params.target_literal_re` |
+| `fsm_transition_guard` | `fsm.transition-guard` | Config AST; `params.state_field` / `validator_name` |
+
 The registry drives enforcement: `status: unenforced` rows never gate; `enforced` and `partial` both gate (partial means coverage is incomplete, not advisory-only). Severity comes from the registry row. Inline exemptions use only the row's `exemption_tokens` — `# <token>: reason` (Python) or `// <token>: reason` (TypeScript). Detectors emit raw findings; they do not interpret exemption comments.
 
 ## Hooks

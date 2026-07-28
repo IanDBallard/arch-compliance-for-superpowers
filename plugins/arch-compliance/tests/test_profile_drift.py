@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from acf.detectors.python_pack import PYTHON_DETECTOR_IDS
+from acf.detectors import ALL_PYTHON_DETECTOR_IDS
 from acf.detectors.typescript_bridge import TS_DETECTOR_IDS
 from acf.judge import LLM_PROMPT_IDS
 from acf.registry import load_mandates
 
 PROFILES = Path(__file__).resolve().parents[1] / "profiles"
-KNOWN_DETECTORS = PYTHON_DETECTOR_IDS | TS_DETECTOR_IDS | LLM_PROMPT_IDS
+KNOWN_DETECTORS = ALL_PYTHON_DETECTOR_IDS | TS_DETECTOR_IDS | LLM_PROMPT_IDS
 
 
 def test_profile_arch_anchors_match_architecture_md() -> None:

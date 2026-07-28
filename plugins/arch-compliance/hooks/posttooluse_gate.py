@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
 
     paths = _collect_paths(args.paths, stdin_payload, repo)
     try:
-        raw_findings, file_lines = _scan_paths(repo, paths)
+        raw_findings, file_lines = _scan_paths(repo, paths, registry)
     except DetectorPackError as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
@@ -211,33 +211,87 @@ def _collect_paths(
 
 
 def _scan_paths(
-    repo: Path, paths: list[Path]
+    repo: Path, paths: list[Path], registry
 ) -> tuple[list[Finding], dict[str, list[str]]]:
+    from acf.detectors.build_artifacts import (
+        BUILD_ARTIFACT_DETECTOR_ID,
+        scan_build_artifact_paths,
+    )
+    from acf.detectors.facade_sinks import FACADE_SINK_DETECTOR_ID, scan_facade_sinks
+    from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, scan_fsm_writes
     from acf.detectors.python_pack import scan_python_file
     from acf.detectors.typescript_bridge import scan_typescript_file
 
     findings: list[Finding] = []
     file_lines: dict[str, list[str]] = {}
+    rel_paths: list[str] = []
+
+    facade_specs = [
+        m for m in registry.mandates
+        if m.detector == FACADE_SINK_DETECTOR_ID and m.status != "unenforced"
+    ]
+    fsm_specs = [
+        m for m in registry.mandates
+        if m.detector == FSM_GUARD_DETECTOR_ID and m.status != "unenforced"
+    ]
+
     for abs_path in paths:
         if not abs_path.is_file():
             continue
         suffix = abs_path.suffix.lower()
-        if suffix not in _CODE_SUFFIXES:
-            continue
         try:
             rel = abs_path.relative_to(repo).as_posix()
         except ValueError:
             rel = abs_path.as_posix()
+        rel_paths.append(rel)
+
+        if suffix not in _CODE_SUFFIXES:
+            continue
 
         text = abs_path.read_text(encoding="utf-8")
         file_lines[rel] = text.splitlines()
         if suffix == ".py":
             findings.extend(scan_python_file(text, rel, added_lines=None))
+            for mandate in facade_specs:
+                params = mandate.params or {}
+                findings.extend(
+                    scan_facade_sinks(
+                        text,
+                        rel,
+                        None,
+                        target_literal_re=str(params.get("target_literal_re", "")),
+                        allowlist_globs=list(params.get("allowlist_globs") or []),
+                        atomic_is_sink=bool(params.get("atomic_is_sink", True)),
+                    )
+                )
+            for mandate in fsm_specs:
+                params = mandate.params or {}
+                findings.extend(
+                    scan_fsm_writes(
+                        text,
+                        rel,
+                        None,
+                        state_field=str(params.get("state_field", "")),
+                        validator_name=str(params.get("validator_name", "")),
+                    )
+                )
         else:
             findings.extend(
                 f.model_copy(update={"path": rel})
                 for f in scan_typescript_file(abs_path, added_lines=None)
             )
+
+    for mandate in registry.mandates:
+        if mandate.detector != BUILD_ARTIFACT_DETECTOR_ID or mandate.status == "unenforced":
+            continue
+        params = mandate.params or {}
+        prefixes = params.get("path_prefixes")
+        findings.extend(
+            scan_build_artifact_paths(
+                rel_paths,
+                path_prefixes=list(prefixes) if prefixes else None,
+            )
+        )
     return findings, file_lines
 
 
