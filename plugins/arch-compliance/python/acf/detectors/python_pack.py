@@ -1,17 +1,18 @@
-"""Python AST detector pack."""
+"""Python AST detector pack.
+
+Detectors emit raw evidence only. Inline exemptions and severity are applied
+later by ``acf.enforcement.apply_registry`` using the host mandate registry.
+"""
 
 from __future__ import annotations
 
 import ast
 from pathlib import Path
 
-from acf.engine import is_in_scope, line_exempted, posix_path
+from acf.engine import is_in_scope, posix_path
 from acf.finding import Finding, Severity
 
 PYTHON_DETECTOR_IDS = frozenset({"fail_loud_bare_except", "no_shims_hasattr"})
-
-_BARE_EXCEPT_TOKENS = frozenset({"fail-loud.bare-except"})
-_HASATTR_TOKENS = frozenset({"no-shims.hasattr"})
 
 
 def scan_python_file(
@@ -52,9 +53,6 @@ def _check_bare_except(
     line = node.lineno
     if not is_in_scope(line, added_lines):
         return None
-    source = lines[line - 1] if 0 < line <= len(lines) else ""
-    if line_exempted(source, _BARE_EXCEPT_TOKENS):
-        return None
     return Finding(
         mandate_id="fail-loud.bare-except",
         severity=Severity.BLOCK,
@@ -84,9 +82,6 @@ def _check_hasattr(
         return None
     line = node.lineno
     if not is_in_scope(line, added_lines):
-        return None
-    source = lines[line - 1] if 0 < line <= len(lines) else ""
-    if line_exempted(source, _HASATTR_TOKENS):
         return None
     return Finding(
         mandate_id="no-shims.hasattr",

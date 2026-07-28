@@ -110,3 +110,21 @@ def test_enforced_block_survives_untouched() -> None:
     out = apply_registry([_finding("fail-loud.empty-catch")], reg, _no_lines)
     assert len(out) == 1
     assert out[0].severity == Severity.BLOCK
+
+
+def test_custom_exemption_token_from_registry_only() -> None:
+    """Host can rename exemption_tokens; detectors must not hardcode the old form."""
+    reg = _registry(
+        _mandate("fail-loud.bare-except", exemption_tokens=["legacy-guard"])
+    )
+    raw = _finding("fail-loud.bare-except")
+
+    def lines_old_form(_path: str, _line: int) -> str:
+        return "except Exception:  # fail-loud.bare-except-ok: no longer in registry"
+
+    assert apply_registry([raw], reg, lines_old_form)  # still gates
+
+    def lines_custom(_path: str, _line: int) -> str:
+        return "except Exception:  # legacy-guard: tracked in ticket 9"
+
+    assert apply_registry([raw], reg, lines_custom) == []

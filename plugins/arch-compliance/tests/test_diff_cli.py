@@ -173,9 +173,21 @@ def test_base_mode_ignores_violations_already_in_base(tmp_path: Path) -> None:
     assert main(["--base", base, "--repo", str(repo)]) == 0
 
 
-def test_missing_mandates_fails_loud(tmp_path: Path) -> None:
+def test_invalid_base_ref_exits_1(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = _init_repo(tmp_path)
+    code = main(["--base", "does-not-exist-ref", "--repo", str(repo)])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "acf:" in err
+    assert "git" in err.lower()
+
+
+def test_missing_mandates_fails_loud(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     repo = tmp_path / "bare"
     repo.mkdir()
     _git(repo, "init")
-    with pytest.raises(Exception):
-        main(["--mode", "staged", "--repo", str(repo)])
+    code = main(["--mode", "staged", "--repo", str(repo)])
+    assert code == 1
+    assert "mandates file not found" in capsys.readouterr().err

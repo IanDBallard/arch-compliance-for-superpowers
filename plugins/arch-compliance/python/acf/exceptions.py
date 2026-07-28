@@ -30,5 +30,9 @@ class DetectorPackError(AcfError):
     pass
 
 
+class GitError(AcfError):
+    """A git invocation required by ACF failed (bad ref, not a repo, etc.)."""
+
+
 class BaselineError(AcfError):
     """Malformed, missing, or unwritable compliance baseline."""

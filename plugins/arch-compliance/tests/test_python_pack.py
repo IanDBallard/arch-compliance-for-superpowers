@@ -22,10 +22,11 @@ def test_clean_file_no_findings():
     assert findings == []
 
 
-def test_exemption_skips():
+def test_exemption_comment_still_emits_raw_finding():
+    """Detectors report evidence only; registry exemption_tokens gate later."""
     text = "try:\n    x()\nexcept Exception:  # fail-loud.bare-except-ok: legacy bridge\n    pass\n"
     findings = scan_python_file(text, "ex.py", added_lines=frozenset({3}))
-    assert findings == []
+    assert any(f.mandate_id == "fail-loud.bare-except" for f in findings)
 
 
 def test_hasattr_detected():

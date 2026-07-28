@@ -11,6 +11,7 @@ from acf.diff import DiffMode, added_lines, changed_files
 from acf.detectors.python_pack import PYTHON_DETECTOR_IDS, scan_python_file
 from acf.detectors.typescript_bridge import TS_DETECTOR_IDS, scan_typescript_file
 from acf.enforcement import apply_registry
+from acf.exceptions import GitError, RegistryLoadError, UnknownDetectorError
 from acf.finding import Finding, Severity
 from acf.judge import LLM_PROMPT_IDS
 from acf.registry import load_mandates
@@ -61,9 +62,12 @@ def main(argv: list[str] | None = None) -> int:
         else repo / "config" / "architecture" / "mandates.yml"
     )
 
-    registry = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS)
-
-    raw_findings, file_lines = _scan_changed(repo, mode, args.base)
+    try:
+        registry = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS)
+        raw_findings, file_lines = _scan_changed(repo, mode, args.base)
+    except (GitError, RegistryLoadError, UnknownDetectorError) as exc:
+        print(f"acf: {exc}", file=sys.stderr)
+        return 1
 
     def _line_lookup(posix: str, line: int) -> str:
         lines = file_lines.get(posix)

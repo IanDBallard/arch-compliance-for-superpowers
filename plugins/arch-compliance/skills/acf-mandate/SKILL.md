@@ -42,16 +42,19 @@ Root YAML type: **list** of mandate objects. Required fields:
 | `languages` | `python` \| `typescript` \| `both` \| `none` | Pack applicability |
 | `call_sites` | list of strings | e.g. `ci`, `hook`, `audit` |
 | `exemption_tokens` | list of strings | Inline exemption markers |
-| `status` | `enforced` \| `partial` \| `unenforced` | Enforcement maturity |
+| `status` | `enforced` \| `partial` \| `unenforced` | Enforcement maturity (`unenforced` never gates; `partial` still gates) |
 | `arch_anchor` | string | Literal substring of ARCHITECTURE.md (usually a `##` heading) |
 | `auditor` | string \| omit | Optional; Tier-3 auditor name for soft/llm facets |
 
 Match the Pydantic model in `acf.registry.Mandate`. Unknown extra fields should be avoided.
 
+`exemption_tokens` are the **only** inline exemption markers. Detectors emit raw findings; `apply_registry` drops a finding when the source line contains `# <token>: reason` or `// <token>: reason` (non-empty reason required). Changing tokens here is how hosts customize exemptions — do not expect detectors to hardcode `-ok` forms.
+
 ### Status / detection rules of thumb
 
 - `status: enforced` + `detection: ast` → `detector` **must** be in the known detector union (validation fails otherwise).
 - `status: enforced` + `detection: llm` → judge must be configured at runtime or gates hard-fail; still requires a known prompt id in `LLM_PROMPT_IDS` for drift discipline.
+- `status: partial` still **gates** when detectors emit findings — it means coverage is incomplete, not “warn-only / skip.”
 - Prefer `partial` or `unenforced` when the detector/prompt does not exist yet.
 - Deprecate by setting `status: unenforced` (and optionally lowering `call_sites`); do **not** delete historical ids unless the user explicitly wants removal (ids may appear in baselines).
 

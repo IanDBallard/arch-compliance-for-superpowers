@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Literal
 
+from acf.exceptions import GitError
+
 DiffMode = Literal["staged", "worktree"]
 
 _HUNK_RE = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
@@ -22,7 +24,7 @@ def _git(repo: Path, *args: str) -> str:
     )
     if proc.returncode != 0:
         err = (proc.stderr or proc.stdout or "").strip()
-        raise RuntimeError(f"git {' '.join(args)} failed: {err or proc.returncode}")
+        raise GitError(f"git {' '.join(args)} failed: {err or proc.returncode}")
     return proc.stdout
 
 
