@@ -39,7 +39,10 @@ ALLOWED_DOC_LINES = {
     },
     # Module docstrings describing the hook's own contract.
     "hooks/inject_constraints.py": {
-        "- If enabled and ``config/architecture/mandates.yml`` is missing: non-zero exit."
+        "- If enabled and ``config/architecture/mandates.yml`` is missing: non-zero exit.",
+        # Task 4 added this: the doctrine document now refuses rather than
+        # substituting a placeholder, and the docstring says so.
+        "- If enabled and ``config/architecture/ARCHITECTURE.md`` is missing: non-zero",
     },
     "hooks/posttooluse_gate.py": {
         "- If enabled and ``config/architecture/mandates.yml`` is missing: non-zero exit."

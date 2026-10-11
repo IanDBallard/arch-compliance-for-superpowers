@@ -248,3 +248,55 @@ def test_gate_registry_exemption_token_exempts(tmp_path: Path) -> None:
     proc = _run(GATE, "--repo", str(repo), "--format", "text", str(bad), cwd=repo)
     assert proc.returncode == 0
     assert "fail-loud.bare-except" not in proc.stdout
+
+
+def test_inject_fails_loud_when_doctrine_document_missing(tmp_path: Path) -> None:
+    """Review Focus 3: enabled, registry present, doctrine document absent.
+
+    Previously the hook substituted a placeholder sentence and exited 0, so a
+    subagent received a constraint block that looked complete.
+    """
+    repo = _seed_host(tmp_path, enabled=True, mandates=True)
+    (repo / "config" / "architecture" / "ARCHITECTURE.md").unlink()
+
+    proc = subprocess.run(
+        [sys.executable, str(INJECT), "--repo", str(repo)],
+        capture_output=True,
+        text=True,
+        input="",
+    )
+    assert proc.returncode == 1, proc.stdout
+    assert "ARCHITECTURE.md" in proc.stderr
+    assert "not found" in proc.stderr.lower()
+    assert "use mandates above" not in proc.stdout
+
+
+def test_inject_succeeds_when_doctrine_document_present(tmp_path: Path) -> None:
+    """The happy path still works and carries the real doctrine text."""
+    repo = _seed_host(tmp_path, enabled=True, mandates=True)
+    (repo / "config" / "architecture" / "ARCHITECTURE.md").write_text(
+        "# Host doctrine\n\nDISTINCTIVE_DOCTRINE_MARKER\n", encoding="utf-8"
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(INJECT), "--repo", str(repo)],
+        capture_output=True,
+        text=True,
+        input="",
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "DISTINCTIVE_DOCTRINE_MARKER" in proc.stdout
+
+
+def test_gate_fails_loud_when_enabled_without_mandates(tmp_path: Path) -> None:
+    """The gate's own refusal has never had a test; pin it before it moves."""
+    repo = _seed_host(tmp_path, enabled=True, mandates=False)
+
+    proc = subprocess.run(
+        [sys.executable, str(GATE), "--repo", str(repo)],
+        capture_output=True,
+        text=True,
+        input="",
+    )
+    assert proc.returncode == 1
+    assert "mandates" in proc.stderr.lower()
