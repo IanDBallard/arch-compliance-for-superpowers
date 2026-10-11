@@ -103,7 +103,7 @@ for m in reg.mandates:
 
 Also verify each `arch_anchor` is a substring of `config/architecture/ARCHITECTURE.md` (same discipline as profile drift tests).
 
-If `UnknownDetectorError` or `RegistryLoadError` occurs: fix the YAML; do not weaken validation by omitting `known_detectors` for “convenience.”
+If `UnknownDetectorError` or `AcfInputError` occurs: fix the YAML; do not weaken validation by omitting `known_detectors` for “convenience.”
 
 Known detector union today:
 

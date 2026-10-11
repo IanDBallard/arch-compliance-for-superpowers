@@ -15,7 +15,7 @@ from acf.baseline import (
     save_baseline,
     subsystem_of,
 )
-from acf.exceptions import BaselineError
+from acf.exceptions import AcfInputError, BaselineError
 from acf.finding import Finding, Severity
 
 
@@ -88,21 +88,21 @@ def test_save_then_load_round_trip(tmp_path: Path) -> None:
 
 
 def test_load_missing_raises(tmp_path: Path) -> None:
-    with pytest.raises(BaselineError):
+    with pytest.raises(AcfInputError):
         load_baseline(tmp_path / "nope.json")
 
 
 def test_load_malformed_json_raises(tmp_path: Path) -> None:
     path = tmp_path / "b.json"
     path.write_text("{not json", encoding="utf-8")
-    with pytest.raises(BaselineError):
+    with pytest.raises(AcfInputError):
         load_baseline(path)
 
 
 def test_load_invalid_schema_raises(tmp_path: Path) -> None:
     path = tmp_path / "b.json"
     path.write_text(json.dumps({"generated_at": "x"}), encoding="utf-8")
-    with pytest.raises(BaselineError):
+    with pytest.raises(AcfInputError):
         load_baseline(path)
 
 
@@ -149,3 +149,19 @@ def test_compute_drift_resolved_cell_shows_current_zero() -> None:
 def test_compute_drift_empty_current_is_empty_universe() -> None:
     base = _baseline({("fail-loud.empty-catch", "src/"): 9})
     assert compute_drift({}, base).rows == []
+
+
+def test_save_baseline_fails_loud_when_unwritable(tmp_path: Path, monkeypatch) -> None:
+    """The write-side BaselineError is the one that survives; pin it."""
+    data = Baseline(
+        generated_at="2026-01-01", commit="a" * 40, invocation="test", counts=[]
+    )
+    target = tmp_path / "nested" / "baseline.json"
+
+    def boom(self, *args, **kwargs):
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(Path, "write_text", boom)
+    with pytest.raises(BaselineError) as excinfo:
+        save_baseline(target, data)
+    assert target.as_posix() in str(excinfo.value)

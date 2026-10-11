@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         from acf.enforcement import apply_registry
-        from acf.exceptions import DetectorPackError, RegistryLoadError
+        from acf.exceptions import AcfInputError, DetectorPackError
         from acf.finding import Severity
         from acf.registry import load_mandates
     except ImportError as exc:
@@ -105,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         registry = load_mandates(mandates_path)
-    except RegistryLoadError as exc:
+    except AcfInputError as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 

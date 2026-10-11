@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
 from acf.registry import load_mandates
-from acf.exceptions import RegistryLoadError, UnknownDetectorError
+from acf.exceptions import AcfInputError, UnknownDetectorError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -13,7 +13,7 @@ def test_load_valid_mandates():
 
 
 def test_missing_file_fails_loud():
-    with pytest.raises(RegistryLoadError):
+    with pytest.raises(AcfInputError):
         load_mandates(FIXTURES / "does-not-exist.yml")
 
 

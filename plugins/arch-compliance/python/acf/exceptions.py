@@ -2,8 +2,8 @@ class AcfError(Exception):
     """Base for all ACF failures (fail loud)."""
 
 
-class RegistryLoadError(AcfError):
-    pass
+class AcfInputError(AcfError):
+    """An input file ACF must read is missing, unparsable, or misshapen."""
 
 
 class UnknownMandateError(AcfError):

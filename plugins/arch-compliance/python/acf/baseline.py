@@ -6,13 +6,13 @@ informational. Fail loud on a malformed baseline.
 """
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
 from acf.exceptions import BaselineError
+from acf.loader import load_model_file
 from acf.finding import Finding
 
 
@@ -79,18 +79,11 @@ def load_baseline(path: Path) -> Baseline:
     """Load + validate baseline. Fail loud on missing/malformed.
 
     Absence is a real state decided by the CALLER (existence check before load).
-    The loader itself never returns None.
+    The loader itself never returns None. Refusals are ``AcfInputError``, shared
+    with every other input file; ``BaselineError`` now covers only the write
+    side, where ACF is the producer rather than the reader.
     """
-    if not path.is_file():
-        raise BaselineError(f"Baseline not found: {path.as_posix()}")
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise BaselineError(f"Unreadable baseline {path.as_posix()}: {exc}") from exc
-    try:
-        return Baseline.model_validate(raw)
-    except ValidationError as exc:
-        raise BaselineError(f"Invalid baseline {path.as_posix()}: {exc}") from exc
+    return load_model_file(path, Baseline, subject="baseline", fmt="json")
 
 
 def compute_drift(

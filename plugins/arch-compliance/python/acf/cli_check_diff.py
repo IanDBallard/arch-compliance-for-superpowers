@@ -16,7 +16,7 @@ from acf.detectors.python_pack import scan_python_file
 from acf.detectors.typescript_bridge import TS_DETECTOR_IDS, scan_typescript_file
 from acf.diff import DiffMode, added_lines, changed_files
 from acf.enforcement import apply_registry
-from acf.exceptions import DetectorPackError, GitError, RegistryLoadError, UnknownDetectorError
+from acf.exceptions import AcfInputError, DetectorPackError, GitError, UnknownDetectorError
 from acf.finding import Finding, Severity
 from acf.judge import LLM_PROMPT_IDS
 from acf.repo import MANDATES_REL, RATCHET_BASELINE_REL, resolve_repo
@@ -69,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         registry = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS)
         raw_findings, file_lines = _scan_changed(repo, mode, args.base, registry)
-    except (GitError, RegistryLoadError, UnknownDetectorError, DetectorPackError) as exc:
+    except (GitError, AcfInputError, UnknownDetectorError, DetectorPackError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
