@@ -191,3 +191,47 @@ def test_missing_mandates_fails_loud(
     code = main(["--mode", "staged", "--repo", str(repo)])
     assert code == 1
     assert "mandates file not found" in capsys.readouterr().err
+
+
+def test_run_git_reports_nonzero_as_data(tmp_path):
+    """run_git never raises on a non-zero status; the caller decides."""
+    from acf.diff import run_git
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    proc = run_git(tmp_path, "rev-parse", "--verify", "refs/heads/nope")
+    assert proc.returncode != 0
+    assert proc.stdout == "" or "nope" not in proc.stdout
+
+
+def test_run_git_returns_stdout_on_success(tmp_path):
+    from acf.diff import run_git
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    proc = run_git(tmp_path, "rev-parse", "--is-inside-work-tree")
+    assert proc.returncode == 0
+    assert proc.stdout.strip() == "true"
+
+
+def test_git_wrapper_still_raises_on_nonzero(tmp_path):
+    """The existing contract is unchanged: _git raises, callers rely on it."""
+    from acf.diff import _git as acf_git
+    from acf.exceptions import GitError
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    with pytest.raises(GitError) as excinfo:
+        acf_git(tmp_path, "rev-parse", "--verify", "refs/heads/nope")
+    assert "rev-parse" in str(excinfo.value)
+
+
+def test_git_wrapper_raises_outside_a_repository(tmp_path):
+    """Review Focus 5: a directory that is not a git repository."""
+    from acf.diff import _git as acf_git
+    from acf.diff import run_git
+    from acf.exceptions import GitError
+
+    plain = tmp_path / "not_a_repo"
+    plain.mkdir()
+    with pytest.raises(GitError):
+        acf_git(plain, "status", "--porcelain")
+    proc = run_git(plain, "status", "--porcelain")
+    assert proc.returncode != 0
