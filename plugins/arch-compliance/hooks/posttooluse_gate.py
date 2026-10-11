@@ -25,12 +25,13 @@ _PYTHON_ROOT = _PLUGIN_ROOT / "python"
 if str(_PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(_PYTHON_ROOT))
 
-# NOTE: acf imports are deferred into main() so this hook stays a true no-op
-# (exit 0, no third-party imports) in repos without .acf/enabled — the hook
-# fires on every Write/Edit in every repo once the plugin is installed.
+from acf.repo import ENABLED_REL, MANDATES_REL, resolve_repo
 
-_MANDATES_REL = Path("config") / "architecture" / "mandates.yml"
-_ENABLED_REL = Path(".acf") / "enabled"
+# NOTE: third-party acf imports (pydantic, yaml) are deferred into main() so
+# this hook stays a true no-op (exit 0, no third-party imports) in repos
+# without .acf/enabled — the hook fires on every Write/Edit in every repo
+# once the plugin is installed. acf.repo is stdlib-only and is safe here.
+
 _CODE_SUFFIXES = {".py", ".ts", ".tsx"}
 
 
@@ -68,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         else "text"
     )
 
-    enabled = repo / _ENABLED_REL
+    enabled = repo / ENABLED_REL
     if not enabled.is_file():
         if not args.quiet_disabled:
             print(
@@ -79,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"continue": True}))
         return 0
 
-    mandates_path = repo / _MANDATES_REL
+    mandates_path = repo / MANDATES_REL
     if not mandates_path.is_file():
         print(
             f"acf: .acf/enabled present but mandates missing: {mandates_path.as_posix()}",
@@ -154,11 +155,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _resolve_repo(explicit: Path | None, stdin_payload: dict | None) -> Path:
-    if explicit is not None:
-        return explicit.resolve()
-    if isinstance(stdin_payload, dict) and stdin_payload.get("cwd"):
-        return Path(str(stdin_payload["cwd"])).resolve()
-    return Path.cwd().resolve()
+    stdin_cwd = None
+    if isinstance(stdin_payload, dict):
+        stdin_cwd = stdin_payload.get("cwd")
+    return resolve_repo(explicit, stdin_cwd)
 
 
 def _maybe_read_stdin_json() -> dict | None:

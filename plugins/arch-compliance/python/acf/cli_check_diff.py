@@ -19,6 +19,7 @@ from acf.enforcement import apply_registry
 from acf.exceptions import DetectorPackError, GitError, RegistryLoadError, UnknownDetectorError
 from acf.finding import Finding, Severity
 from acf.judge import LLM_PROMPT_IDS
+from acf.repo import MANDATES_REL, RATCHET_BASELINE_REL, resolve_repo
 from acf.registry import Mandate, MandateRegistry, load_mandates
 
 KNOWN_DETECTORS = ALL_PYTHON_DETECTOR_IDS | TS_DETECTOR_IDS | LLM_PROMPT_IDS
@@ -59,12 +60,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    repo: Path = (args.repo or Path.cwd()).resolve()
+    repo: Path = resolve_repo(args.repo)
     mode: DiffMode = args.mode  # type: ignore[assignment]
     mandates_path: Path = (
-        args.mandates.resolve()
-        if args.mandates is not None
-        else repo / "config" / "architecture" / "mandates.yml"
+        args.mandates.resolve() if args.mandates is not None else repo / MANDATES_REL
     )
 
     try:
@@ -168,7 +167,7 @@ def _scan_changed(
 
     for mandate in _active_mandates(registry, FAIL_LOUD_RATCHET_DETECTOR_ID):
         params = mandate.params or {}
-        baseline = params.get("baseline", "config/architecture/fail_loud_ratchet.json")
+        baseline = params.get("baseline", RATCHET_BASELINE_REL.as_posix())
         findings.extend(
             scan_ratchet(
                 repo,

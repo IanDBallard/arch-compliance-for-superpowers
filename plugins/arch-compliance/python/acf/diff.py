@@ -14,14 +14,25 @@ DiffMode = Literal["staged", "worktree"]
 _HUNK_RE = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
 
 
-def _git(repo: Path, *args: str) -> str:
-    proc = subprocess.run(
+def run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Invoke git and return the completed process, non-zero status included.
+
+    The one place that knows how to invoke git. Callers that treat a non-zero
+    status as a failure should use ``_git``; callers that need the status as
+    data (an exit code that MEANS something, such as ``check-ignore``) use this.
+    """
+    return subprocess.run(
         ["git", *args],
         cwd=repo,
         capture_output=True,
         text=True,
         check=False,
     )
+
+
+def _git(repo: Path, *args: str) -> str:
+    """Run git and return stdout, raising ``GitError`` on a non-zero status."""
+    proc = run_git(repo, *args)
     if proc.returncode != 0:
         err = (proc.stderr or proc.stdout or "").strip()
         raise GitError(f"git {' '.join(args)} failed: {err or proc.returncode}")
