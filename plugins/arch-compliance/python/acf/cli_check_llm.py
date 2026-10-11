@@ -10,6 +10,7 @@ from pathlib import Path
 from acf.finding import Severity
 from acf.judge import run_judge
 from acf.registry import load_mandates
+from acf.repo import MANDATES_REL, resolve_repo
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     mandates_path: Path = (
         args.mandates.resolve()
         if args.mandates is not None
-        else Path.cwd() / "config" / "architecture" / "mandates.yml"
+        else resolve_repo(None) / MANDATES_REL
     )
     registry = load_mandates(mandates_path)
 
