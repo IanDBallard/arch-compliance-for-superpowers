@@ -50,16 +50,23 @@ New functionality, extending existing shapes (spec §6): `ADR_REL` beside `MANDA
 
 ## Development Workspace & Integration
 
-**Branch:** `feat/adr-host-contract` from `main` at `277bcca4`, in the plugin checkout `C:/Users/iball/Arduino/Projects/arch-compliance-for-superpowers` (the way phase 1b ran). Every task's first action: `git -C C:/Users/iball/Arduino/Projects/arch-compliance-for-superpowers branch --show-current` must print `feat/adr-host-contract`; abort **BLOCKED** otherwise.
+**Worktree (user-approved, 2026-10-12):** `C:/Users/iball/Arduino/Projects/arch-compliance-worktrees/adr-host-contract`,
+branch `feat/adr-host-contract`, base `277bcca4` (plan commit `ac31639`). Repo root inside the worktree is that
+path; subagents MUST use absolute paths under it, and every task's first action is
+`git -C C:/Users/iball/Arduino/Projects/arch-compliance-worktrees/adr-host-contract branch --show-current`, which
+must print `feat/adr-host-contract` (abort **BLOCKED** otherwise). The main plugin checkout
+(`C:/Users/iball/Arduino/Projects/arch-compliance-for-superpowers`, on `main`) must receive no edits; the
+controller checks its `git status` after each task.
 
-**Integration:** one PR to `main` after Task 7; merge only after the full suite and the TypeScript lane pass and a whole-branch review has run.
+**Integration:** one PR to `main` after Task 7; merge only after the full suite and the TypeScript lane pass
+and a whole-branch review has run.
 
 ### Implementation Decision Overrides
 
 | Decision | Override | Rationale | Approved |
 |---|---|---|---|
-| Workspace | Branch in the plugin's own checkout, not a git worktree | Separate repository from the origin host; phase 1b ran the same way without incident | Default practice for this plugin, carried from 1b |
-| CI gates | `python -m pytest -q` + TypeScript self-test (the plugin's whole gate), not the origin host's `run_ci.sh` | The plugin has no `run_ci.sh`; these are its complete test lanes | Same |
+| Workspace | Worktree beside the repository (`../arch-compliance-worktrees/`) rather than inside it | The plugin repository ignores no worktree directory; a sibling path needs no `.gitignore` change on `main` | User, 2026-10-12 (own branch and worktree) |
+| CI gates | `python -m pytest -q` + TypeScript self-test (the plugin's whole gate), not the origin host's `run_ci.sh` | The plugin has no `run_ci.sh`; these are its complete test lanes | Carried from phase 1b |
 
 ## File Structure
 
@@ -99,7 +106,7 @@ New functionality, extending existing shapes (spec §6): `ADR_REL` beside `MANDA
 
 - [ ] **Step 1: Branch guard**
 
-Run: `git -C C:/Users/iball/Arduino/Projects/arch-compliance-for-superpowers checkout feat/adr-host-contract && git -C C:/Users/iball/Arduino/Projects/arch-compliance-for-superpowers branch --show-current` (the branch was cut from `277bcca4` with this plan's commit)
+Run: `git -C C:/Users/iball/Arduino/Projects/arch-compliance-worktrees/adr-host-contract branch --show-current`
 Expected: `feat/adr-host-contract`
 
 - [ ] **Step 2: Write the failing tests**
