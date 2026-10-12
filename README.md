@@ -69,6 +69,26 @@ Portable Python detectors (enable via profile / `/acf-mandate`):
 
 The registry drives enforcement: `status: unenforced` rows never gate; `enforced` and `partial` both gate (partial means coverage is incomplete, not advisory-only). Severity comes from the registry row. Inline exemptions use only the row's `exemption_tokens` — `# <token>: reason` (Python) or `// <token>: reason` (TypeScript). Detectors emit raw findings; they do not interpret exemption comments.
 
+### `acf.adr` — the adversarial-design-review gate
+
+The gate's Python package lives here: claim and payload models, outcome
+classification, citation resolution, convergence grouping, the efficacy ledger
+and the run-detail writer. The persisted ledger format is the one a host
+already has, so an existing ledger stays readable.
+
+**The gate's skill prose is not here yet.** `SKILL.md` and the four reviewer
+prompts still live in the host that owns them, because they name host paths —
+a spec directory, a reviews directory, a mandate document. Giving a host a way
+to *declare* those instead is the next phase of this work; until then this
+package is the portable half and the prose is not. For the same reason the
+package's `LEDGER_PATH` and `RUNS_DIR` defaults still carry the origin host's
+relative paths; both are overridable arguments, not import-time reads.
+
+The origin host's skill-install tests (which assert its `.claude/` and
+`.cursor/` skill trees are byte-identical) are deliberately not ported: they
+test a property of a host, not of this plugin, and mean nothing here until the
+skills themselves move.
+
 ## Hooks
 
 Plugin `hooks/hooks.json` registers:

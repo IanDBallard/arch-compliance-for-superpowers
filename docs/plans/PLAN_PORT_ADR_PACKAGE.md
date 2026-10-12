@@ -96,7 +96,7 @@ class RunDetailWriteError(AdversarialDesignReviewError, OSError): ...
 
 Every one of this plugin's eleven exceptions derives from `AcfError` alone. **Drop the mixins**, for two reasons: the plugin's second governing principle is one way to do a thing, and a type that is both `AcfError` and `OSError` invites a caller to catch the wrong one. But dropping them is only safe if no live caller relies on the stdlib half, so **measure before deciding, not after.**
 
-- [ ] **Step 1: Measure whether any caller depends on the stdlib parent**
+- [x] **Step 1: Measure whether any caller depends on the stdlib parent**
 
 Run, in the origin repository (the host that currently owns the package):
 
@@ -109,7 +109,7 @@ grep -rn 'AdversarialDesignReviewError' scripts/ .claude/ tests/
 
 Expected: the first returns nothing inside the package, and the second returns the base class plus its five subclasses. Record both outputs in the commit message. **If a caller does catch the stdlib parent, stop and raise it** — that changes this task from a rename to a contract change, which is not what this plan authorises.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `plugins/arch-compliance/tests/test_adr_exceptions.py`:
 
@@ -160,12 +160,12 @@ def test_every_exception_in_the_module_uses_one_base() -> None:
     assert offenders == {}, f"exceptions with a second parent: {offenders}"
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `python -m pytest plugins/arch-compliance/tests/test_adr_exceptions.py -v`
 Expected: the five existence tests FAIL with `AssertionError: ... was not rehomed`; `test_every_exception_in_the_module_uses_one_base` PASSES already, because it describes the convention the module currently satisfies. That pass is the guard, not a gap.
 
-- [ ] **Step 4: Add the five types**
+- [x] **Step 4: Add the five types**
 
 Append to `plugins/arch-compliance/python/acf/exceptions.py`:
 
@@ -192,7 +192,7 @@ class RunDetailWriteError(AcfError):
 
 Do **not** port the origin's `AdversarialDesignReviewError` intermediate base. `AcfError` is this plugin's one base, and a second intermediate would be the shim principle 2 forbids. Task 3's import rewrite maps it away.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `python -m pytest plugins/arch-compliance/tests/test_adr_exceptions.py -v`
 Expected: 11 passed.
@@ -200,7 +200,7 @@ Expected: 11 passed.
 Run: `python -m pytest -q`
 Expected: **116 passed** (105 baseline plus 11).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add plugins/arch-compliance/python/acf/exceptions.py \
@@ -235,7 +235,7 @@ ported; AcfError is this plugin's one base."
 
 The origin's implementation is two lines. It is reproduced rather than imported because the whole point of the phase is that the package stops depending on the host.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `plugins/arch-compliance/tests/test_engine_paths.py`:
 
@@ -268,12 +268,12 @@ def test_predicate_and_normalizer_agree() -> None:
         assert contains_backslash(value) == (posix_path(value) != value)
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `python -m pytest plugins/arch-compliance/tests/test_engine_paths.py -v`
 Expected: collection FAILS with `ImportError: cannot import name 'contains_backslash' from 'acf.engine'`.
 
-- [ ] **Step 3: Add the predicate**
+- [x] **Step 3: Add the predicate**
 
 Add to `plugins/arch-compliance/python/acf/engine.py`, directly after `posix_path`:
 
@@ -288,7 +288,7 @@ def contains_backslash(value: str) -> bool:
     return "\\" in value
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `python -m pytest plugins/arch-compliance/tests/test_engine_paths.py -v`
 Expected: 6 passed.
@@ -296,7 +296,7 @@ Expected: 6 passed.
 Run: `python -m pytest -q`
 Expected: **122 passed**.
 
-- [ ] **Step 5: Commit, then open PR A**
+- [x] **Step 5: Commit, then open PR A**
 
 ```bash
 git add plugins/arch-compliance/python/acf/engine.py \
@@ -339,7 +339,7 @@ gh pr create --title "Port groundwork: ADR exception types and the backslash pre
 
 Any other `from scripts.` import is a dependency this plan did not measure. **If you find one, stop** — the measurement said there were exactly two external symbols, and a third means the measurement was wrong.
 
-- [ ] **Step 1: Copy the modules and apply the rewrite**
+- [x] **Step 1: Copy the modules and apply the rewrite**
 
 From the origin repository, copy the nine files (`__init__.py` plus eight modules) into `plugins/arch-compliance/python/acf/adr/`. Then apply the table above. Verify the result has no host import left:
 
@@ -350,7 +350,7 @@ grep -rn '^from scripts\|^import scripts\|AdversarialDesignReviewError' \
 
 Expected: no output. If anything prints, it is either a missed rewrite or the third dependency that stops this task.
 
-- [ ] **Step 2: Write the import-graph and surface test**
+- [x] **Step 2: Write the import-graph and surface test**
 
 Create `plugins/arch-compliance/tests/test_adr_import_graph.py`:
 
@@ -444,18 +444,18 @@ def test_acf_repo_still_imports_without_pydantic(tmp_path) -> None:
 
 Before running, open the origin's `__init__.py` and replace `EXPECTED_SURFACE` with its **actual** `__all__` or re-export list. Do not trust the list above; it is a starting point written from the skill's import sites, not from the file.
 
-- [ ] **Step 3: Run to verify the surface test fails for the right reason, then passes**
+- [x] **Step 3: Run to verify the surface test fails for the right reason, then passes**
 
 Run: `python -m pytest plugins/arch-compliance/tests/test_adr_import_graph.py -v`
 
 If `test_public_surface_is_complete` fails, a name was dropped in the copy — fix the port, not the test. The other three should pass immediately; they are regression guards for properties the copy must not break.
 
-- [ ] **Step 4: Run the whole suite**
+- [x] **Step 4: Run the whole suite**
 
 Run: `python -m pytest -q`
 Expected: **126 passed** (122 after PR A, plus 4).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add plugins/arch-compliance/python/acf/adr plugins/arch-compliance/tests/test_adr_import_graph.py
@@ -491,11 +491,11 @@ These seven carry about **197 test functions** and use only pytest builtins — 
 
 The eighth module, the citation tests, is Task 5 because its assertions are about a specific repository's git history.
 
-- [ ] **Step 1: Copy and rewrite**
+- [x] **Step 1: Copy and rewrite**
 
 Copy the seven files, apply the Task 3 import table, and rename each to `test_adr_<module>.py`.
 
-- [ ] **Step 2: Run them and read every failure**
+- [x] **Step 2: Run them and read every failure**
 
 Run: `python -m pytest plugins/arch-compliance/tests/test_adr_*.py -q`
 
@@ -505,7 +505,7 @@ Expected: all pass. **Any failure is information about the port, not a licence t
 - A failure naming a host path means the test was not as portable as measured. Stop and report it; do not delete the assertion.
 - A failure about a pydantic message means a version difference. Record the actual message and the pydantic version; do not loosen the assertion to match.
 
-- [ ] **Step 3: Pin the ledger format against a real host record**
+- [x] **Step 3: Pin the ledger format against a real host record**
 
 The Review Focus names this: the format must be readable, and a synthesised record would not prove it. Append to `tests/test_adr_ledger.py`:
 
@@ -530,12 +530,12 @@ def test_a_real_host_ledger_record_still_validates(tmp_path):
 
 Paste a real row before running it. The empty-dict assertion makes an unfilled test fail loudly rather than pass vacuously.
 
-- [ ] **Step 4: Run the whole suite**
+- [x] **Step 4: Run the whole suite**
 
 Run: `python -m pytest -q`
 Expected: about **324 passed** (126 after Task 3, plus roughly 197 ported plus the format pin). Record the exact number in the commit; this plan does not predict it precisely because parametrize expansion is counted by pytest, not by me.
 
-- [ ] **Step 5: Commit, then open PR B**
+- [x] **Step 5: Commit, then open PR B**
 
 ```bash
 git add plugins/arch-compliance/tests/
@@ -565,7 +565,7 @@ persisted format survived."
 
 Re-basing them on a repository this test builds is strictly better than the originals: the fixture states the git history the assertions need, instead of inheriting it.
 
-- [ ] **Step 1: Write the fixture**
+- [x] **Step 1: Write the fixture**
 
 Create `plugins/arch-compliance/tests/test_adr_citations.py`:
 
@@ -658,7 +658,7 @@ def test_an_unknown_path_is_unresolved(repo: Path) -> None:
 
 Open the origin's twenty tests and port every behaviour they cover, not only the seven shapes above. The seven are the skeleton; the origin also covers suffix matching, bare basenames, and the `asserted_absent` kind. **Each ported case keeps its original intent and gains an explicit fixture condition.**
 
-- [ ] **Step 2: Run and compare coverage against the origin**
+- [x] **Step 2: Run and compare coverage against the origin**
 
 Run: `python -m pytest plugins/arch-compliance/tests/test_adr_citations.py -v`
 
@@ -673,11 +673,11 @@ grep -c '^def test_' plugins/arch-compliance/tests/test_adr_citations.py
 
 If the second number is lower, name which origin behaviours are unported and why, in the commit message. A silently smaller suite is the failure this task exists to avoid.
 
-- [ ] **Step 3: Prove the fixture is load-bearing**
+- [x] **Step 3: Prove the fixture is load-bearing**
 
 A fixture-based test can pass for the wrong reason if the fixture does not actually create the condition. Falsify it: temporarily change the `historical` test to cite `src/live.py` and confirm it fails; change the `external` test to cite `src/live.py` and confirm it fails. Restore both. Record that you did it.
 
-- [ ] **Step 4: Run the whole suite and commit**
+- [x] **Step 4: Run the whole suite and commit**
 
 Run: `python -m pytest -q`
 
@@ -708,7 +708,7 @@ external cases fail when pointed at the tracked file."
 
 A port is finished when what *stayed* is as clear as what moved. Two things stayed, and both must be recorded rather than inferred from absence.
 
-- [ ] **Step 1: Record the skill prose as out of scope**
+- [x] **Step 1: Record the skill prose as out of scope**
 
 The gate's `SKILL.md` and its four reviewer prompts still live in the origin host, and they still name host paths — a spec directory, a reviews directory, a mandate document. That is phase 1c's subject, not this plan's. Add to `README.md`, under whatever section describes the plugin's Python surface:
 
@@ -727,11 +727,11 @@ to *declare* those instead is the next phase of this work; until then this
 package is the portable half and the prose is not.
 ```
 
-- [ ] **Step 2: Record the nine skill-install tests as deliberately unported**
+- [x] **Step 2: Record the nine skill-install tests as deliberately unported**
 
 They assert that a host's `.claude/` and `.cursor/` skill trees are byte-identical. That is a property of a host, not of this plugin, and it has no meaning here until the skills themselves move. Note it in the same README section in one sentence, so a later reader does not "restore" them.
 
-- [ ] **Step 3: Run the whole suite, commit, open PR C**
+- [x] **Step 3: Run the whole suite, commit, open PR C**
 
 ```bash
 npm test --prefix plugins/arch-compliance/detectors/typescript
@@ -769,3 +769,24 @@ Recorded so a later reader does not restore them by mistake."
 | The citation tests lose coverage in the re-basing. | Task 5 Step 2 counts both suites and requires naming any unported behaviour in the commit. |
 | Two copies of the package now exist, and they drift. | Real, and the reason phase 1d should follow promptly. The ported copy has **no consumer** in this plugin, so it cannot drift *in behaviour* — only in code. The objective's "never two live copies" holds: only one is live. |
 | The ledger format changes by accident during the copy. | Definition of Done item 6 pins it with a real record, and the Global Constraints forbid touching it. |
+
+## Outcome (2026-10-12)
+
+All six tasks complete; every Definition of Done item verified by command. Suite **105 → 372 passed**; TypeScript lane `self-test OK`.
+
+| PR | Branch | Tasks | Suite after |
+|---|---|---|---|
+| #7 | `feat/port-adr-package` | 1, 2 | 122 |
+| #8 | `feat/port-adr-package-b` (stacked on #7) | 3, 4 | 345 |
+| PR C | `feat/port-adr-package-c` (stacked on #8) | 5, 6, review fix | 372 |
+
+PRs B and C are stacked rather than branched from `main` after each merge, because merging is the owner's call; retarget each to `main` as its parent merges.
+
+What the plan did not predict, each a recorded ruling in the execution ledger:
+
+- **The public surface is 25 names**, not the 12 listed in Task 3. The test asserts the origin's `__all__` verbatim, and equality rather than containment.
+- **Two host-relative defaults travel with the package**: `LEDGER_PATH` and `RUNS_DIR`. They are overridable arguments, not import-time reads, and are among the values the host contract replaces. Ported verbatim, as a faithful port must.
+- **A sixth origin exception, `UnresolvableCitationError`, is not ported.** It is raised by the skill prose and nowhere in the package, so here it would be an export with no consumer. It arrives with the prose.
+- **Task 5's skeleton fixture would have failed.** It created the ignored file on disk, but the classifier tests existence before the ignore check, so an ignored file that exists is `current`. In the origin the cited build file is absent; the fixture now matches.
+- **The plan missed an eighth origin test module.** `tests/test_citation_history_honesty.py` imports the package but is not named `test_adversarial_design_*`, so the plan's file list (and the first parity count, which inherited that filter) skipped it. It is the only coverage of the fail-loud git path and of `CitationHistoryUnavailableError`. Found by the final review; ported as `test_adr_citation_history.py`. The census that would have caught it selects by import, not by name.
+- **Measured beyond the plan's pins:** test count parity with the origin, over every origin test that imports the package (218 = 218 for the seven modules, 20 = 20 for citations, 7 = 7 for citation history); no `pytest.raises` target depends on a dropped stdlib parent; all 329 rows of the origin's ledger classify identically under origin and ported models (231 rows / 86 amendments / 12 legacy rows that validate under neither, a pre-existing condition).
