@@ -80,9 +80,9 @@ already has, so an existing ledger stays readable.
 prompts still live in the host that owns them, because they name host paths —
 a spec directory, a reviews directory, a mandate document. Giving a host a way
 to *declare* those instead is the next phase of this work; until then this
-package is the portable half and the prose is not. For the same reason the
-package's `LEDGER_PATH` and `RUNS_DIR` defaults still carry the origin host's
-relative paths; both are overridable arguments, not import-time reads.
+package is the portable half and the prose is not. Where a host keeps the gate's run details and ledger is declared in
+`config/architecture/adr.yml` (`runs_dir`, `ledger_path`) and read by
+`acf.adr.load_host_config`; the package carries no default for either.
 
 The origin host's skill-install tests (which assert its `.claude/` and
 `.cursor/` skill trees are byte-identical) are deliberately not ported: they

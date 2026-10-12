@@ -31,8 +31,6 @@ from acf.adr.contract import (
 )
 from acf.exceptions import LedgerWriteError
 
-LEDGER_PATH = "docs/reviews/adversarial_design_ledger.jsonl"
-
 #: JSONL has no comment syntax, so the preamble is the file's first OBJECT
 #: (plan decision D6). Nothing in the pipeline reads the ledger, so no consumer
 #: needs to skip it. Compact separators so the preamble line matches the

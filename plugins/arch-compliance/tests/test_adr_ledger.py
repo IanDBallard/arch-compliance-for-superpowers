@@ -7,7 +7,6 @@ import pytest
 from pydantic import ValidationError
 
 from acf.adr.ledger import (
-    LEDGER_PATH,
     LEDGER_PREAMBLE,
     LedgerAmendment,
     LedgerRow,
@@ -62,10 +61,6 @@ def _amendment(**overrides) -> LedgerAmendment:
     }
     fields.update(overrides)
     return LedgerAmendment(**fields)
-
-
-def test_ledger_path_is_the_spec_location():
-    assert LEDGER_PATH == "docs/reviews/adversarial_design_ledger.jsonl"
 
 
 def test_escapes_defaults_to_zero():

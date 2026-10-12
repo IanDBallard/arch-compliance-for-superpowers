@@ -30,13 +30,8 @@ from acf.adr.contract import (
 )
 from acf.exceptions import RunDetailWriteError
 
-#: Tracked sibling of the ledger. NOT ``.claude/tmp`` — that is gitignored, and a
-#: detail file nobody can read after the session is the problem, not the fix.
-RUNS_DIR = "docs/reviews/adr_runs"
-
-
 def run_detail_path(
-    spec_path: str, *, version: int, date: str, runs_dir: Path | str = RUNS_DIR
+    spec_path: str, *, version: int, date: str, runs_dir: Path | str
 ) -> Path:
     """Return the detail path for a run: ``<runs_dir>/<SPEC_STEM>_v<N>_<date>.md``.
 
