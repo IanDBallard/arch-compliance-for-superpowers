@@ -10,7 +10,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+# setuptools is needed at TEST time, not just build time:
+# tests/test_packaging.py builds a wheel with --no-build-isolation, and
+# Python 3.12+ no longer ships setuptools in a fresh environment.
+dev = ["pytest>=8.0", "setuptools>=68"]
 
 [project.scripts]
 acf-check-diff = "acf.cli_check_diff:main"
@@ -26,3 +29,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["plugins/arch-compliance/python"]
+
+# Non-Python files that acf code reads at runtime. Without this table setuptools
+# omits them from a wheel, and the editable install used in development and CI
+# hides that because Path(__file__) then resolves into the source tree.
+# tests/test_packaging.py builds a real wheel and asserts every tracked non-.py
+# file under acf/ is present, so a template added later cannot be forgotten.
+[tool.setuptools.package-data]
+acf = ["judge_prompt.md"]

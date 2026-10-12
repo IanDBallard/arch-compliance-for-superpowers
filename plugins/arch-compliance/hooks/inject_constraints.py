@@ -169,10 +169,11 @@ def _render_constraints(repo: Path, mandates: list) -> str:
     if len(excerpt) > _ARCH_EXCERPT_MAX:
         excerpt = excerpt[:_ARCH_EXCERPT_MAX].rstrip() + "\n\n…(truncated)…"
 
-    return (
-        template.replace("{{MANDATES}}", mandates_block).replace(
-            "{{ARCHITECTURE_EXCERPT}}", excerpt
-        )
+    from acf.template import render_template
+
+    return render_template(
+        template,
+        {"MANDATES": mandates_block, "ARCHITECTURE_EXCERPT": excerpt},
     )
 
 

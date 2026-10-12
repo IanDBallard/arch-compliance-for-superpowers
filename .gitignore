@@ -4,4 +4,5 @@ node_modules/
 .pytest_cache/
 *.egg-info/
 dist/
+build/
 .acf/

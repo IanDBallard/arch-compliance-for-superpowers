@@ -1135,7 +1135,13 @@ BODY
 
 **Why both consumers.** Doing only the hook would leave the judge building a prompt from a skeleton by f-string, which is a second owner of "render a prompt from a skeleton plus context" that no scan for `{{` can find. A review of the earlier design caught exactly that, and the fix is to migrate both or neither.
 
-**Why no package data.** The judge template is read `Path(__file__).parent / "judge_prompt.md"`, the precedent already in the tree at `inject_constraints.py:32`. That needs no `[tool.setuptools.package-data]` table, and so avoids a mechanism whose failure mode would be invisible under the editable install CI uses.
+**Why no package data — THIS PARAGRAPH WAS WRONG. Amended after the final review.** The original reasoning was that the judge template is read `Path(__file__).parent / "judge_prompt.md"`, following the precedent at `inject_constraints.py:32`, and therefore needs no `[tool.setuptools.package-data]` table.
+
+**The precedent does not transfer.** `hooks/` is not a packaged module — it is run from `${CLAUDE_PLUGIN_ROOT}`, so its template is always beside it on disk. `acf/` *is* a packaged module, and setuptools omits non-`.py` files from a wheel unless a `package-data` table or a `MANIFEST.in` names them. Verified by building a wheel: `judge_prompt.md` was absent, and `acf-check-llm` would raise `FileNotFoundError` on its first enforced LLM mandate under a plain `pip install .`.
+
+Worse, the original paragraph claimed this choice "avoids a mechanism whose failure mode would be invisible under the editable install CI uses" — the choice it made has exactly that failure mode, which is why all 104 tests passed while the wheel was broken.
+
+**What to do instead:** declare `[tool.setuptools.package-data] acf = ["judge_prompt.md"]`, and guard it with a test that builds a wheel from the tracked **working tree** and asserts every tracked non-`.py` file under `acf/` is a member. A characterization test is the right guard for the prompt's *bytes* and cannot be made into a guard for its *shipping*.
 
 **Note on braces.** The judge prompt contains a literal JSON example with single `{` and `}` characters. The token scheme matches only `{{UPPER_SNAKE}}`, so single braces pass through untouched. Do not switch to `str.format`, which would choke on them.
 
@@ -1384,7 +1390,7 @@ Run: `python -m pytest plugins/arch-compliance/tests/test_template.py -v`
 Expected: 7 passed.
 
 Run: `python -m pytest -q`
-Expected: **103 passed** (96 after PR 2, plus 7 template tests).
+Expected: **104 passed** (96 after PR 2, plus 6 template tests, the field-coverage test, and the byte-identity characterization test). The fix pass after the final review adds a packaging test, taking the branch to **105**.
 
 `test_judge.py` was checked at the base commit and asserts nothing about the prompt's text, so it needs no change. Confirm that is still true rather than trusting this line: `grep -rn "architecture compliance judge" plugins/tests/` should return nothing.
 
@@ -1412,7 +1418,7 @@ silent when a token had no value and when a value had no token.
 Migrates BOTH consumers. Doing only the hook would leave judge._build_prompt
 as a second owner of 'render a prompt from a skeleton plus context' that no
 scan for '{{' could find. Templates are read relative to __file__, the
-precedent already in this tree, so no package-data table is needed."
+precedent already in this tree. (The packaging claim in this commit message was corrected by the follow-up fix: a package-data table IS required — see the Task 5 amendment above.)"
 ```
 
 ```bash
@@ -1444,7 +1450,7 @@ BODY
 
 Branch-level gate. Every item must pass before the third PR merges.
 
-1. `python -m pytest -q` from the repository root prints **103 passed**, with `npm ci --prefix plugins/arch-compliance/detectors/typescript` having been run once.
+1. `python -m pytest -q` from the repository root prints **105 passed**, with `npm ci --prefix plugins/arch-compliance/detectors/typescript` having been run once. (Amended from 103: Task 5 added a byte-identity characterization test, and the post-review fix pass added a wheel-packaging test.)
 2. `npm test --prefix plugins/arch-compliance/detectors/typescript` prints `self-test OK`.
 3. `grep -rnE 'config.{0,6}architecture' plugins/ --include=*.py` returns `acf/repo.py`'s constants plus exactly the four allowlisted documentation lines (two `argparse` help strings, two module docstrings) and nothing else. `test_repo_paths.py::test_host_config_dir_has_one_code_owner` is the executable form of this check and is the authority; the grep is for a human reading the diff.
 4. `grep -rn RegistryLoadError plugins/ skills/ README.md docs/guides/` returns nothing. `docs/plans/` is excluded as an executed historical record.
@@ -1454,7 +1460,7 @@ Branch-level gate. Every item must pass before the third PR merges.
 8. Both hooks exit 0 with no traceback in a repository with no `.acf/enabled`, with `pydantic` and `yaml` poisoned on `PYTHONPATH`. Pinned by `test_repo_paths.py` and by the two pre-existing no-deps tests.
 9. A host that is enabled and has a registry but no `ARCHITECTURE.md` makes `inject_constraints.py` exit 1 naming the path. Pinned by `test_hooks.py`.
 10. `save_baseline`'s `BaselineError` has a test. `load_baseline`'s refusals are `AcfInputError`.
-11. No new entry in `pyproject.toml` under `[project.dependencies]`, `[tool.setuptools.packages.find]`, or any `package-data` table. Confirm with `git diff c63cb70 -- pyproject.toml`, which must be empty.
+11. **AMENDED after the final review.** No new entry under `[project.dependencies]` and no change to `[tool.setuptools.packages.find]` — both still hold. But a `[tool.setuptools.package-data]` table **is now required**, because the original prohibition rested on a false premise (see the Task 5 amendment). Exactly one entry is expected, `acf = ["judge_prompt.md"]`, and `tests/test_packaging.py` builds a real wheel to prove it ships.
 12. `acf.yml`, a `doctrine` list, a run ledger, a run manifest, and the adversarial-review gate itself appear **nowhere** in the diff. Confirm with `git diff c63cb70 --stat` and read the file list.
 
 ## Risks
