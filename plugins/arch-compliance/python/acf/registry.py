@@ -1,9 +1,9 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
-import yaml
 from pydantic import BaseModel
-from acf.exceptions import RegistryLoadError, UnknownDetectorError
+from acf.exceptions import UnknownDetectorError
+from acf.loader import load_model_file
 
 Detection = Literal["ast", "llm", "grep", "guard", "manual"]
 Status = Literal["enforced", "partial", "unenforced"]
@@ -39,18 +39,9 @@ def load_mandates(
     *,
     known_detectors: frozenset[str] | None = None,
 ) -> MandateRegistry:
-    if not path.is_file():
-        raise RegistryLoadError(f"mandates file not found: {path.as_posix()}")
-    try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as e:
-        raise RegistryLoadError(f"invalid YAML in {path.as_posix()}: {e}") from e
-    if not isinstance(raw, list):
-        raise RegistryLoadError(f"mandates root must be a list: {path.as_posix()}")
-    try:
-        mandates = [Mandate.model_validate(row) for row in raw]
-    except Exception as e:
-        raise RegistryLoadError(f"mandate validation failed: {e}") from e
+    mandates = load_model_file(
+        path, Mandate, subject="mandates file", fmt="yaml", many=True
+    )
     if known_detectors is not None:
         for m in mandates:
             if m.status != "enforced":

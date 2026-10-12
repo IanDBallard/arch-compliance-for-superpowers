@@ -221,7 +221,7 @@ python -m acf.cli_check_diff --mode worktree
 
 Success criteria:
 
-- Mandates load without `RegistryLoadError` / `UnknownDetectorError`.
+- Mandates load without `AcfInputError` / `UnknownDetectorError`.
 - Exit 0 if no `BLOCK` findings on the current diff; exit 1 only for real BLOCK findings (still a successful smoke of the toolchain).
 - If the command is missing, help install the plugin Python package, then retry. Do not claim setup complete until the CLI runs.
 

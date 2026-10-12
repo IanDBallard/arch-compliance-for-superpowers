@@ -9,6 +9,9 @@ Runnable as:
 Behavior:
   - If ``.acf/enabled`` is absent: exit 0 (no-op), optional stderr warning.
   - If enabled and ``config/architecture/mandates.yml`` is missing: non-zero exit.
+  - If enabled and ``config/architecture/ARCHITECTURE.md`` is missing: non-zero
+    exit. A placeholder excerpt would tell a subagent it has the host's rules
+    when it does not.
   - Otherwise print a constraint block (text) or Claude Code ``additionalContext`` JSON.
 """
 
@@ -85,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        from acf.exceptions import RegistryLoadError
+        from acf.exceptions import AcfInputError
         from acf.registry import load_mandates
     except ImportError as exc:
         print(
@@ -99,11 +102,15 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         registry = load_mandates(mandates_path)
-    except RegistryLoadError as exc:
+    except AcfInputError as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
-    block = _render_constraints(repo, registry.mandates)
+    try:
+        block = _render_constraints(repo, registry.mandates)
+    except (FileNotFoundError, OSError) as exc:
+        print(f"acf: {exc}", file=sys.stderr)
+        return 1
     if out_format == "hook":
         event = "SubagentStart"
         if isinstance(stdin_payload, dict):
@@ -154,15 +161,13 @@ def _render_constraints(repo: Path, mandates: list) -> str:
     mandates_block = "\n".join(mandate_lines) if mandate_lines else "_No mandates listed._"
 
     arch_path = repo / ARCH_REL
-    if arch_path.is_file():
-        excerpt = arch_path.read_text(encoding="utf-8").strip()
-        if len(excerpt) > _ARCH_EXCERPT_MAX:
-            excerpt = excerpt[:_ARCH_EXCERPT_MAX].rstrip() + "\n\n…(truncated)…"
-    else:
-        excerpt = (
-            f"_ARCHITECTURE.md not found at `{ARCH_REL.as_posix()}` — "
-            "use mandates above and host docs._"
+    if not arch_path.is_file():
+        raise FileNotFoundError(
+            f"doctrine document not found: {arch_path.as_posix()}"
         )
+    excerpt = arch_path.read_text(encoding="utf-8").strip()
+    if len(excerpt) > _ARCH_EXCERPT_MAX:
+        excerpt = excerpt[:_ARCH_EXCERPT_MAX].rstrip() + "\n\n…(truncated)…"
 
     return (
         template.replace("{{MANDATES}}", mandates_block).replace(

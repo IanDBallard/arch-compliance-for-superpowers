@@ -161,7 +161,7 @@ Print a short summary: auditor OK/FAILED counts, finding totals by severity, rep
 1. Auditors are read-only.
 2. Host `config/architecture/mandates.yml` is the only mandate list — never treat plugin profiles as runtime defaults after setup.
 3. Unknown `--mandates` id → `UnknownMandateError`.
-4. Malformed baseline → `BaselineError` (fail loud).
+4. Malformed or unreadable baseline → `AcfInputError` (fail loud). `BaselineError` is the write side: an unwritable baseline.
 5. Drift is informational only.
 
 ## Failure modes
@@ -171,7 +171,7 @@ Print a short summary: auditor OK/FAILED counts, finding totals by severity, rep
 | Missing `mandates.yml` | Hard fail; suggest `/acf-setup` |
 | Unknown `--mandates` id | `UnknownMandateError` |
 | Empty target tree | `EmptyTargetTreeError` |
-| Malformed baseline JSON | `BaselineError` |
+| Malformed baseline JSON | `AcfInputError` |
 | Auditor crash / bad JSON | Mark FAILED; continue; non-zero exit |
 | Report path unwritable | Hard fail |
 
