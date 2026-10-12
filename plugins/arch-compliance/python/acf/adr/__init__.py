@@ -22,6 +22,7 @@ from acf.adr.ledger import (
     append_amendment,
     append_row,
 )
+from acf.adr.host import AdrHostConfig, load_host_config
 from acf.adr.parser import parse_reviewer_payload
 from acf.adr.rollup import format_rollup
 
@@ -41,6 +42,7 @@ from acf.adr.run_detail import (
 
 __all__ = [
     "Claim",
+    "AdrHostConfig",
     "ClaimVerdict",
     "ConvergedFinding",
     "DesignReviewRun",
@@ -59,6 +61,7 @@ __all__ = [
     "count_cited_files",
     "format_rollup",
     "group_convergence_candidates",
+    "load_host_config",
     "parse_reviewer_payload",
     "render_run_detail",
     "resolve_citation",

@@ -17,6 +17,9 @@ MANDATES_REL = CONFIG_DIR / "mandates.yml"
 #: Host-relative path to the host's architecture doctrine document.
 ARCH_REL = CONFIG_DIR / "ARCHITECTURE.md"
 
+#: Host-relative path to the adversarial-design-review gate's declaration.
+ADR_REL = CONFIG_DIR / "adr.yml"
+
 #: Host-relative default for the fail-loud ratchet baseline. A mandate may
 #: override it via its ``params.baseline``; this is the value used when it does
 #: not.

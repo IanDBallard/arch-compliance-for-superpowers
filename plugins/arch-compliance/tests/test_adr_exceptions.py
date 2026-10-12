@@ -13,6 +13,7 @@ ADR_TYPES = [
     "CitationHistoryUnavailableError",
     "LedgerWriteError",
     "RunDetailWriteError",
+    "UnresolvableCitationError",
 ]
 
 
