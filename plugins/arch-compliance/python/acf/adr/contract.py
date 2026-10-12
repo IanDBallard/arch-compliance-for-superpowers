@@ -4,8 +4,8 @@ Four blind reviewers each return one payload. The controller wraps them in a
 ``DesignReviewRun``, which is the single source of truth for the roll-up and the
 ledger row.
 
-GEMINI.md §10 — every path-bearing field is POSIX (no backslashes), enforced on
-construction. GEMINI.md §3 — a payload that cannot express its own coverage is a
+POSIX paths — every path-bearing field is POSIX (no backslashes), enforced on
+construction. Fail loud — a payload that cannot express its own coverage is a
 contract violation, not an empty pass. Architectural Contract 5 — a payload that
 does not exactly match its schema (extra keys included) is not partially
 accepted; it is a contract violation, same as an empty coverage pass.
@@ -58,14 +58,14 @@ _FILE_LINE_RE = re.compile(r"[^\s:\\]+\.[A-Za-z]+:\d+")
 
 
 def _reject_backslash(value: str) -> str:
-    """§7/§10: the ONLY place this module tests a *path* field for a backslash.
+    """One point of definition, POSIX paths: the ONLY place this module tests a *path* field for a backslash.
 
     (Free-text evidence uses ``_reject_backslash_path_in_text`` below, which
     refuses only backslash *paths* inside prose.)
 
     Delegates to ``acf.engine.contains_backslash`` — the single
-    point of definition GEMINI.md §10 requires — rather than reimplementing
-    the substring test. This module still cannot adopt the origin host's
+    point of definition the POSIX-paths rule requires — rather than reimplementing
+    the substring test. This module still cannot adopt a host's
     ``PosixPathStr`` wholesale: ``PosixPathStr`` *normalizes* a backslash
     (by design, to tolerate legacy Windows-authored YAML already on disk).
     Every path-bearing field here is freshly emitted by a reviewer subagent
@@ -73,14 +73,14 @@ def _reject_backslash(value: str) -> str:
     it instead of refusing it, defeating the reviewer-honesty contract this
     schema exists to enforce. Rejecting is correct here.
 
-    Task 2 originally carried three inline ``# §10-path-field-ok:`` exemption
+    Task 2 originally carried three inline ``# path-field-ok:`` exemption
     comments on ``doc_path``/``evidence_file``/``spec_path`` (fields the
-    ``§10-path-field`` arch detector matches by name) because those fields
+    path-field arch detector matches by name) because those fields
     were then typed as plain ``str``, which the detector treats as an
     unmigrated path field unless exempted. Routing every path field through
     the ``PosixStr`` alias below instead of ``str`` moved them out of that
-    detector's ``str``-shaped match (``_annotation_is_str_like`` in
-    ``scripts/ci/arch_compliance/engine.py`` matches literal ``str``, not an
+    detector's ``str``-shaped match (a host's own detector
+    matches literal ``str``, not an
     ``Annotated`` alias by another name) — the arch-compliance gate no longer
     flags those three lines, so the exemption comments were removed rather
     than kept as dead cover for a finding that no longer fires. Re-verify
@@ -159,7 +159,7 @@ class _StrictModel(BaseModel):
     matching its schema … no partial acceptance." Declared once here, for the
     same reason ``PosixStr`` above replaces eight near-identical field
     validators instead of adding a ninth: independent per-class copies of the
-    same declarative rule are exactly the shape that drifts (§7).
+    same declarative rule are exactly the shape that drifts.
     """
 
     model_config = ConfigDict(extra="forbid")

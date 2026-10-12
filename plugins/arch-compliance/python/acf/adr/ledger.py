@@ -48,7 +48,7 @@ LEDGER_PREAMBLE = {
     ),
 }
 
-#: Must stay in step with GEMINI.md item 8's trigger list, because
+#: Must stay in step with the doctrine's trigger list, because
 #: ``filter_would_skip`` is derived from it: the mandate names "a public interface"
 #: as a trigger, so a member for it must exist or a public-interface-only spec is
 #: recorded ``filter_would_skip=true`` when the narrowed filter would in fact KEEP
@@ -64,9 +64,8 @@ _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 class LedgerRow(BaseModel):
     """One review run: predictors recorded before dispatch, outcome fields after.
 
-    ``extra="forbid"`` — the persisted-schema convention this repo uses
-    throughout (e.g. ``scripts/schemas/oakville_import.py``,
-    ``scripts/core/book_registry.py``); a typo'd or fabricated key must fail
+    ``extra="forbid"`` — the persisted-schema convention this package uses
+    throughout; a typo'd or fabricated key must fail
     loudly at construction rather than being silently dropped.
     """
 
@@ -111,7 +110,6 @@ class LedgerRow(BaseModel):
     # delta-only re-runs: that lane may be proposed only if refuted_carryover
     # stays 0 across ~15-20 consecutive ledgered re-runs; any nonzero value
     # is an escape that lane would have shipped, and resets the count
-    # (spec: ADR_REVISION_EVIDENCE_AND_CARRYOVER_INSTRUMENTATION.md §3 D3).
     # None = unknown (first run); a measured zero is written as 0.
     refuted_carryover: int | None = Field(default=None, ge=0)
     refuted_delta: int | None = Field(default=None, ge=0)
@@ -174,7 +172,7 @@ class LedgerAmendment(BaseModel):
 
 
 def _validate_iso_date(v: str) -> str:
-    """Shared by ``LedgerRow.date`` and ``LedgerAmendment.date`` (§7: one rule,
+    """Shared by ``LedgerRow.date`` and ``LedgerAmendment.date`` (one rule,
     not two independent copies of the same regex + calendar check)."""
     if not _ISO_DATE_RE.match(v):
         raise ValueError(f"date must be ISO YYYY-MM-DD, passed in by the caller: {v!r}")
@@ -197,7 +195,7 @@ def _append_json_line(line: str, path: Path) -> None:
     silently stops being a measurement. Used by both ``append_row`` and
     ``append_amendment``: the durability logic (preamble-on-first-write,
     append-only open mode, fail-loud on ``OSError``) is a single mechanism,
-    not two near-identical copies of it (§7).
+    not two near-identical copies of it.
     """
     target = Path(path)
     try:

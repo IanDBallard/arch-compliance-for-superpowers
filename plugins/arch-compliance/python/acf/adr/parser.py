@@ -3,7 +3,7 @@
 A reviewer's final message body is exactly one fenced ```json block matching its
 schema. Anything else raises ``ReviewerContractViolationError`` and aborts the run.
 Unlike architecture-review, there is no per-reviewer FAILED status: silently
-absorbing a malformed verdict is indistinguishable from a clean pass (§3).
+absorbing a malformed verdict is indistinguishable from a clean pass.
 """
 from __future__ import annotations
 
@@ -94,5 +94,5 @@ def parse_reviewer_payload(payload: str, expected_reviewer: ReviewerName) -> Rev
             f"Validation errors (Pydantic):\n{e}\nKey diff:\n{diff}"
         )
         if "POSIX" in str(e) or "backslashes" in str(e):
-            message += "\nHint: every path field must be POSIX (no backslashes) — GEMINI.md §10."
+            message += "\nHint: every path field must be POSIX (no backslashes)."
         raise ReviewerContractViolationError(message) from e

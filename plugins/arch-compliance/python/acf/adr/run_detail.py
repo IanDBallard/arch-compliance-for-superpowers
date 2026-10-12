@@ -6,14 +6,14 @@ did it *say*" — and ``absorbed``/``rejected`` are adjudicated against findings
 not against counts.
 
 Without this module that adjudication was done from the spec's own account of
-itself, which is how a §14 citation recorded as absorbed — but never applied —
+itself, which is how a class-cohesion citation recorded as absorbed — but never applied —
 survived two reviews and inflated a backfill by one. ``architecture_review`` has
 written a ``_last_run.json`` sidecar since it shipped; this is the same idea in
 the form this skill's output actually takes (prose findings, not counts), and in
 a **tracked** location, because the run that motivated it wrote its detail to
 gitignored ``.claude/tmp/``.
 
-§10: every persisted path is POSIX. §3: an unwritable sidecar raises rather than
+POSIX paths: every persisted path is POSIX. Fail loud: an unwritable sidecar raises rather than
 being skipped — skipping it reproduces the exact failure it exists to prevent
 while looking like success.
 """

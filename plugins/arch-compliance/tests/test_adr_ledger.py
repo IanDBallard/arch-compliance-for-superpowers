@@ -133,7 +133,7 @@ def test_touched_surfaces_rejects_empty_list():
 
 
 def test_public_interface_is_a_recordable_surface():
-    # GEMINI.md item 8 names "a public interface" in the gate's trigger list, and
+    # The doctrine names "a public interface" in the gate's trigger list, and
     # filter_would_skip is derived from touched_surfaces against exactly that list
     # (SKILL.md). Without a member for it, a public-interface-only spec has no
     # truthful value to record and lands as filter_would_skip=true — asserting the

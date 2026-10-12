@@ -14,7 +14,7 @@ Over-grouping is the intended failure mode: two reviewers flagging different
 problems in one large file becomes a candidate the controller discards. Under-
 grouping would lose the signal entirely.
 
-Regex note (§7): reuses ``contract.py``'s ``_FILE_LINE_RE`` rather than
+Regex note: reuses ``contract.py``'s ``_FILE_LINE_RE`` rather than
 declaring a second file-token expression, following the precedent
 ``gate.py`` already set (it imports the same name instead of redeclaring
 one). An earlier version of this module forked a second regex, reasoning
@@ -28,7 +28,7 @@ byte-identical output to the forked regex on every case this module needs,
 including the ``path:13-15`` line range and the "section 3.1:2" prose edge
 case. With that gap closed there is no remaining behavioral difference, so
 a second expression would have been a second implementation of one
-predicate (§7) — the exact anti-pattern this note originally warned about,
+predicate — the exact anti-pattern this note originally warned about,
 just introduced instead of avoided.
 
 The alphabetic-only extension class (``[A-Za-z]+``, not ``[A-Za-z0-9]+``)
