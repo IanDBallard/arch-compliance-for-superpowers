@@ -929,3 +929,12 @@ Then push and open the PR to `main`.
 | A host assumption no recipe names survives the move | Task 5 Step 6's end-to-end read against §4.2 |
 | Task 6's helpers need richer inputs than sketched | The step says to read the two existing helpers end to end and keep the assertions |
 | The hook change alters behaviour for an enabled host | Task 1 pins exit code and exact message; `test_hooks_import_repo_without_pulling_third_party` pins the pre-gate import contract |
+
+## Outcome
+
+- **Tests:** `python -m pytest -q` -> 395 passed; TypeScript lane prints `self-test OK`.
+- **Prose origin:** the seven skill files were copied from the origin host at commit `6ad8da9a`.
+- **Host assumptions found in Task 5's end-to-end read** (not named by any recipe, fixed there): `compliance.md:44` ("a companion section of GEMINI.md", now "of the doctrine"); the `compliance.md` schema example `"§N — why..."` (now `"<doctrine section> — why..."`); and "Do not pad this list", whose referent had been replaced (now "Do not pad `unstated_mandates`"). Left as illustrative, not host values: the `hardening.md` worked example (`model_serializer` incident) and its "façade" rung example.
+- **Guards falsified once (DoD 7/8):** `GEMINI` planted in the moved SKILL.md failed `test_the_prose_names_no_origin_host`; `§3` planted in `acf/adr/host.py` failed `test_no_module_in_acf_adr_names_the_origin_host`; `runs_dir=` removed from the step-10 call failed `test_host_values_are_passed_explicitly`. Each restored and green.
+- **Origin repository untouched:** its `git status --porcelain` shows only the pre-existing untracked `Test cross reference.docx`.
+- The PR is opened after the whole-branch review.
