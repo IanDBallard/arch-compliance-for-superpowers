@@ -21,6 +21,13 @@ Fmt = Literal["yaml", "json"]
 M = TypeVar("M", bound=BaseModel)
 
 
+def require_file(path: Path, *, subject: str) -> Path:
+    """Refuse an absent input file with the message shape every caller shares."""
+    if not path.is_file():
+        raise AcfInputError(f"{subject} not found: {path.as_posix()}")
+    return path
+
+
 @overload
 def load_model_file(
     path: Path, model: type[M], *, subject: str, fmt: Fmt, many: Literal[False] = False
@@ -48,8 +55,7 @@ def load_model_file(
     inside validation is NOT caught -- only ``ValidationError`` is, so an
     internal error keeps its own type instead of posing as a bad input file.
     """
-    if not path.is_file():
-        raise AcfInputError(f"{subject} not found: {path.as_posix()}")
+    require_file(path, subject=subject)
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
