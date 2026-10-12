@@ -40,3 +40,23 @@ class BaselineError(AcfError):
 
 class TemplateRenderError(AcfError):
     """A template token had no value, or a supplied value had no token."""
+
+
+class ReviewerContractViolationError(AcfError):
+    """A reviewer payload does not satisfy the contract it was dispatched under."""
+
+
+class SpecKindUndeterminedError(AcfError):
+    """A spec is neither a defect nor a feature and is not declared docs/measurement."""
+
+
+class CitationHistoryUnavailableError(AcfError):
+    """A citation's history could not be read, so its kind cannot be decided."""
+
+
+class LedgerWriteError(AcfError):
+    """The efficacy ledger could not be appended to."""
+
+
+class RunDetailWriteError(AcfError):
+    """A run detail could not be written, so the run has no record."""
