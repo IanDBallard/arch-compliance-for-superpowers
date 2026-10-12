@@ -13,9 +13,12 @@ from acf.adr import (
 from acf.adr.contract import RefuterPayload
 
 
-def _git(repo: Path, *args: str) -> None:
+def _git(repo: Path, *args: str, empty_config: Path) -> None:
     env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+           # Hermetic: no user/system config, so no global hooks, signing or
+           # autocrlf settings can change what the fixture records.
+           "GIT_CONFIG_GLOBAL": str(empty_config),
            "GIT_CONFIG_NOSYSTEM": "1"}
     subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, env=env)
 
@@ -29,9 +32,11 @@ def _host(root: Path) -> Path:
     (arch / "ARCHITECTURE.md").write_text("# Doctrine\n", encoding="utf-8")
     (host / "specs").mkdir()
     (host / "specs" / "THING.md").write_text("# Thing\n", encoding="utf-8")
-    _git(host, "init", "-q")
-    _git(host, "add", "-A")
-    _git(host, "commit", "-qm", "init")
+    empty_config = root / "empty.gitconfig"
+    empty_config.write_text("", encoding="utf-8")
+    _git(host, "init", "-q", empty_config=empty_config)
+    _git(host, "add", "-A", empty_config=empty_config)
+    _git(host, "commit", "-qm", "init", empty_config=empty_config)
     return host
 
 

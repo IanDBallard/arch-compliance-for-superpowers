@@ -61,10 +61,14 @@ def _calls(name: str):
 
 
 def test_host_values_are_passed_explicitly():
-    for call in _calls("run_detail_path"):
+    detail_calls = list(_calls("run_detail_path"))
+    assert detail_calls, "no run_detail_path call found in the skill prose"
+    for call in detail_calls:
         assert "runs_dir" in {k.arg for k in call.keywords}
     for fn in ("classify_citations", "unresolved_citations"):
-        for call in _calls(fn):
+        fn_calls = list(_calls(fn))
+        assert fn_calls, f"no {fn} call found in the skill prose"
+        for call in fn_calls:
             repo_root = {k.arg: k.value for k in call.keywords}.get("repo_root")
             assert repo_root is not None
             assert not (isinstance(repo_root, ast.Call) and getattr(repo_root.func, "id", "") == "Path")

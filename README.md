@@ -30,6 +30,8 @@ Superpowers owns workflow shape. This plugin owns mandates, gates, audit, and co
 | `/acf-setup` | Bootstrap host `config/architecture/`, enable hooks marker, smoke the diff gate |
 | `/acf-mandate` | Add / edit / deprecate rows in `mandates.yml` |
 | `/architecture-review` | Faceted audit + optional baseline / drift |
+| `/adversarial-design-review` | Spec-stage adversarial review gate; the host declares `config/architecture/adr.yml` |
+| `/responding-to-adversarial-review` | Answering a blocked adversarial-design-review gate run |
 
 ## Environment variables
 

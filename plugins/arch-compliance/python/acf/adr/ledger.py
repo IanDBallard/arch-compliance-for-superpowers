@@ -48,8 +48,8 @@ LEDGER_PREAMBLE = {
     ),
 }
 
-#: Must stay in step with the doctrine's trigger list, because
-#: ``filter_would_skip`` is derived from it: the mandate names "a public interface"
+#: Must stay in step with ``filter_would_skip``'s surface list in the
+#: adversarial-design-review skill, which is derived from it: the mandate names "a public interface"
 #: as a trigger, so a member for it must exist or a public-interface-only spec is
 #: recorded ``filter_would_skip=true`` when the narrowed filter would in fact KEEP
 #: it — biasing the one number the future narrowing decision rests on.

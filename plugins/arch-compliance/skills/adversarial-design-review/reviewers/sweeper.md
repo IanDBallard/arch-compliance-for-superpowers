@@ -9,7 +9,7 @@ that shares 60% of its job with an existing one, and the check passes.
 
 ## Your inputs
 
-The full spec text, and its `shape_fit` and `sweep` claims. Your corpus is the tracked tree — code and documents alike — **excluding** the directories the controller names as holding prior run records and the ledger; an Approved document stating a contract this design restates or contradicts is a finding.
+The full spec text, and its `shape_fit` and `sweep` claims. Your corpus is the tracked tree — code and documents alike — **excluding** the paths the controller names: the run-records directory itself, the ledger file itself, and the directory containing each of them only when that directory is not the repository root; an Approved document stating a contract this design restates or contradicts is a finding.
 
 ## Method — compare responsibilities, not components
 

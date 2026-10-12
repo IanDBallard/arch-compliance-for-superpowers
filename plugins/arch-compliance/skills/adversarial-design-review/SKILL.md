@@ -15,7 +15,9 @@ This file is the procedure.
 
 One positional argument: the path to a committed spec. `git status --porcelain <spec>`
 must print nothing; any output means the working tree has uncommitted changes to that
-file — say so and stop. Reviewers adjudicate the committed text.
+file — say so and stop. Reviewers adjudicate the committed text. Run the gate from
+the host repository's root: step 0 resolves the process directory as the host root and
+refuses (naming the path) if `config/architecture/adr.yml` is not there.
 
 ## What this gate exists to catch
 
@@ -128,10 +130,9 @@ detail for this spec exists in this checkout under the declared `runs_dir` — a
 shaped `<SPEC_STEM>_v<N>_<date>.md`, **excluding** files with a `_response_` segment.
 Read the most recent one's `Outcome:` line.
 
-- **BLOCKED** → require the author response record
-  the declared `runs_dir` as `<SPEC_STEM>_v<N>_response_<date>.md` (`N` = the blocked
-  run's own version; one older pair predating this convention is named by the
-  produced version instead — do not generalize from it). Its entries must cover
+- **BLOCKED** → require the author response record under the declared `runs_dir`,
+  named `<SPEC_STEM>_v<N>_response_<date>.md` (`N` = the blocked
+  run's own version). Its entries must cover
   **every line** of that detail's `## Blocking reasons` (by claim ID where the line
   names one, by quoted line otherwise); every mechanism-class resolution must carry
   a command+output block; a **Sentence-type sweep** section must be present
@@ -205,7 +206,7 @@ or `reviewers/hardening.md` — plus:
   `Bash`; `compliance`, `sweeper` — `Read`, `Grep`, `Glob`.
 - The repo root and the current commit SHA.
 - Every citation's resolved path and kind (step 2).
-- For the sweeper only: the directories that contain `repo / cfg.runs_dir` and `repo / cfg.ledger_path`, which it must exclude from its corpus.
+- For the sweeper only: the paths it must exclude from its corpus — `repo / cfg.runs_dir` itself, the ledger file `repo / cfg.ledger_path`, and the directory that contains each of them only when that directory is not the repository root.
 
 The prompt file already carries the reviewer's output schema and identity string. The
 reviewer echoes the identity back verbatim as the `reviewer` field of its payload;
@@ -351,8 +352,7 @@ Use these definitions verbatim; if one is wrong, change it **here**, never in on
   vocabulary it is a subset of.
 - `tokens`, `wall_clock_s` — measured integers, both **`gt=0`** in the contract: the
   summed token count of the four dispatches plus your own; elapsed seconds from step
-  1 to this step. Round; never fabricate. Rows written before the contract enforced
-  this carry `tokens: 0` and must be excluded when reading the series.
+  1 to this step. Round; never fabricate. Exclude any row with `tokens: 0` when reading the series.
 - `date` — a genuine ISO `YYYY-MM-DD`; the ledger rejects a placeholder.
 
 A value outside these shapes raises Pydantic's `ValidationError` at `LedgerRow(...)`,
@@ -446,11 +446,8 @@ Literal has no `CLEARED_BY_VERIFICATION_PASS`, and it requires the dispatch
 measurements — `tokens`, `wall_clock_s`, `findings_by_lens_severity` — that a pass
 never produces), and `LedgerAmendment` cannot express a clearance at all (it carries
 no `outcome`, and matches on `spec_path` + `commit_sha`, which a pass has no
-dispatch commit for). Both are `extra="forbid"`. The seven
-`CLEARED_BY_VERIFICATION_PASS` records already in the ledger were hand-written
-around that contract, in two shapes that differ from each other by
-`corrections_commit_sha`; none validates against either model. Do not add an
-eighth. Until a model exists, the **spec header line above is the record** —
+dispatch commit for). Both are `extra="forbid"`. Do not hand-write a
+verification-pass record around that contract. Until a model exists, the **spec header line above is the record** —
 mint it, and leave the ledger alone. Adding the model is a
 persistence-format change: it needs a spec and a gate run, not an inline fix during
 a pass.
