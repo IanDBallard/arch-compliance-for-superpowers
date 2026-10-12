@@ -772,13 +772,13 @@ Recorded so a later reader does not restore them by mistake."
 
 ## Outcome (2026-10-12)
 
-All six tasks complete; every Definition of Done item verified by command. Suite **105 → 365 passed**; TypeScript lane `self-test OK`.
+All six tasks complete; every Definition of Done item verified by command. Suite **105 → 372 passed**; TypeScript lane `self-test OK`.
 
 | PR | Branch | Tasks | Suite after |
 |---|---|---|---|
 | #7 | `feat/port-adr-package` | 1, 2 | 122 |
 | #8 | `feat/port-adr-package-b` (stacked on #7) | 3, 4 | 345 |
-| PR C | `feat/port-adr-package-c` (stacked on #8) | 5, 6 | 365 |
+| PR C | `feat/port-adr-package-c` (stacked on #8) | 5, 6, review fix | 372 |
 
 PRs B and C are stacked rather than branched from `main` after each merge, because merging is the owner's call; retarget each to `main` as its parent merges.
 
@@ -788,4 +788,5 @@ What the plan did not predict, each a recorded ruling in the execution ledger:
 - **Two host-relative defaults travel with the package**: `LEDGER_PATH` and `RUNS_DIR`. They are overridable arguments, not import-time reads, and are among the values the host contract replaces. Ported verbatim, as a faithful port must.
 - **A sixth origin exception, `UnresolvableCitationError`, is not ported.** It is raised by the skill prose and nowhere in the package, so here it would be an export with no consumer. It arrives with the prose.
 - **Task 5's skeleton fixture would have failed.** It created the ignored file on disk, but the classifier tests existence before the ignore check, so an ignored file that exists is `current`. In the origin the cited build file is absent; the fixture now matches.
-- **Measured beyond the plan's pins:** test count parity with the origin (218 = 218 for the seven modules, 20 = 20 for citations); no `pytest.raises` target depends on a dropped stdlib parent; all 329 rows of the origin's ledger classify identically under origin and ported models (231 rows / 86 amendments / 12 legacy rows that validate under neither, a pre-existing condition).
+- **The plan missed an eighth origin test module.** `tests/test_citation_history_honesty.py` imports the package but is not named `test_adversarial_design_*`, so the plan's file list (and the first parity count, which inherited that filter) skipped it. It is the only coverage of the fail-loud git path and of `CitationHistoryUnavailableError`. Found by the final review; ported as `test_adr_citation_history.py`. The census that would have caught it selects by import, not by name.
+- **Measured beyond the plan's pins:** test count parity with the origin, over every origin test that imports the package (218 = 218 for the seven modules, 20 = 20 for citations, 7 = 7 for citation history); no `pytest.raises` target depends on a dropped stdlib parent; all 329 rows of the origin's ledger classify identically under origin and ported models (231 rows / 86 amendments / 12 legacy rows that validate under neither, a pre-existing condition).
