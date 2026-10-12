@@ -36,3 +36,7 @@ class GitError(AcfError):
 
 class BaselineError(AcfError):
     """Malformed, missing, or unwritable compliance baseline."""
+
+
+class TemplateRenderError(AcfError):
+    """A template token had no value, or a supplied value had no token."""

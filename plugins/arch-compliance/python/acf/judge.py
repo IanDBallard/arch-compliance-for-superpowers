@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 from typing import Literal, Protocol
 
 import httpx
@@ -13,6 +14,9 @@ from pydantic import BaseModel
 from acf.exceptions import JudgeNotConfiguredError, JudgeResponseError
 from acf.finding import Finding, Severity
 from acf.registry import Mandate
+from acf.template import render_template
+
+_PROMPT_TEMPLATE = Path(__file__).resolve().parent / "judge_prompt.md"
 
 Confidence = Literal["high", "medium", "low"]
 
@@ -140,19 +144,16 @@ def _to_finding(result: JudgeResult, mandate: Mandate) -> Finding:
 
 
 def _build_prompt(*, diff_text: str, mandate: Mandate) -> str:
-    return (
-        "You are an architecture compliance judge.\n"
-        f"Mandate id: {mandate.id}\n"
-        f"Title: {mandate.title}\n"
-        f"Severity: {mandate.severity}\n"
-        f"Detector/prompt id: {mandate.detector}\n"
-        f"Architecture anchor: {mandate.arch_anchor}\n\n"
-        "Review the unified diff. Respond with JSON only:\n"
-        '{"violation": bool, "severity": "BLOCK"|"WARN", '
-        '"confidence": "high"|"medium"|"low", "message": string, '
-        '"path": string|null, "line": int|null}\n'
-        "Set violation=false when the diff does not violate the mandate.\n\n"
-        f"DIFF:\n{diff_text}\n"
+    return render_template(
+        _PROMPT_TEMPLATE.read_text(encoding="utf-8"),
+        {
+            "MANDATE_ID": mandate.id,
+            "TITLE": mandate.title,
+            "SEVERITY": mandate.severity,
+            "DETECTOR": mandate.detector,
+            "ARCH_ANCHOR": mandate.arch_anchor,
+            "DIFF_TEXT": diff_text,
+        },
     )
 
 
