@@ -40,14 +40,13 @@ from acf.adr.contract import (
 )
 # Reuse the file:line pattern contract.py already uses to decide whether
 # SURVIVED evidence names a resolved site at all. Duplicating that regex here
-# would be a second implementation of "what counts as a file:line" (GEMINI.md
-# §7) that could silently drift from the one contract.py enforces at
+# would be a second implementation of "what counts as a file:line" (one point
+# of definition) that could silently drift from the one contract.py enforces at
 # construction time. contract.py is out of scope for this task (it is not
 # edited), so the shared pattern is imported rather than re-declared; this
 # codebase already imports leading-underscore module attributes across files
-# in the same package when the alternative is a duplicate definition (e.g.
-# ``scripts.core.build_scope._get_type_def``, ``scripts.core.asset_paths
-# ._is_foreign_absolute``).
+# in the same package when the alternative is a duplicate definition (e.g. a private
+# helper of a sibling module in the host).
 from acf.adr.contract import _FILE_LINE_RE
 from acf.exceptions import SpecKindUndeterminedError
 
@@ -90,7 +89,7 @@ def _is_uncorroborated_citation_copy(claim: Claim, verdict: ClaimVerdict) -> boo
 
     Comparison is by extracted file:line token, not naive full-string equality —
     the evidence may embed the citation in prose ("Confirmed per ... at
-    scripts/x.py:1, no further check needed") rather than repeat it bare, and a
+    src/x.py:1, no further check needed") rather than repeat it bare, and a
     full-string comparison would miss exactly that failure mode. If the claim
     has no ``spec_citation`` there is nothing to have copied, so the rule
     cannot fire.
@@ -186,7 +185,7 @@ def classify_outcome(
             # rather than silently resolve to "no family required" — that
             # would let a misspelled or invented kind bypass rule 2 entirely
             # for a defect/feature spec that never named a real load-bearing
-            # claim (§3/§4: no silent None default).
+            # claim (fail loud, no shims: no silent None default).
             raise SpecKindUndeterminedError(
                 f"unrecognized spec kind {kind!r}; legal kinds are "
                 f"{sorted(LOAD_BEARING_FAMILY)}"
@@ -273,11 +272,11 @@ def classify_outcome(
                         f"{rel.responsibility!r} is unjustified in writing"
                     )
 
-    # Absorption — an addition-only fix, which §1.7 calls presumptively papering over.
+    # Absorption — an addition-only fix, which the shape-fit rule calls presumptively papering over.
     if "defect" in spec_kinds and "deletion" not in families:
         absorptions.append(
             "defect spec extracts no deletion claim — an addition-only design is "
-            "presumptively papering over the crack (§1.7)"
+            "presumptively papering over the crack"
         )
 
     # Annotated with the ``Outcome`` alias contract.py already spells once: the

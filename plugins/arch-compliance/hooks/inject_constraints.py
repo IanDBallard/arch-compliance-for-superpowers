@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         block = _render_constraints(repo, registry.mandates)
-    except (FileNotFoundError, OSError) as exc:
+    except (AcfInputError, FileNotFoundError, OSError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
     if out_format == "hook":
@@ -160,11 +160,9 @@ def _render_constraints(repo: Path, mandates: list) -> str:
         )
     mandates_block = "\n".join(mandate_lines) if mandate_lines else "_No mandates listed._"
 
-    arch_path = repo / ARCH_REL
-    if not arch_path.is_file():
-        raise FileNotFoundError(
-            f"doctrine document not found: {arch_path.as_posix()}"
-        )
+    from acf.loader import require_file
+
+    arch_path = require_file(repo / ARCH_REL, subject="doctrine document")
     excerpt = arch_path.read_text(encoding="utf-8").strip()
     if len(excerpt) > _ARCH_EXCERPT_MAX:
         excerpt = excerpt[:_ARCH_EXCERPT_MAX].rstrip() + "\n\n…(truncated)…"

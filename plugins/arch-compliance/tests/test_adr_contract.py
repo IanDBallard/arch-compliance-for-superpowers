@@ -1,4 +1,4 @@
-"""Schemas for the adversarial-design-review skill (GEMINI.md §3, §10)."""
+"""Schemas for the adversarial-design-review skill (fail loud, POSIX paths)."""
 import json
 
 import pytest

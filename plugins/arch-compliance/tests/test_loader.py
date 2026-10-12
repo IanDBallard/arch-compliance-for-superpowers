@@ -101,3 +101,20 @@ def test_internal_error_is_not_reported_as_bad_input(tmp_path, monkeypatch):
     monkeypatch.setattr(Row, "model_validate", classmethod(explode))
     with pytest.raises(RuntimeError):
         load_model_file(path, Row, subject="rows file", fmt="yaml", many=True)
+
+
+def test_require_file_refuses_an_absent_path_naming_it(tmp_path):
+    from acf.loader import require_file
+
+    missing = tmp_path / "ARCHITECTURE.md"
+    with pytest.raises(AcfInputError) as excinfo:
+        require_file(missing, subject="doctrine document")
+    assert str(excinfo.value) == f"doctrine document not found: {missing.as_posix()}"
+
+
+def test_require_file_returns_the_path_when_present(tmp_path):
+    from acf.loader import require_file
+
+    present = tmp_path / "doc.md"
+    present.write_text("x\n", encoding="utf-8")
+    assert require_file(present, subject="doc") == present

@@ -7,7 +7,6 @@ import pytest
 from pydantic import ValidationError
 
 from acf.adr.ledger import (
-    LEDGER_PATH,
     LEDGER_PREAMBLE,
     LedgerAmendment,
     LedgerRow,
@@ -62,10 +61,6 @@ def _amendment(**overrides) -> LedgerAmendment:
     }
     fields.update(overrides)
     return LedgerAmendment(**fields)
-
-
-def test_ledger_path_is_the_spec_location():
-    assert LEDGER_PATH == "docs/reviews/adversarial_design_ledger.jsonl"
 
 
 def test_escapes_defaults_to_zero():
@@ -138,9 +133,9 @@ def test_touched_surfaces_rejects_empty_list():
 
 
 def test_public_interface_is_a_recordable_surface():
-    # GEMINI.md item 8 names "a public interface" in the gate's trigger list, and
-    # filter_would_skip is derived from touched_surfaces against exactly that list
-    # (SKILL.md). Without a member for it, a public-interface-only spec has no
+    # The doctrine names "a public interface" in the gate's trigger list, and
+    # filter_would_skip's surface list in the adversarial-design-review skill
+    # (SKILL.md) is derived from it, against touched_surfaces. Without a member for it, a public-interface-only spec has no
     # truthful value to record and lands as filter_would_skip=true — asserting the
     # narrowed filter would SKIP a spec it would in fact KEEP, biasing the one
     # number the narrowing decision rests on.

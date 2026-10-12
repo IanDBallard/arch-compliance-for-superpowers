@@ -300,3 +300,16 @@ def test_gate_fails_loud_when_enabled_without_mandates(tmp_path: Path) -> None:
     )
     assert proc.returncode == 1
     assert "mandates" in proc.stderr.lower()
+
+
+def test_inject_doctrine_refusal_message_is_unchanged(tmp_path: Path) -> None:
+    """The refusal moved to acf.loader.require_file; its text did not change."""
+    repo = _seed_host(tmp_path, enabled=True, mandates=True)
+    doctrine = repo / "config" / "architecture" / "ARCHITECTURE.md"
+    doctrine.unlink()
+    proc = subprocess.run(
+        [sys.executable, str(INJECT), "--repo", str(repo)],
+        capture_output=True, text=True, input="",
+    )
+    assert proc.returncode == 1
+    assert f"acf: doctrine document not found: {doctrine.as_posix()}" in proc.stderr

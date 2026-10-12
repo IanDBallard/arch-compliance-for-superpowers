@@ -21,7 +21,7 @@ Then in the **host** repo run `/acf-setup` (writes `config/architecture/` and `.
 
 ### Override contract
 
-Superpowers owns workflow shape. This plugin owns mandates, gates, audit, and constraint injection. Where they conflict, **host architecture + mandate registry win** over Superpowers generics (plan location, verification commands, fail-loud / no-shim expectations).
+Superpowers owns workflow shape. This plugin owns mandates, gates, audit, and constraint injection. Where they conflict, **host architecture + mandate registry win** over Superpowers generics (plan location, verification commands, fail-loud / no-shim expectations). The `adversarial-design-review` skill is one such override: it is a gate between Superpowers' brainstorming and writing-plans steps, run where the host's doctrine requires it.
 
 ## Skills
 
@@ -30,6 +30,8 @@ Superpowers owns workflow shape. This plugin owns mandates, gates, audit, and co
 | `/acf-setup` | Bootstrap host `config/architecture/`, enable hooks marker, smoke the diff gate |
 | `/acf-mandate` | Add / edit / deprecate rows in `mandates.yml` |
 | `/architecture-review` | Faceted audit + optional baseline / drift |
+| `/adversarial-design-review` | Spec-stage adversarial review gate; the host declares `config/architecture/adr.yml` |
+| `/responding-to-adversarial-review` | Answering a blocked adversarial-design-review gate run |
 
 ## Environment variables
 
@@ -76,18 +78,15 @@ classification, citation resolution, convergence grouping, the efficacy ledger
 and the run-detail writer. The persisted ledger format is the one a host
 already has, so an existing ledger stays readable.
 
-**The gate's skill prose is not here yet.** `SKILL.md` and the four reviewer
-prompts still live in the host that owns them, because they name host paths —
-a spec directory, a reviews directory, a mandate document. Giving a host a way
-to *declare* those instead is the next phase of this work; until then this
-package is the portable half and the prose is not. For the same reason the
-package's `LEDGER_PATH` and `RUNS_DIR` defaults still carry the origin host's
-relative paths; both are overridable arguments, not import-time reads.
+**The gate's skills live here too** (`skills/adversarial-design-review/`,
+`skills/responding-to-adversarial-review/`). A host enables them by writing
+`config/architecture/adr.yml` (`runs_dir`, `ledger_path`) and keeping its doctrine
+at `config/architecture/ARCHITECTURE.md`, which may point to other documents; a
+pointer still carries every heading its mandates' `arch_anchor` values name.
 
 The origin host's skill-install tests (which assert its `.claude/` and
 `.cursor/` skill trees are byte-identical) are deliberately not ported: they
-test a property of a host, not of this plugin, and mean nothing here until the
-skills themselves move.
+test a property of a host, not of this plugin, and mean nothing here.
 
 ## Hooks
 

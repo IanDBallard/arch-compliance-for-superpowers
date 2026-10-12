@@ -7,13 +7,13 @@ cited path must exist in the working tree*, which is not the same requirement an
 is false of specs that are doing their job:
 
 ``historical``
-    "commit ``4594501a`` touches only ``scripts/ai/file_tracker.py``" is a true
+    "commit ``4594501a`` touches only ``src/ai/file_tracker.py``" is a true
     statement about the past. That file was deleted in ``41cbe8e9``. The blanket
     existence check hard-failed a correct citation (2026-08-11, ordering v7).
 ``proposed``
     The command the spec exists to introduce has no file yet, by definition.
 ``external``
-    Live book roots and gitignored build artifacts are outside the tree on
+    Live data directories and gitignored build artifacts are outside the tree on
     purpose.
 
 Each kind uses a signal that already exists — the filesystem, ``git check-ignore``,
@@ -113,8 +113,8 @@ def _resolve_by_suffix(path: str, repo_root: Path) -> str | None:
 
     A **suffix** match, deliberately — not a fuzzy or basename-anywhere one. It
     is deterministic and it does not rescue a wrong path: Amendment 1's original
-    incident, ``scripts/api/routes/content.py`` against a tree whose routes live
-    at ``scripts/cms_server/routes/``, is not a suffix of anything tracked and
+    incident, ``src/api/routes/content.py`` against a tree whose routes live
+    at ``src/server/routes/``, is not a suffix of anything tracked and
     still fails. Shortest match wins when several qualify, so a basename
     resolves to the file that bears it rather than to some longer coincidence.
     """
@@ -148,14 +148,14 @@ def resolve_citation(
         return "proposed", path
     if path in asserted_absent or citation.strip() in asserted_absent:
         # The spec cites this precisely BECAUSE it does not exist — "the diff
-        # baseline exists in no book root" is the finding, not a broken
+        # baseline exists in no live data directory" is the finding, not a broken
         # reference. Declared by the controller off the spec, like `proposed`,
         # rather than guessed: absence is only meaningful when it is claimed.
         return "asserted_absent", None
     # Absoluteness is decided BEFORE existence: an absolute path is outside the
     # working tree whether or not it happens to be mounted right now. Testing
-    # existence first made the verdict depend on the environment — a live book
-    # root classified `current` while its Drive was mounted and `external` when
+    # existence first made the verdict depend on the environment — a live data
+    # directory classified `current` while its mount was up and `external` when
     # it dropped, which is both wrong and non-reproducible. (The mount really
     # did come and go twice on 2026-08-11.)
     if _looks_absolute(path):
@@ -171,8 +171,8 @@ def resolve_citation(
     # definition not ignored, and `git check-ignore` answers about the *string*
     # it is handed, not about the file the citation means. `.gitignore` carries
     # `check_*.py` for stray root-level scripts, so the bare shorthand
-    # `check_book_tier_drift.py` matched it while
-    # scripts/maintenance/check_book_tier_drift.py sat tracked in the tree —
+    # `check_tier_drift.py` matched it while
+    # tools/maintenance/check_tier_drift.py sat tracked in the tree —
     # and the reviewer was told "external: outside the repo, unavailable to
     # you" about a file it needed to open (found running the gate, 2026-08-11).
     suffix_match = _resolve_by_suffix(path, repo_root)

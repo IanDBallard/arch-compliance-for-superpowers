@@ -60,3 +60,7 @@ class LedgerWriteError(AcfError):
 
 class RunDetailWriteError(AcfError):
     """A run detail could not be written, so the run has no record."""
+
+
+class UnresolvableCitationError(AcfError):
+    """A spec cites a path that is not current, historical, proposed, asserted absent or external."""

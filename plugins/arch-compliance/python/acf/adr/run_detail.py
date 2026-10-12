@@ -6,14 +6,14 @@ did it *say*" — and ``absorbed``/``rejected`` are adjudicated against findings
 not against counts.
 
 Without this module that adjudication was done from the spec's own account of
-itself, which is how a §14 citation recorded as absorbed — but never applied —
+itself, which is how a class-cohesion citation recorded as absorbed — but never applied —
 survived two reviews and inflated a backfill by one. ``architecture_review`` has
 written a ``_last_run.json`` sidecar since it shipped; this is the same idea in
 the form this skill's output actually takes (prose findings, not counts), and in
 a **tracked** location, because the run that motivated it wrote its detail to
 gitignored ``.claude/tmp/``.
 
-§10: every persisted path is POSIX. §3: an unwritable sidecar raises rather than
+POSIX paths: every persisted path is POSIX. Fail loud: an unwritable sidecar raises rather than
 being skipped — skipping it reproduces the exact failure it exists to prevent
 while looking like success.
 """
@@ -30,13 +30,8 @@ from acf.adr.contract import (
 )
 from acf.exceptions import RunDetailWriteError
 
-#: Tracked sibling of the ledger. NOT ``.claude/tmp`` — that is gitignored, and a
-#: detail file nobody can read after the session is the problem, not the fix.
-RUNS_DIR = "docs/reviews/adr_runs"
-
-
 def run_detail_path(
-    spec_path: str, *, version: int, date: str, runs_dir: Path | str = RUNS_DIR
+    spec_path: str, *, version: int, date: str, runs_dir: Path | str
 ) -> Path:
     """Return the detail path for a run: ``<runs_dir>/<SPEC_STEM>_v<N>_<date>.md``.
 

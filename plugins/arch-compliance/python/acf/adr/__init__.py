@@ -16,12 +16,12 @@ from acf.adr.contract import (
 from acf.adr.convergence import group_convergence_candidates
 from acf.adr.gate import classify_outcome
 from acf.adr.ledger import (
-    LEDGER_PATH,
     LedgerAmendment,
     LedgerRow,
     append_amendment,
     append_row,
 )
+from acf.adr.host import AdrHostConfig, load_host_config
 from acf.adr.parser import parse_reviewer_payload
 from acf.adr.rollup import format_rollup
 
@@ -33,7 +33,6 @@ from acf.adr.citations import (
     unresolved_citations,
 )
 from acf.adr.run_detail import (
-    RUNS_DIR,
     render_run_detail,
     run_detail_path,
     write_run_detail,
@@ -41,14 +40,13 @@ from acf.adr.run_detail import (
 
 __all__ = [
     "Claim",
+    "AdrHostConfig",
     "ClaimVerdict",
     "ConvergedFinding",
     "DesignReviewRun",
     "GateResult",
-    "LEDGER_PATH",
     "LedgerAmendment",
     "LedgerRow",
-    "RUNS_DIR",
     "ReviewerPayload",
     "UnanchoredFinding",
     "append_amendment",
@@ -59,6 +57,7 @@ __all__ = [
     "count_cited_files",
     "format_rollup",
     "group_convergence_candidates",
+    "load_host_config",
     "parse_reviewer_payload",
     "render_run_detail",
     "resolve_citation",

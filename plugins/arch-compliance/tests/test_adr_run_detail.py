@@ -28,7 +28,6 @@ from acf.adr.contract import (
 )
 from acf.adr.gate import classify_outcome
 from acf.adr.run_detail import (
-    RUNS_DIR,
     render_run_detail,
     run_detail_path,
     write_run_detail,
@@ -97,7 +96,6 @@ def test_detail_path_is_posix_and_lands_under_the_tracked_runs_dir(tmp_path):
                            date="2026-08-11", runs_dir=tmp_path)
     assert "\\" not in path.as_posix()
     assert path.name == "SOME_SPEC_v6_2026-08-11.md"
-    assert RUNS_DIR == "docs/reviews/adr_runs"
 
 
 def test_write_creates_parent_and_round_trips(tmp_path):
@@ -138,3 +136,8 @@ def test_detail_prints_disposition_when_set():
     ]})
     text = render_run_detail(run, result)
     assert "(carried)" in text
+
+
+def test_run_detail_path_requires_runs_dir():
+    with pytest.raises(TypeError):
+        run_detail_path("docs/X.md", version=1, date="2026-10-12")  # type: ignore[call-arg]

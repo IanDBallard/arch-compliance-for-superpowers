@@ -12,15 +12,14 @@ ADR = PLUGIN_ROOT / "python" / "acf" / "adr"
 # The origin's ``__init__.__all__``, verbatim. The skill prose imports from this
 # surface, so a dropped name fails only when a skill runs - which no test covers.
 EXPECTED_SURFACE = {
+    "AdrHostConfig",
     "Claim",
     "ClaimVerdict",
     "ConvergedFinding",
     "DesignReviewRun",
     "GateResult",
-    "LEDGER_PATH",
     "LedgerAmendment",
     "LedgerRow",
-    "RUNS_DIR",
     "ReviewerPayload",
     "UnanchoredFinding",
     "append_amendment",
@@ -31,6 +30,7 @@ EXPECTED_SURFACE = {
     "count_cited_files",
     "format_rollup",
     "group_convergence_candidates",
+    "load_host_config",
     "parse_reviewer_payload",
     "render_run_detail",
     "resolve_citation",

@@ -46,7 +46,7 @@ def _truncate(text: str, limit: int = _QUOTE_MAX) -> str:
 def format_rollup(run: DesignReviewRun, result: GateResult) -> str:
     """Return the terminal summary for ``run``.
 
-    Deliberately does NOT scan its own output for backslashes. §10 applies to
+    Deliberately does NOT scan its own output for backslashes. The POSIX-paths rule applies to
     *path* fields, and every path-bearing field reaching this text is already
     ``PosixStr``-validated at construction in ``contract.py`` — that is where
     the rule belongs and where it is enforced. The prose fields the roll-up also
