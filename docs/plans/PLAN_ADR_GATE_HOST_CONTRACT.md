@@ -647,7 +647,7 @@ Expected: `test_the_seven_files_moved` FAILS (nothing there yet); the others FAI
 
 ```bash
 O=C:/Users/iball/Arduino/Projects/HistoricMansions/.claude/skills
-P=C:/Users/iball/Arduino/Projects/arch-compliance-for-superpowers/plugins/arch-compliance/skills
+P=C:/Users/iball/Arduino/Projects/arch-compliance-worktrees/adr-host-contract/plugins/arch-compliance/skills
 mkdir -p "$P/adversarial-design-review/claims" "$P/adversarial-design-review/reviewers" "$P/responding-to-adversarial-review"
 cp "$O/adversarial-design-review/SKILL.md" "$P/adversarial-design-review/"
 cp "$O/adversarial-design-review/claims/extraction.md" "$P/adversarial-design-review/claims/"
