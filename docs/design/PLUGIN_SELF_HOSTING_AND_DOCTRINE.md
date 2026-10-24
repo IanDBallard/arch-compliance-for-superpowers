@@ -1,6 +1,6 @@
 # The Plugin as a Host of Its Own Gate
 
-**Status:** draft v2 — 2026-10-24, awaiting user approval.
+**Status:** v2 — 2026-10-24, approved by user; next: the acceptance run (§6).
 **Adversarial review:** pending. This spec is the first one the plugin's gate reviews from
 this repository, and that run is its acceptance (§6).
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `c0281bf`; the design is
