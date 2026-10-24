@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+, pydantic v2, PyYAML, pytest; Claude Code plugin CLI; the `acf` package (editable install). No new dependency.
 
-**Spec:** `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` (v1, user-approved 2026-10-22; repo @ `8dabe82`). Section references (§N) are the spec's. Read it in full; its §0 citation convention also governs this plan.
+**Spec:** `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` (v1 user-approved 2026-10-22 at repo `8dabe82`; v2 2026-10-24 on `feat/self-host`, adding Task 4a). Section references (§N) are v2's. Read it in full; its §0 citation convention also governs this plan.
 
 ## Global Constraints
 
@@ -18,14 +18,14 @@
 - **Every stock anchor survives verbatim** in `ARCHITECTURE.md` (§5.2): `## Fail loud`, `## No shims`, `## POSIX paths`, `## Build artifacts`, `## Fail-loud ratchet`, `## Façade sinks`, `## FSM transitions`, `## Soft fail-loud smells`, `## React boundaries`.
 - **Stock rows that do not apply are `status: unenforced`, never deleted** (§5.2): `facade.forbid-sink`, `fsm.transition-guard`, `soft.react-boundaries`.
 - **A manual row's `detector` names an existing test module** under `plugins/arch-compliance/tests/` (§5.2, §5.5). No row names a future test.
-- **No change** to `acf.adr.ledger` models, any detector, any skill prose, or `plugins/arch-compliance/` outside this plan's file list (§3).
+- **No change** to `acf.adr.ledger` models, any detector's logic, the gate skills' prose, or `plugins/arch-compliance/` outside this plan's file list (§3, §4.2). Task 4a changes the registry loader, the `/acf-mandate` skill and two fixtures, as spec v2 §4.2 lists.
 - **Windows:** run `acf.cli_check_diff` with `PYTHONUTF8=1` until §9 item 1 is fixed. Edit tracked files with the Edit tool or byte-level Python only (never `sed -i`, never a text-mode write).
 - **Verification baseline** at `8dabe82`: `python -m pytest -q` → 395 passed (plus 1d's pins once merged); `npm test --prefix plugins/arch-compliance/detectors/typescript` → `self-test OK` (after `npm ci` there).
 - **Commits** end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
 ## Review Focus
 
-1. **The same mandate id in both stock profiles** (`ops.no-build-artifacts`) — expected: one row after the merge, `languages: both`, never two rows one of which `by_id` silently shadows. Pinned by `test_mandate_ids_are_unique` (Task 3) and the merge check in Task 2.
+1. **The same mandate id in both stock profiles** (`ops.no-build-artifacts`) — expected: one row after the merge, `languages: both`, never two rows one of which `by_id` silently shadows. Pinned by the loader's refusal, `test_a_repeated_mandate_id_is_refused` (Task 4a), and the merge check in Task 2.
 2. **A `detection: manual` row reaching the diff gate** — expected: no detector emits its id, so it produces no finding and no error; the CLI exits 0 on a clean tree. Pinned in Task 4 step 7.
 3. **A CRLF checkout of `ARCHITECTURE.md`** — expected: anchors still match, because the test and the plugin read through `read_text` (universal newlines). Pinned by `test_every_anchor_is_in_the_doctrine` reading with `read_text` (Task 3).
 4. **The diff gate run from `plugins/arch-compliance/` instead of the root** — expected: a loud `acf: mandates file not found` on stderr and exit 1, never a silent pass. Pinned in Task 5 step 6.
@@ -120,7 +120,7 @@ git commit -m "chore(host): bootstrap the stock registry and doctrine pair via /
 
 - [ ] **Step 1: Add the root tests directory to `pyproject.toml`**: `testpaths = ["plugins/arch-compliance/tests", "tests"]`. `pythonpath` is unchanged.
 
-- [ ] **Step 2: Write the failing tests**
+- [ ] **Step 2: Write the failing tests** (the block below is the v1 text as executed; Task 4a rewrites the module to spec v2 §5.5: it imports `ARCH_REL`/`MANDATES_REL` from `acf.repo`, `KNOWN_DETECTORS` from `acf.cli_check_diff` and `missing_anchors` from `acf.registry`, and drops `test_mandate_ids_are_unique`)
 
 ```python
 """This repository is a host of its own gate: the declaration, the doctrine and the
@@ -228,7 +228,7 @@ git commit -m "feat(host): adr.yml declaration and the self-host test (declarati
   detection: manual
   detector: plugins/arch-compliance/tests/test_adr_exceptions.py
   languages: python
-  call_sites: [review]
+  call_sites: [audit]
   exemption_tokens: [plugin.one-base-exception-ok]
   status: enforced
   arch_anchor: "## One base exception"
@@ -256,6 +256,24 @@ Expected: both exit 0 with no `acf:` line on stderr.
 git add config/architecture/ARCHITECTURE.md config/architecture/mandates.yml
 git commit -m "feat(host): the plugin's doctrine — nine sections, lifted rules quoted, five manual registry rows"
 ```
+
+---
+
+### Task 4a: Package checks, fixture tokens, doctrine scope (spec v2 §5.2, §5.4, §5.5)
+
+**Files:**
+- Modify: `plugins/arch-compliance/python/acf/registry.py`, `plugins/arch-compliance/tests/test_registry.py`, `plugins/arch-compliance/tests/test_profile_drift.py`, `plugins/arch-compliance/skills/acf-mandate/SKILL.md`, `plugins/arch-compliance/tests/fixtures/python/bad_except.py`, `plugins/arch-compliance/tests/fixtures/typescript/bad.tsx`, `plugins/arch-compliance/.claude-plugin/plugin.json`, `pyproject.toml` (version), `tests/test_self_host.py`, `config/architecture/{ARCHITECTURE.md,mandates.yml}`, `CLAUDE.md`
+- Create: `plugins/arch-compliance/tests/test_acf_mandate_skill.py`
+
+**Interfaces:**
+- Produces: `load_mandates` raises `AcfInputError` naming each repeated id; `missing_anchors(registry: MandateRegistry, doctrine_text: str) -> list[str]` in `acf.registry`. Consumes: `acf.cli_check_diff.KNOWN_DETECTORS`, `acf.repo.ARCH_REL`/`MANDATES_REL`.
+
+- [ ] **Step 1: RED** — add `test_a_repeated_mandate_id_is_refused` and `test_missing_anchors_names_rows_whose_anchor_is_absent` to `plugins/arch-compliance/tests/test_registry.py`. Expected: collection fails on the missing import; a two-row file with one id loads 2 rows and `by_id` keeps the second.
+- [ ] **Step 2: GREEN** — implement both in `acf.registry`; rewrite `test_profile_drift.py` and `tests/test_self_host.py` to consume them (spec v2 §5.5, three host tests). Expected: `test_registry.py`, `test_profile_drift.py`, `tests/test_self_host.py` → 9 passed; a duplicated row in the host registry fails the host tests with the loader's message.
+- [ ] **Step 3: Fixture tokens** — append the row's exemption token with a reason to `bad_except.py:4` and `bad.tsx:4`. Expected: `test_python_pack.py` + `test_typescript_pack.py` pass; `npm test` prints `self-test OK: bad.tsx (3 findings)`; `PYTHONUTF8=1 PYTHONPATH=plugins/arch-compliance/python python -m acf.cli_check_diff --repo . --base dfff93f5` lists the five WARN rows of spec §5.4 and exits 0.
+- [ ] **Step 4: Skill snippet, RED then GREEN** — `test_acf_mandate_skill.py` runs the `/acf-mandate` Validate snippet as written against a python-service host. Expected RED: `UnknownDetectorError` on `ops.no-build-artifacts`. Rewrite the snippet to `KNOWN_DETECTORS` + `missing_anchors`; expected 2 passed. Bump `plugin.json` and `pyproject.toml` to `0.2.1`.
+- [ ] **Step 5: Doctrine and registry** — per spec v2 §5.2: scope paragraph, row ids instead of test paths, HM lines at `22eae4f9`, three decoding breaches with recipe and scope, stated scopes for `No completeness claims`, `Declared, never defaulted`, `Release discipline`, the sixth high-frequency miss; manual rows `call_sites: [audit]`; `CLAUDE.md` points to `## Release discipline`.
+- [ ] **Step 6: Suite** — `python -m pytest -q` → `BASELINE_TESTS + 10` passed; commit.
 
 ---
 
@@ -396,7 +414,7 @@ Expected: `installed gate skills identical to the clone`. Otherwise reinstall (1
 ```bash
 ls docs/reviews/adr_runs/
 tail -1 docs/reviews/adversarial_design_ledger.jsonl | python -c "import json,sys; r=json.load(sys.stdin); print(r['spec_path'], r['outcome'])"
-python -m pytest tests/test_self_host.py -q     # still 4 passed
+python -m pytest tests/test_self_host.py -q     # 3 passed
 git add docs/reviews && git commit -m "docs(adr): PLUGIN_SELF_HOSTING_AND_DOCTRINE v1 gate run — <OUTCOME>"
 ```
 
@@ -411,13 +429,13 @@ Expected: `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md CLEARED` (or `CLEARED
 - [ ] **Step 1: Full verification**
 
 ```bash
-python -m pytest -q                                                     # BASELINE_TESTS + 6
+python -m pytest -q                                                     # BASELINE_TESTS + 10
 npm test --prefix plugins/arch-compliance/detectors/typescript          # self-test OK
-PYTHONUTF8=1 python -m acf.cli_check_diff --repo . --base origin/main   # exit 0
+PYTHONUTF8=1 PYTHONPATH=plugins/arch-compliance/python python -m acf.cli_check_diff --repo . --base origin/main   # exit 0 (branch code)
 git status --short                                                      # clean
 ```
 
-- [ ] **Step 2: DoD 4** — `git diff --stat origin/main` lists only: `config/architecture/{adr.yml,mandates.yml,ARCHITECTURE.md}`, `tests/test_self_host.py`, `tests/test_check_installed_skills.py`, `scripts/check_installed_skills.py`, `pyproject.toml`, `CLAUDE.md`, `README.md`, `.github/workflows/ci.yml`, `docs/design/ADR_GATE_HOST_CONTRACT.md`, `docs/reviews/…` (two files).
+- [ ] **Step 2: DoD 5** — each path in `git diff --stat origin/main` has a row in spec v2 §4.2 (check path by path against the table).
 
 - [ ] **Step 3: Code review** — `requesting-code-review` over `BASE_SHA..HEAD`, naming: the five manual rows and their severities, the unenforced stock rows, `pyproject.toml` testpaths, the CI base expression. Fix findings in new commits; a change to any §5.2 rule returns to Task 8 step 4.
 
@@ -445,7 +463,7 @@ The body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-
   - Workstream E table: add row **1e** after 1d: "Plugin self-hosting: the plugin repository declares itself a host of its gate, proposes its doctrine, moves `ADR_GATE_HOST_CONTRACT.md` to the plugin; first live gate run outside HM | spec `acf:docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` | ✅ Merged <date>, plugin PR #<N>". Rename the second-repository row to **1f**.
   - Exit criterion 5: the spec §10 wording ("the plugin repository is the first such host (1e), Cayenne the foreign-stack proof (1f)").
   - 1c row: append "spec moved to the plugin repository in 1e".
-  - Priority board: one row each (class A, Parked) for spec §9 follow-ups 1 (git runner decoding + one-runner consolidation) and 2 (post-merge-housekeeping extraction; revises exit criterion 6 and GEMINI.md §1 item 8); follow-up 3 is already filed by 1d — confirm with `grep -n 'quiet-disabled'`.
+  - Priority board: one row each (class A, Parked) for spec §9 follow-ups 1 (three-site text decoding + one-runner consolidation), 2 (post-merge-housekeeping extraction; revises exit criterion 6 and GEMINI.md §1 item 8), 4 (`/acf-setup` duplicate-id prose) and 5 (byte-check scope to hooks and package), and one for HM's install instruction calling `scripts/check_installed_skills.py` (spec §5.3); follow-up 3 is already filed by 1d — confirm with `grep -n 'quiet-disabled'`.
 
 - [ ] **Step 4: Commit and PR in HM**
 
