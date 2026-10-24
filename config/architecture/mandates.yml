@@ -140,3 +140,62 @@
   status: partial
   arch_anchor: "## Soft fail-loud smells"
   auditor: fail-loud
+
+# The plugin's own rules (spec docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md §5.2).
+# `detection: manual`: no detector emits these ids; `detector` names the test module that
+# enforces the rule, so each row is a pointer from the rule to its enforcement.
+
+- id: plugin.one-base-exception
+  title: Every ACF exception subclasses AcfError alone
+  severity: BLOCK
+  detection: manual
+  detector: plugins/arch-compliance/tests/test_adr_exceptions.py
+  languages: python
+  call_sites: [review]
+  exemption_tokens: [plugin.one-base-exception-ok]
+  status: enforced
+  arch_anchor: "## One base exception"
+
+- id: plugin.one-owner-host-paths
+  title: acf.repo is the only declaration of host paths and imports only the stdlib
+  severity: WARN
+  detection: manual
+  detector: plugins/arch-compliance/tests/test_repo_paths.py
+  languages: python
+  call_sites: [review]
+  exemption_tokens: [plugin.one-owner-host-paths-ok]
+  status: enforced
+  arch_anchor: "## One owner for host paths"
+
+- id: plugin.declared-never-defaulted
+  title: A value the gate cannot derive is declared by the host, never defaulted
+  severity: BLOCK
+  detection: manual
+  detector: plugins/arch-compliance/tests/test_adr_host.py
+  languages: python
+  call_sites: [review]
+  exemption_tokens: [plugin.declared-never-defaulted-ok]
+  status: enforced
+  arch_anchor: "## Declared, never defaulted"
+
+- id: plugin.prose-names-no-host
+  title: Skill prose and runtime messages name no host repository, path or section
+  severity: WARN
+  detection: manual
+  detector: plugins/arch-compliance/tests/test_adr_code_portability.py
+  languages: python
+  call_sites: [review]
+  exemption_tokens: [plugin.prose-names-no-host-ok]
+  status: enforced
+  arch_anchor: "## Prose names no host"
+
+- id: plugin.frozen-ledger-format
+  title: LedgerRow and LedgerAmendment fields change only through a spec and a gate run
+  severity: BLOCK
+  detection: manual
+  detector: plugins/arch-compliance/tests/test_adr_ledger.py
+  languages: python
+  call_sites: [review]
+  exemption_tokens: [plugin.frozen-ledger-format-ok]
+  status: enforced
+  arch_anchor: "## Frozen ledger format"
