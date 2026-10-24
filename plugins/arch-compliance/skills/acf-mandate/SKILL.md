@@ -86,30 +86,30 @@ From an environment where the `acf` package is importable, run:
 
 ```bash
 python -c "
+import sys
 from pathlib import Path
-from acf.registry import load_mandates
-from acf.detectors.python_pack import PYTHON_DETECTOR_IDS
-from acf.detectors.typescript_bridge import TS_DETECTOR_IDS
-from acf.judge import LLM_PROMPT_IDS
+from acf.cli_check_diff import KNOWN_DETECTORS
+from acf.registry import load_mandates, missing_anchors
+from acf.repo import ARCH_REL, MANDATES_REL
 
-path = Path('config/architecture/mandates.yml')
-known = PYTHON_DETECTOR_IDS | TS_DETECTOR_IDS | LLM_PROMPT_IDS
-reg = load_mandates(path, known_detectors=known)
+reg = load_mandates(MANDATES_REL, known_detectors=KNOWN_DETECTORS)
 print(f'OK: {len(reg.mandates)} mandates from {reg.source_path}')
 for m in reg.mandates:
     print(f'  {m.id} status={m.status} detection={m.detection} detector={m.detector}')
+missing = missing_anchors(reg, ARCH_REL.read_text(encoding='utf-8'))
+if missing:
+    sys.exit(f'arch_anchor not found in {ARCH_REL.as_posix()} for: {missing}')
 "
 ```
 
-Also verify each `arch_anchor` is a substring of `config/architecture/ARCHITECTURE.md` (same discipline as profile drift tests).
+The snippet refuses a repeated mandate id, an enforced `ast`/`guard` row whose detector
+is not in `KNOWN_DETECTORS`, and a row whose `arch_anchor` is not a literal substring of
+`config/architecture/ARCHITECTURE.md` (the same check the profile drift test runs).
 
-If `UnknownDetectorError` or `AcfInputError` occurs: fix the YAML; do not weaken validation by omitting `known_detectors` for “convenience.”
-
-Known detector union today:
-
-- Python AST: `fail_loud_bare_except`, `no_shims_hasattr`
-- TypeScript AST: `empty_catch`, `explicit_any`
-- LLM prompts: `llm_react_boundaries`, `llm_fail_loud`, `llm_no_shims`, `llm_posix_paths`
+If `UnknownDetectorError` or `AcfInputError` occurs, or an anchor is reported missing: fix
+the YAML or the heading; do not weaken validation by omitting `known_detectors` for
+“convenience.” The known detector union is `acf.cli_check_diff.KNOWN_DETECTORS`; print it
+with `python -c "from acf.cli_check_diff import KNOWN_DETECTORS; print(sorted(KNOWN_DETECTORS))"`.
 
 ## Detector / prompt stubs — remind, do not codegen
 

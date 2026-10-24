@@ -1,22 +1,26 @@
 """This repository is a host of its own gate: the declaration, the doctrine and the
-registry agree (spec docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md §5.5)."""
+registry agree (spec docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md §5.5).
+
+Every generic check is the package's: the registry loader refuses a repeated id,
+`missing_anchors` is the one anchor check, `KNOWN_DETECTORS` the one detector union,
+and `acf.repo` the one declaration of host paths. What stays here is this host's own
+policy: its declared values, and that its manual rows point at the plugin's tests.
+"""
 from __future__ import annotations
 
 from pathlib import Path
 
 from acf.adr import load_host_config
-from acf.detectors import ALL_PYTHON_DETECTOR_IDS
-from acf.detectors.typescript_bridge import TS_DETECTOR_IDS
-from acf.judge import LLM_PROMPT_IDS
-from acf.registry import load_mandates
+from acf.cli_check_diff import KNOWN_DETECTORS
+from acf.registry import load_mandates, missing_anchors
+from acf.repo import ARCH_REL, MANDATES_REL
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG = ROOT / "config" / "architecture"
-KNOWN_DETECTORS = ALL_PYTHON_DETECTOR_IDS | TS_DETECTOR_IDS | LLM_PROMPT_IDS
+MANUAL_DETECTOR_PREFIX = "plugins/arch-compliance/tests/"
 
 
 def _registry():
-    return load_mandates(CONFIG / "mandates.yml", known_detectors=KNOWN_DETECTORS)
+    return load_mandates(ROOT / MANDATES_REL, known_detectors=KNOWN_DETECTORS)
 
 
 def test_declaration_names_the_reviews_tree():
@@ -26,19 +30,13 @@ def test_declaration_names_the_reviews_tree():
 
 
 def test_every_anchor_is_in_the_doctrine():
-    doctrine = (CONFIG / "ARCHITECTURE.md").read_text(encoding="utf-8")
-    missing = [m.id for m in _registry().mandates if m.arch_anchor not in doctrine]
-    assert missing == []
+    doctrine = (ROOT / ARCH_REL).read_text(encoding="utf-8")
+    assert missing_anchors(_registry(), doctrine) == []
 
 
 def test_every_manual_row_names_an_existing_test_module():
     rows = [m for m in _registry().mandates if m.detection == "manual"]
-    assert rows, "no manual rows: Task 4 adds five"
+    assert rows, "this host's registry carries manual rows"
     missing = [m.id for m in rows if not (ROOT / m.detector).is_file()
-               or not m.detector.startswith("plugins/arch-compliance/tests/")]
+               or not m.detector.startswith(MANUAL_DETECTOR_PREFIX)]
     assert missing == []
-
-
-def test_mandate_ids_are_unique():
-    ids = [m.id for m in _registry().mandates]
-    assert sorted(set(ids)) == sorted(ids)
