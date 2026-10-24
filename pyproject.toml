@@ -20,7 +20,7 @@ acf-check-diff = "acf.cli_check_diff:main"
 acf-check-llm = "acf.cli_check_llm:main"
 
 [tool.pytest.ini_options]
-testpaths = ["plugins/arch-compliance/tests"]
+testpaths = ["plugins/arch-compliance/tests", "tests"]
 pythonpath = ["plugins/arch-compliance/python"]
 
 [build-system]
