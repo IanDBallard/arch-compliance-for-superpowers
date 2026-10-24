@@ -84,6 +84,12 @@ already has, so an existing ledger stays readable.
 at `config/architecture/ARCHITECTURE.md`, which may point to other documents; a
 pointer still carries every heading its mandates' `arch_anchor` values name.
 
+**This repository is a host of its own gate.** It declares
+`config/architecture/adr.yml`, keeps its doctrine and registry under
+`config/architecture/`, and records its reviews under `docs/reviews/` (spec
+`docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md`). Specs about the plugin are
+written, reviewed and recorded here.
+
 The origin host's skill-install tests (which assert its `.claude/` and
 `.cursor/` skill trees are byte-identical) are deliberately not ported: they
 test a property of a host, not of this plugin, and mean nothing here.
