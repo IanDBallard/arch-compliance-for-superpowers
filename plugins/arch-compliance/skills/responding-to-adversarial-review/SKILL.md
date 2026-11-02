@@ -67,7 +67,8 @@ For each decided change, in order:
    recipe that cannot reproduce the known sites cannot be trusted on the unknown
    ones. Patterns inherit the blindness of the sites they were derived from: derive
    the recipe from the *claim* (the bare noun), then prove it against the known
-   population.
+   population. Reproducing the known sites proves the recipe can *see*; it never
+   proves the recipe sees *everything* — for that, see §2a.
 4. Fix **every** hit, including slice tags, phase tags, Then-lists, decision rows,
    and change-surface entries. Implementers build task lists from those.
 5. Re-run the same greps. Expect zero — a zero from an unvalidated recipe is not
@@ -78,6 +79,12 @@ Then run the controller's **pre-dispatch mechanical stop** (step 2b of
 literal tabs, placeholders, prior-verdict leaks, slice-tag vs sequencing, unresolved
 citations. Run **§3 first**: the mechanical stop is syntactic — it passes a spec
 whose new prose is false.
+
+Then run the **delta pre-flight**: dispatch one fresh agent with the gate's
+`reviewers/sweeper.md` prompt (add `reviewers/refuter.md` when the revision changed
+premises), the revised spec, and **only the claims this revision added or changed**.
+Fix what it refutes, then request the gate. It is a rehearsal, not the gate: it
+writes no ledger row and its verdicts never travel to the real reviewers.
 
 Three rules:
 
@@ -91,6 +98,25 @@ Three rules:
   task. A list enumerated from memory is always incomplete; a recipe recorded in the
   spec moves the refutation surface from the list to the recipe, which a reviewer
   can strengthen but rarely refute.
+
+## 2a. A refuted census is answered by execution
+
+When a reviewer refutes a population claim — "every handler that…", "the consumers
+of…", "no other writer…", "these tests flip" — the answer is the census that
+**observes** the population, committed beside the spec, with its output cited in
+place of the recipe:
+
+| Claim is about | Executed census | Committed artifact |
+|---|---|---|
+| A code shape (who calls, catches, imports, reads an attribute) | AST sweep: walk the parse tree, resolve aliases and receivers | the script and its output |
+| Runtime behaviour (who catches X when it is raised, who reads Y's mtime) | Fault injection or a tracing hook, driven through real entry points over a sandbox | the harness and its per-entry-point table |
+| What a tool or build writes | Sandbox run, the tree snapshotted before and after, every changed path attributed | the snapshot diff |
+| Which tests or guards break | Apply the change on a throwaway branch and run the suite and guards | the diff and the failing-test list |
+
+When a claim fits two rows — "who reads Y's mtime" is both a code shape and a
+runtime behaviour — run both: the sweep finds every site, the run shows which are
+live, and a site one sees and the other does not is a finding. A regex can
+cross-check an executed census; it is never the census for a refuted claim. Delete the throwaway branch afterwards; keep the scripts and outputs.
 
 ## 3. Verify the premises you just wrote
 
@@ -139,7 +165,7 @@ selection is stated as confidently as the first.
 
 **Sentence-type sweep (required section of the response record).** Sweep the
 *entire revised spec* — changed and carried text alike, since carried text was
-authored under the same habits — for six refutation-prone sentence types; for each
+authored under the same habits — for seven refutation-prone sentence types; for each
 hit either convert it to its replacement device or record why it stands. Each type
 has produced at least one blocking verdict, and three recurred across successive
 revisions until eliminated — which is why the sweep covers the whole spec, not the
@@ -153,6 +179,7 @@ diff.
 | T4 | Prose-only measurement of tool/library behavior | In-tree executable pin (a committed test), not pasted output |
 | T5 | Named hook/method/attribute without an existence receipt | `grep -n "def <name>"`-class receipt beside the claim |
 | T6 | Mandate/doc attribution without the quoted trigger | The governing clause quoted adjacent to the inference |
+| T7 | Completeness claim backed only by a recipe validated on known sites | The executed census of §2a, its output cited |
 
 The gate checks only that the section **exists** (presence, never quality).
 
