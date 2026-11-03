@@ -39,10 +39,13 @@ For the Tier-2 LLM judge (required when enforced `detection: llm` mandates are a
 
 | Variable | Purpose |
 |---|---|
-| `GEMINI_API_KEY` | Preferred Gemini API key |
-| `GOOGLE_API_KEY` | Accepted fallback |
+| `ACF_JUDGE_PROVIDER` | Judge provider: `anthropic` (default) or `gemini` (overridden by `--provider`) |
+| `ACF_JUDGE_MODEL` | Optional model override (default: `claude-sonnet-4-6` for `anthropic`, `gemini-2.0-flash` for `gemini`; overridden by `--model`) |
+| `ANTHROPIC_API_KEY` | Required API key when provider is `anthropic` |
+| `GEMINI_API_KEY` | Preferred Gemini API key when provider is `gemini` |
+| `GOOGLE_API_KEY` | Accepted Gemini API key when `GEMINI_API_KEY` is unset and provider is `gemini` |
 
-Missing both → hard fail for enforced LLM mandates (no silent skip).
+Missing the active provider's key → hard fail for enforced LLM mandates (no silent skip and no cross-provider fallback).
 
 ## Local Python package
 
@@ -83,6 +86,12 @@ already has, so an existing ledger stays readable.
 `config/architecture/adr.yml` (`runs_dir`, `ledger_path`) and keeping its doctrine
 at `config/architecture/ARCHITECTURE.md`, which may point to other documents; a
 pointer still carries every heading its mandates' `arch_anchor` values name.
+
+**This repository is a host of its own gate.** It declares
+`config/architecture/adr.yml`, keeps its doctrine and registry under
+`config/architecture/`, and records its reviews under `docs/reviews/` (spec
+`docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md`). Specs about the plugin are
+written, reviewed and recorded here.
 
 The origin host's skill-install tests (which assert its `.claude/` and
 `.cursor/` skill trees are byte-identical) are deliberately not ported: they

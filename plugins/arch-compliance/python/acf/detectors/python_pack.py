@@ -21,9 +21,6 @@ PYTHON_AST_DETECTOR_IDS = frozenset(
     }
 )
 
-# Back-compat alias used by CLI / drift tests.
-PYTHON_DETECTOR_IDS = PYTHON_AST_DETECTOR_IDS
-
 _PATHY_RE = re.compile(r"path|dir|file", re.IGNORECASE)
 
 

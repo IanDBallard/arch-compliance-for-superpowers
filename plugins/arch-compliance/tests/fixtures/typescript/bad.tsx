@@ -1,7 +1,7 @@
 export function Bad() {
   try {
     doWork();
-  } catch {
+  } catch { // fail-loud.empty-catch-ok: detector fixture; the pack must flag this line
     // swallowed
   }
   const x: any = 1;

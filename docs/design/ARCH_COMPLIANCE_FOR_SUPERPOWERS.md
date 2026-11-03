@@ -99,7 +99,7 @@ Each row declares at least:
 | `title` | Short title |
 | `severity` | `BLOCK` \| `WARN` |
 | `detection` | `ast` \| `llm` \| `grep` \| `guard` \| `manual` |
-| `detector` | Detector fn / guard module / LLM prompt id |
+| `detector` | Detector fn / guard module / LLM prompt id / manual verification pointer |
 | `languages` | `python` \| `typescript` \| `both` \| `none` |
 | `call_sites` | e.g. `precommit`, `ci`, `posttooluse`, `audit` |
 | `exemption_tokens` | Tokens recognized in `# mandate-ok:` style comments |
@@ -130,7 +130,7 @@ Config resolution always prefers the **host project** paths produced by `/acf-se
 
 ### Tier 2 — LLM judgment layer (full)
 
-- Provider interface; **Gemini default**; API key via environment.
+- Provider interface; **Anthropic default (`claude-sonnet-4-6`)**, **Gemini supported (`gemini-2.0-flash`)**; provider/model selectable via `--provider` / `ACF_JUDGE_PROVIDER` and `--model` / `ACF_JUDGE_MODEL`; API key via provider-specific environment variable with no cross-provider fallback.
 - Confidence-gated: high confidence → `BLOCK`, else `WARN` (threshold configurable).
 - Calibration fixtures for both Python and TS/React soft smells; document precision/recall honesty.
 - If a mandate is `status: enforced` and `detection: llm` but the judge is not configured, the gate **hard-fails** (no silent skip).
@@ -181,7 +181,7 @@ A dual-language host may merge both via `/acf-setup`.
 
 - Missing/malformed `mandates.yml` → typed load error, non-zero CLI exit.
 - Unknown mandate id in `/architecture-review --mandates` → hard fail.
-- Unknown detector id referenced by an enforced row → drift/registry validation fail.
+- Unknown detector id referenced by an enforced `ast` or `guard` row → drift/registry validation fail.
 - Unconfigured LLM judge with enforced llm mandates → hard fail at judge call site.
 - Empty target tree for audit → hard fail with glob/cwd context.
 
