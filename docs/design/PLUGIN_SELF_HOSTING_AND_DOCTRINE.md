@@ -1,8 +1,7 @@
 # The Plugin as a Host of Its Own Gate
 
-**Status:** v3 — 2026-11-02, approved by user; next: the acceptance run (§6).
-**Adversarial review:** pending. This spec is the first one the plugin's gate reviews from
-this repository, and that run is its acceptance (§6).
+**Status:** v3 — 2026-11-02, approved by user; cleared acceptance run (§6).
+**Adversarial review:** v3 — 2026-11-02, 4 reviewers, CLEARED (repo @ 2254c9c56ee27c8b5ff56aeb29368b54ddc0d960)
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `c0281bf`; the design is
 implemented on branch `feat/self-host`.
 **Workstream:** HistoricMansions workstream E, portable governance. Proposed phase number: **1e**
