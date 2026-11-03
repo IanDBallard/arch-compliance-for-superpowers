@@ -178,14 +178,25 @@
   status: enforced
   arch_anchor: "## Declared, never defaulted"
 
-- id: plugin.prose-names-no-host
-  title: Skill prose and runtime messages name no host repository, path or section
+- id: plugin.adr-code-names-no-host
+  title: The gate's package and runtime messages name no origin host
   severity: WARN
   detection: manual
   detector: plugins/arch-compliance/tests/test_adr_code_portability.py
   languages: python
   call_sites: [audit]
-  exemption_tokens: [plugin.prose-names-no-host-ok]
+  exemption_tokens: [plugin.adr-code-names-no-host-ok]
+  status: enforced
+  arch_anchor: "## Prose names no host"
+
+- id: plugin.gate-prose-names-no-host
+  title: The gate skills' prose names no origin host
+  severity: WARN
+  detection: manual
+  detector: plugins/arch-compliance/tests/test_adr_skill_prose.py
+  languages: python
+  call_sites: [audit]
+  exemption_tokens: [plugin.gate-prose-names-no-host-ok]
   status: enforced
   arch_anchor: "## Prose names no host"
 

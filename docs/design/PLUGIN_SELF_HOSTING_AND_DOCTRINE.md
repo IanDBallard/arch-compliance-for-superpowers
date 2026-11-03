@@ -1,6 +1,6 @@
 # The Plugin as a Host of Its Own Gate
 
-**Status:** v2 — 2026-10-24, approved by user; next: the acceptance run (§6).
+**Status:** v3 — 2026-11-02, approved by user; next: the acceptance run (§6).
 **Adversarial review:** pending. This spec is the first one the plugin's gate reviews from
 this repository, and that run is its acceptance (§6).
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `c0281bf`; the design is
@@ -26,11 +26,13 @@ prefixed path to the sibling checkout and the reviewers opened the files there
 (`hm:docs/reviews/adr_runs/ADR_GATE_HOST_CONTRACT_v3_2026-10-12.md:28,35,247`). The
 acceptance run of this spec (§6) follows that precedent: before classification the
 controller rewrites `hm:` to `C:/Users/iball/Arduino/Projects/HistoricMansions/`, hands
-reviewers the mapped paths, and counts them as cited files. Every unprefixed citation in
-this spec is a full repository-relative path with no shorthand, because the resolver's
-suffix match works on whole path components and an ellipsis resolves to nothing.
+reviewers the mapped paths, and counts them as cited files. Unprefixed citations in
+this spec use repository-relative paths (`hm:` citations use HM-relative paths) without
+`...` ellipses or bare `:line` continuations, because the resolver's suffix match works on
+whole path components (`plugins/arch-compliance/python/acf/adr/citations.py:32-44`) and an
+ellipsis resolves to nothing.
 
-Independently of that mapping, **each rule this spec lifts from another repository (§5.2 lists them) is
+Independently of that mapping, **each rule this spec lifts from another repository (§5.2 lists the eight lifted clauses) is
 quoted in the doctrine, not only pointed to**, so the doctrine reads on its own and a
 reviewer on a node without the sibling checkout can still verify it.
 
@@ -40,11 +42,12 @@ This repository runs the plugin's own adversarial-design-review gate on its own 
 its own declared configuration and its own written doctrine, so that a spec about the
 plugin is reviewed and recorded where the files it changes live.
 
-Today a spec about the plugin is written in HM's `docs/design/`, reviewed by HM's gate
-against HM's doctrine, and recorded in HM's ledger. Eight such specs sit there (the
-`hm:docs/design/ADR_*.md` files and `hm:docs/design/ARCH_COMPLIANCE_SHIFT_LEFT_GATING.md`;
-per-spec ledger rows in §10). That is the same split for prose and review that phases
-1b-1d remove for code.
+Today a spec about the plugin or its extracted architecture-compliance framework is written
+in HM's `docs/design/`, reviewed by HM's gate against HM's doctrine, and recorded in HM's
+ledger. Twelve specs in `hm:docs/design/` have the ADR gate or ACF as their subject (seven
+post-plugin `ADR_*.md` specs and five pre-extraction HM origin specs; per-spec ledger rows
+and executed census recipe in §10 and the appendix). That is the same split for prose and
+review that phases 1b-1d remove for code.
 
 ## 2. Decisions this design records
 
@@ -54,8 +57,9 @@ Inputs, not tree-derivable claims:
    splits along that line: a plugin-side spec here and a host-side adoption spec or plan
    there, instead of one HM spec carrying a plugin PR inside a task as 1c did. (user, 2026-10-22)
 2. **The plugin's doctrine is proposed by this spec.** There is no written doctrine for
-   this repository at `c0281bf` (§4.1 item 1). The doctrine draws on HM's `GEMINI.md`
-   where a rule applies to Python, and on this plugin's own review record. (user, 2026-10-22)
+   this repository at `c0281bf` (§4.1 item 1). The doctrine lifts the eight general clauses
+   listed in §5.2 from HM's `hm:GEMINI.md` and combines them with nine sections from this
+   plugin's own review record. (user, 2026-10-22)
 3. **Post-merge-housekeeping is extracted to the plugin in its own spec, after this one.**
    It is not in scope here. HM's workstream exit criterion 6, which records the skill as
    "HM-local by decision", is revised by that spec, not this one. (user, 2026-10-22)
@@ -75,11 +79,13 @@ Inputs, not tree-derivable claims:
    `config/architecture/` and `.acf/enabled`)"); this repository is a host and uses it. The
    declaration `config/architecture/adr.yml` is not written by the skill and is authored
    by hand (§5.1). (author's call)
-8. **A generic check lives in the package; a host test keeps only its host's policy.** The
-   registry loader refuses a repeated mandate id, `acf.registry.missing_anchors` is the
-   one anchor-in-doctrine check, and `acf.cli_check_diff.KNOWN_DETECTORS` is the one
-   detector-id union; this repository's tests and the `/acf-mandate` skill consume them
-   (§5.5). (author's call)
+8. **A generic check lives in the package; a host test keeps only its host's policy.**
+   `MandateRegistry` refuses a repeated mandate id during model validation,
+   `acf.registry.missing_anchors` is the one anchor-in-doctrine check, and
+   `acf.cli_check_diff.KNOWN_DETECTORS` is the one detector-id union; this repository's
+   tests and the `/acf-mandate` skill consume them (§5.5). Two existing skill-prose breaches
+   in `/architecture-review` and `/acf-setup` are recorded in the doctrine and filed as §9
+   follow-up 4 under `## Scoped refactor`. (author's call)
 
 ## 3. Non-goals
 
@@ -96,35 +102,39 @@ Inputs, not tree-derivable claims:
 - No housekeeping extraction (decision 3). No Cayenne change.
 - No Cursor twin and no dual-tree identity test: this repository ships one tree.
 - No fix to the undeclared text decoding of three subprocess calls (§4.1 item 7) and no
-  rewrite of the `/acf-setup` duplicate-id prose (§4.1 item 4). Both are filed (§9): this
-  spec's theme is declaration, doctrine and the checks they rest on.
+  rewrite of the `/acf-setup` or `/architecture-review` skill prose (§4.1 item 4, §5.2).
+  Both are filed (§9): this spec's theme is declaration, doctrine and the checks they rest on.
 
 ## 4. What this touches
 
-### 4.1 Census (2026-10-24; commands in the appendix)
+### 4.1 Census (2026-10-24, updated 2026-11-02; commands in the appendix)
 
 1. At `c0281bf`, `config/architecture/` is absent and `.acf/` is ignored (`.gitignore:8`).
    The root documents are `README.md` and `SECURITY.md`; there is no `CLAUDE.md`.
-2. At `c0281bf`, `docs/design/` holds `ARCH_COMPLIANCE_FOR_SUPERPOWERS.md` and this spec;
-   `docs/reviews/` is absent.
+2. At `c0281bf`, `docs/design/` holds `docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md` and
+   this spec; `docs/reviews/` is absent.
 3. The host contract reads two declared values and the doctrine path
    (`plugins/arch-compliance/python/acf/adr/host.py:19-33`); the compliance reviewer reads
    the doctrine and each document it points to
    (`plugins/arch-compliance/skills/adversarial-design-review/reviewers/compliance.md:12`)
-   and checks a doctrine's self-declared high-frequency misses first (`:47`).
-4. `/acf-setup` writes `config/architecture/mandates.yml` and `ARCHITECTURE.md` from a
-   profile, merging both profiles for a two-language host
-   (`plugins/arch-compliance/skills/acf-setup/SKILL.md:90-118`). Its merge rule reads:
-   "Keep every mandate `id` unique. If the same `id` appears in both (should not for stock
-   profiles), stop and ask; never silently drop a row." (`plugins/arch-compliance/skills/acf-setup/SKILL.md:110`).
-   Both stock profiles carry `ops.no-build-artifacts` with identical bodies
+   and checks a doctrine's self-declared high-frequency misses first
+   (`plugins/arch-compliance/skills/adversarial-design-review/reviewers/compliance.md:47`).
+4. `/acf-setup` writes `config/architecture/mandates.yml` and
+   `config/architecture/ARCHITECTURE.md` from a profile, merging both profiles for a
+   two-language host (`plugins/arch-compliance/skills/acf-setup/SKILL.md:90-118`). Its merge
+   rule reads: "Keep every mandate `id` unique. If the same `id` appears in both (should not
+   for stock profiles), stop and ask; never silently drop a row."
+   (`plugins/arch-compliance/skills/acf-setup/SKILL.md:110`). Both stock profiles carry
+   `ops.no-build-artifacts` with identical bodies
    (`plugins/arch-compliance/profiles/python-service/mandates.yml:34`,
    `plugins/arch-compliance/profiles/react-app/mandates.yml:23`), so the parenthetical is
-   false and a polyglot bootstrap reaches the stop-and-ask. Language detection: Python
-   through `pyproject.toml`; TypeScript through the skill's "(or a clear app package)" and
-   "substantial tree" clauses (`plugins/arch-compliance/skills/acf-setup/SKILL.md:53-55`),
-   since there is no root `package.json` and the TypeScript package is
-   `plugins/arch-compliance/detectors/typescript/package.json`.
+   false and a polyglot bootstrap reaches the stop-and-ask. Language detection: Python is
+   detected through `pyproject.toml`; because there is no root `package.json` and the
+   TypeScript detector bridge is a three-file package under
+   `plugins/arch-compliance/detectors/typescript/package.json`, `/acf-setup`'s "(or a clear
+   app package)" and "substantial tree" clauses
+   (`plugins/arch-compliance/skills/acf-setup/SKILL.md:53-55`) may report Python only, so
+   the user supplies `both` at the language prompt (`docs/plans/PLAN_PLUGIN_SELF_HOSTING.md:78`).
 5. The merged host registry, run over this repository's history at the base
    (`--base dfff93f5`, the root commit) with the code at `c0281bf`, reports seven
    findings, listed one per row with their disposition in §5.4.
@@ -148,14 +158,17 @@ Inputs, not tree-derivable claims:
    the installed plugin has not happened outside HM.
 10. HM's exit criterion 5 names Cayenne as the second repository
     (`hm:docs/reviews/ARCHITECTURE_REVIEW_2026-07-30_REMEDIATION.md:5405-5406`) and says
-    "Item 5 is the one that proves the objective rather than approximating it" (`:5410`).
+    "Item 5 is the one that proves the objective rather than approximating it"
+    (`hm:docs/reviews/ARCHITECTURE_REVIEW_2026-07-30_REMEDIATION.md:5410`).
 11. The plugin's hooks run on each subagent start and each Write/Edit/MultiEdit in a
     repository where the plugin is installed (`plugins/arch-compliance/hooks/hooks.json`),
     and no-op without `.acf/enabled` (`plugins/arch-compliance/hooks/posttooluse_gate.py:72-81`,
     `plugins/arch-compliance/hooks/inject_constraints.py:71-80`). With the marker:
     SubagentStart injects the registry's rows and a doctrine excerpt into the subagent's
-    context (`plugins/arch-compliance/hooks/inject_constraints.py:153`); PostToolUse scans
-    the whole edited file, not its changed lines (`added_lines=None` at
+    context (`plugins/arch-compliance/hooks/inject_constraints.py:153`); PostToolUse runs
+    the build-artifact path guard on edited paths
+    (`plugins/arch-compliance/hooks/posttooluse_gate.py:284-294`) and scans the whole edited
+    `.py`, `.ts` or `.tsx` file, not its changed lines (`added_lines=None` at
     `plugins/arch-compliance/hooks/posttooluse_gate.py:254,281`), and on a BLOCK finding
     exits 2, which returns the findings to the session as blocking feedback after the write
     (`plugins/arch-compliance/hooks/posttooluse_gate.py:131-134`).
@@ -166,14 +179,25 @@ Inputs, not tree-derivable claims:
     `0.2.0`, and its two gate skills are byte-identical to the clone
     (`scripts/check_installed_skills.py`).
 14. At `c0281bf` the `/acf-mandate` validation snippet builds its detector union from
-    `PYTHON_DETECTOR_IDS`, which equals the Python AST ids
-    (`plugins/arch-compliance/python/acf/detectors/python_pack.py:25`), so it raises
-    `UnknownDetectorError` on a stock profile's enforced guard row `ops.no-build-artifacts`.
-    It also asks the agent to check anchors by eye: "Also verify each `arch_anchor` is a
-    substring of `config/architecture/ARCHITECTURE.md`" (line 104 at `c0281bf`).
-15. At `c0281bf` the detector-id union is spelled in `plugins/arch-compliance/python/acf/cli_check_diff.py:25`
-    and in `plugins/arch-compliance/tests/test_profile_drift.py`, and the anchor check is
-    a loop in that test; the package has no anchor-check function.
+    `PYTHON_DETECTOR_IDS`, which equals `PYTHON_AST_DETECTOR_IDS`
+    (`git show c0281bf:plugins/arch-compliance/python/acf/detectors/python_pack.py`, line 25),
+    so it raises `UnknownDetectorError` on a stock profile's enforced guard row
+    `ops.no-build-artifacts`. It also asks the agent to check anchors by eye: "Also verify
+    each `arch_anchor` is a substring of `config/architecture/ARCHITECTURE.md`"
+    (`git show c0281bf:plugins/arch-compliance/skills/acf-mandate/SKILL.md`, line 104).
+    Two other skill lines carry the same class of breach:
+    `plugins/arch-compliance/skills/architecture-review/SKILL.md:62` spells
+    `Path("config/architecture/mandates.yml")` instead of `acf.repo.MANDATES_REL`, and
+    `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` instructs a by-eye anchor check
+    ("Quickly confirm every `arch_anchor` in `config/architecture/mandates.yml` exists in
+    `ARCHITECTURE.md`").
+15. At `c0281bf` the detector-id union is spelled in
+    `plugins/arch-compliance/python/acf/cli_check_diff.py:25` and in
+    `plugins/arch-compliance/tests/test_profile_drift.py`, and the anchor check is a loop in
+    `plugins/arch-compliance/tests/test_profile_drift.py`; the package has no anchor-check
+    function (`git grep -n "arch_anchor" c0281bf -- plugins/arch-compliance/python` matches
+    only the field declaration in `plugins/arch-compliance/python/acf/registry.py:23` and the
+    prompt template key in `plugins/arch-compliance/python/acf/judge.py:154`).
 
 ### 4.2 Disposition
 
@@ -186,17 +210,19 @@ Inputs, not tree-derivable claims:
 | `CLAUDE.md` | Create (§5.3) | Session process |
 | `README.md` | Add one paragraph | Says this repository is a host of its own gate and where its records are |
 | `scripts/check_installed_skills.py` | Create (§5.3) | The pre-gate byte check of the installed gate skills |
-| `tests/test_check_installed_skills.py` | Create (§5.3) | Pins that script |
+| `tests/test_check_installed_skills.py` | Create (§5.3) | Pins that script (imports `GATE_SKILLS` from the script) |
 | `tests/test_self_host.py` | Create (§5.5) | This host's policy: its declared values, its anchors, its manual rows |
-| `pyproject.toml` | `testpaths` gains `tests`; version `0.2.1` | Root tests are a property of this repository, not of the shipped plugin tree (`README.md:93-95` keeps host-property tests out of it); version per `## Release discipline` |
+| `pyproject.toml` | `testpaths` gains `tests`; version `0.2.1`; update `tests/test_packaging.py` comment path | Root tests are a property of this repository, not of the shipped plugin tree (`README.md:93-95` keeps host-property tests out of it); version per `## Release discipline` |
 | `plugins/arch-compliance/.claude-plugin/plugin.json` | Version `0.2.1` | A skill's prose changes (`/acf-mandate`) |
-| `plugins/arch-compliance/python/acf/registry.py` | Refuse a repeated id; add `missing_anchors` (§5.5) | Decision 8 |
-| `plugins/arch-compliance/tests/test_registry.py` | Two tests (§5.5) | Pin the refusal and the function |
+| `plugins/arch-compliance/python/acf/registry.py` | Refuse a repeated id on `MandateRegistry`; add line-exact `missing_anchors` (§5.5) | Decision 8 |
+| `plugins/arch-compliance/python/acf/detectors/python_pack.py`, `plugins/arch-compliance/python/acf/detectors/__init__.py` | Remove unused `PYTHON_DETECTOR_IDS` alias (§5.5) | `## No shims` / `## Live consumers`: zero callers after `/acf-mandate` imports `KNOWN_DETECTORS` |
+| `plugins/arch-compliance/tests/test_registry.py` | Two tests (§5.5) | Pin the repeated-id refusal and the line-exact `missing_anchors` function |
 | `plugins/arch-compliance/tests/test_profile_drift.py` | Consume `missing_anchors` and `KNOWN_DETECTORS` (§5.5) | Decision 8 |
 | `plugins/arch-compliance/skills/acf-mandate/SKILL.md` | Validation snippet consumes the package (§5.5) | Decision 8; §4.1 item 14 |
 | `plugins/arch-compliance/tests/test_acf_mandate_skill.py` | Create (§5.5) | Runs that snippet as written against a stock-profile host |
 | `plugins/arch-compliance/tests/fixtures/python/bad_except.py`, `plugins/arch-compliance/tests/fixtures/typescript/bad.tsx` | Row exemption token with a reason on the flagged line (§5.4) | The two BLOCK findings of §4.1 item 5 |
 | `.github/workflows/ci.yml` | Full-history checkout; one step (§5.6) | `acf-check-diff --base` on this repository's own changes |
+| `docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md` | Reconcile `detector` table cell and error bullet with `manual` rows (§5.5) | Matches `plugins/arch-compliance/python/acf/registry.py:56` |
 | `docs/design/ADR_GATE_HOST_CONTRACT.md` | Create, copied from `hm:docs/design/ADR_GATE_HOST_CONTRACT.md` with a provenance block | Decision 6 |
 | `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` | This spec | |
 | `docs/plans/PLAN_PLUGIN_SELF_HOSTING.md` | Follows this spec | The plan argues from the spec |
@@ -220,14 +246,15 @@ place. No other key: `AdrHostConfig` is `extra="forbid"` (`plugins/arch-complian
 
 ### 5.2 The doctrine
 
-`/acf-setup` is run from the repository root with both languages and one merged pair. At
-the duplicate-id stop of §4.1 item 4 the answer is "keep one row": the two stock rows are
-identical and both already say `languages: both`, so the merged file carries one
-`ops.no-build-artifacts` row. That answer is the user's, given in advance in the plan and
-recorded in its ledger; the skill does not produce it. Every stock anchor survives
-verbatim (`## Fail loud`, `## No shims`, `## POSIX paths`, `## Build artifacts`,
-`## Fail-loud ratchet`, `## Façade sinks`, `## FSM transitions`, `## Soft fail-loud smells`,
-`## React boundaries`), because the registry matches `arch_anchor` as a literal substring.
+`/acf-setup` is run from the repository root with both languages (the user supplies `both`
+at the language prompt, §4.1 item 4) and one merged pair. At the duplicate-id stop of §4.1
+item 4 the answer is "keep one row": the two stock rows are identical and both already say
+`languages: both`, so the merged file carries one `ops.no-build-artifacts` row. Both
+answers are the user's, given in advance in the plan and recorded in its ledger; the skill
+does not produce them. Every stock anchor survives verbatim (`## Fail loud`, `## No shims`,
+`## POSIX paths`, `## Build artifacts`, `## Fail-loud ratchet`, `## Façade sinks`,
+`## FSM transitions`, `## Soft fail-loud smells`, `## React boundaries`), matched against
+stripped lines of `config/architecture/ARCHITECTURE.md` by `missing_anchors` (§5.5).
 
 Three stock rows have no subject here and are `status: unenforced`, not deleted, so the
 file stays diffable against the profiles: `facade.forbid-sink` and `fsm.transition-guard`
@@ -241,50 +268,57 @@ repository-level `tests/`, `scripts/` and `config/`. The CI diff gate and the Po
 hook run the registry's detectors on changed `.py`, `.ts` and `.tsx` files anywhere in the
 repository; prose and configuration are held to the doctrine by review.
 
-Then `ARCHITECTURE.md` gains the plugin's own sections. A section whose rule an existing
-test enforces also gets a `detection: manual` row in `mandates.yml` whose `detector` names
-that test module (§4.1 item 6); the row is a pointer from the rule to its enforcement, and
-the doctrine section names the row id, not the test path, so a renamed test is edited in
-one place. Five sections have a row. The other sections, and the two lifted anchors
-below, end with "No row: no test enforces this yet."; a row is added in the change that
-adds the test. The manual rows use `call_sites: [audit]` from the design document's
-vocabulary (`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:104`).
+Then `config/architecture/ARCHITECTURE.md` gains the plugin's own sections. A section whose
+rule an existing test enforces gets one or more `detection: manual` rows in
+`config/architecture/mandates.yml` whose `detector` names that test module (§4.1 item 6);
+each row is a pointer from the rule to its enforcement, and the doctrine section names the
+row id, not the test path, so a renamed test is edited in one place. Five sections have
+rows (six manual rows in total: `## Prose names no host` has two rows because two separate
+test modules enforce its code and gate-skill halves). The other four plugin sections, and
+the two lifted anchors below, end with "No row: no test enforces this yet."; a row is added
+in the change that adds the test. The manual rows use `call_sites: [audit]` from the design
+document's vocabulary (`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:104`).
 
 | Section | Rule | Source | Row |
 |---|---|---|---|
 | `## One base exception` | Each ACF exception subclasses `AcfError` and nothing else; no stdlib mixin. | 1b decision | `plugin.one-base-exception` (BLOCK) |
-| `## One owner for host paths` | `acf.repo` is the one declaration of where ACF looks in a host and imports the standard library alone. Its row's test scans `plugins/arch-compliance/python/` and `plugins/arch-compliance/hooks/`; the root `tests/` and `scripts/` import the `acf.repo` constants, checked by review. | `plugins/arch-compliance/python/acf/repo.py:1-6` | `plugin.one-owner-host-paths` (WARN) |
-| `## Declared, never defaulted` | The gate's host values are declared in `adr.yml`; no default stands in for a missing declaration. Scope stated: two package defaults outside it are named (`plugins/arch-compliance/python/acf/repo.py:23-26`, `:32-44`). | 1c decision 4; `plugins/arch-compliance/python/acf/adr/host.py:19-33` | `plugin.declared-never-defaulted` (BLOCK) |
-| `## Prose names no host` | Skill prose and runtime messages name no host repository, path or section. | `plugins/arch-compliance/tests/test_adr_skill_prose.py` (prose half) | `plugin.prose-names-no-host` (WARN) |
+| `## One owner for host paths` | `acf.repo` is the one declaration of where ACF looks in a host and imports the standard library alone. Its row's test scans `plugins/arch-compliance/python/` and `plugins/arch-compliance/hooks/`; the root `tests/` and `scripts/` import the `acf.repo` constants, checked by review. Current breach in an executable skill snippet recorded: `plugins/arch-compliance/skills/architecture-review/SKILL.md:62` (§9 follow-up 4). | `plugins/arch-compliance/python/acf/repo.py:1-6` | `plugin.one-owner-host-paths` (WARN) |
+| `## Declared, never defaulted` | The gate's host values are declared in `config/architecture/adr.yml`; no default stands in for a missing declaration. Scope stated: two package defaults outside it are named (`plugins/arch-compliance/python/acf/repo.py:23-26`, `plugins/arch-compliance/python/acf/repo.py:32-44`). | 1c decision 4; `plugins/arch-compliance/python/acf/adr/host.py:19-33` | `plugin.declared-never-defaulted` (BLOCK) |
+| `## Prose names no host` | Skill prose and runtime messages name no host repository, path or section. The two rows cover the gate's package/runtime messages and the two gate skills' prose; the other three skills in `plugins/arch-compliance/skills/` have no row yet. | `plugins/arch-compliance/tests/test_adr_code_portability.py`, `plugins/arch-compliance/tests/test_adr_skill_prose.py` | `plugin.adr-code-names-no-host` (WARN), `plugin.gate-prose-names-no-host` (WARN) |
 | `## Frozen ledger format` | A `LedgerRow` or `LedgerAmendment` field changes only through a spec and a gate run. A verification pass writes no ledger record; the spec header line is its record. | `plugins/arch-compliance/skills/adversarial-design-review/SKILL.md:443-452` | `plugin.frozen-ledger-format` (BLOCK) |
 | `## Live consumers` | An export has a live call site in the package, a hook or a skill. A test is not a consumer. | Reviewer ruling on `run_git`, plugin PR #9 | none |
 | `## No completeness claims` | A factual claim about the tree is not load-bearing on a universal quantifier unless a re-runnable recipe backs it; a normative rule states a requirement, and its row's test is its recipe. | `plugins/arch-compliance/skills/responding-to-adversarial-review/SKILL.md:152` (type T3, quoted) | none |
 | `## Declared text decoding` | A subprocess call in the package or hooks that reads text declares `encoding="utf-8"`. Three breaches recorded with their recipe (§4.1 item 7); the plugin's tests are outside the scope. | §4.1 item 7 | none |
 | `## Release discipline` | A skill prose change bumps the version; the two gate skills are byte-checked before a gate run. The check does not cover the installed copy's hooks and package code, which the hooks run (`plugins/arch-compliance/hooks/posttooluse_gate.py:22-26`). | 1d risk table, `hm:docs/design/ADR_GATE_HM_CUTOVER.md:264`; 1d plan Task 8 step 1 | none |
 
-The lifted HM rules are quoted under the anchors they belong to, with their attribution,
-so the reviewer reads them here (lines at `hm:` `22eae4f9`). Under `## Fail loud`: "Never
-use bare `except:` blocks. Raise custom descriptive exceptions immediately when data or
-dependencies are missing" (`hm:GEMINI.md:103`); "No 'defaulting' to None to avoid a
-crash" (`hm:GEMINI.md:104`); "`hasattr()`-based interface probing and silent degradation …
-are shims" (`hm:GEMINI.md:105`). Under `## No shims`: "Temporary 'bridge' code,
-compatibility shims, or 'just-in-case' logic to mask architectural misalignments are
-forbidden" (`hm:GEMINI.md:111`). Under a new `## Single point of definition`: "When the
-same operation, constant set, or decision procedure … is needed by more than one module,
-it must have exactly one canonical implementation that every call site consumes"
-(`hm:GEMINI.md:136`), with the two git runners (`plugins/arch-compliance/python/acf/diff.py:17`,
-`plugins/arch-compliance/python/acf/adr/citations.py:54`) recorded beside it as the current
-breach. Under `## POSIX paths`: "Path strings persisted to YAML or JSON must use POSIX
-format" (`hm:GEMINI.md:189`); "`Path.as_posix()` alone is not sufficient … normalization
-is a string-level substitution" (`hm:GEMINI.md:191`), with the note that the plugin
-refuses a backslash rather than normalizing it (`PosixStr`,
-`plugins/arch-compliance/python/acf/adr/contract.py:128`). Under `## Scoped refactor`:
+The eight lifted HM clauses are quoted under the anchors they belong to, with their
+attribution, so the reviewer reads them here (lines at `hm:` `22eae4f9`). Under
+`## Fail loud`: "Never use bare `except:` blocks. Raise custom descriptive exceptions
+immediately when data or dependencies are missing" (`hm:GEMINI.md:103`); "No 'defaulting'
+to None to avoid a crash" (`hm:GEMINI.md:104`); "`hasattr()`-based interface probing and
+silent degradation … are shims" (`hm:GEMINI.md:105`). Under `## No shims`: "Temporary
+'bridge' code, compatibility shims, or 'just-in-case' logic to mask architectural
+misalignments are forbidden" (`hm:GEMINI.md:111`). Under a new
+`## Single point of definition`: "When the same operation, constant set, or decision
+procedure … is needed by more than one module, it must have exactly one canonical
+implementation that every call site consumes" (`hm:GEMINI.md:136`), with the two git
+runners (`plugins/arch-compliance/python/acf/diff.py:17`,
+`plugins/arch-compliance/python/acf/adr/citations.py:54`) and the two skill-prose breaches
+(`plugins/arch-compliance/skills/architecture-review/SKILL.md:62`,
+`plugins/arch-compliance/skills/acf-setup/SKILL.md:137`) recorded beside it as current
+breaches (§9 follow-ups 1 and 4). Under `## POSIX paths`: "Path strings persisted to YAML
+or JSON must use POSIX format" (`hm:GEMINI.md:189`); "`Path.as_posix()` alone is not
+sufficient … normalization is a string-level substitution" (`hm:GEMINI.md:191`), with the
+note that the plugin refuses a backslash rather than normalizing it (`PosixStr`,
+`plugins/arch-compliance/python/acf/adr/contract.py:129`). Under `## Scoped refactor`:
 "Within an approved plan or ticket, remove legacy dependencies or non-contractual
 patterns in code paths you are changing. Do not expand scope to unrelated modules"
 (`hm:GEMINI.md:129`).
 
-HM rules this design does not lift: HFSM (§5), UI isolation (§6), the metadata façade
-(§11), book-root resolution (§10), the content pipeline (§12, §13).
+Other HM `hm:GEMINI.md` sections (§1 workflow, §2 git/worktrees, §5 HFSM, §6 UI isolation,
+§7 dead-code/pass-through/test-colocation sub-bullets, §8 config & secrets, §9 logging, §10
+book-root resolution, §11 metadata façade, §12/§13 content pipeline) are either HM-domain
+rules or session workflow and are not lifted into `config/architecture/ARCHITECTURE.md`.
 
 The doctrine ends with `## High-frequency misses`, which the compliance reviewer checks
 first: a completeness claim with no recipe behind it; a default that re-enters for a
@@ -293,8 +327,8 @@ call without an encoding; a check re-implemented in a test or a skill instead of
 from the package.
 
 The plugin's existing design document keeps its five governing principles
-(`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:43-51`); `ARCHITECTURE.md` points to them
-and does not restate them.
+(`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:43-51`); `config/architecture/ARCHITECTURE.md`
+points to them and does not restate them.
 
 ### 5.3 Session process (`CLAUDE.md`) and the byte check
 
@@ -314,15 +348,16 @@ know about this repository, in the form HM's `CLAUDE.md` uses (`hm:CLAUDE.md:21-
 - Windows note until §9 follow-up 1 lands: run the diff gate with `PYTHONUTF8=1`.
 
 `scripts/check_installed_skills.py` takes the installed plugin's directory, compares each
-file under the clone's two gate-skill trees with the file at the same relative path under
-`<INSTALL_PATH>/skills/` (`filecmp.cmp(..., shallow=False)`), prints
+file under the clone's two gate-skill trees (`GATE_SKILLS`) with the file at the same
+relative path under `<INSTALL_PATH>/skills/` (`filecmp.cmp(..., shallow=False)`), prints
 `installed gate skills identical to the clone` and exits 0, or prints each differing or
 missing path and exits 1. It is the 1d plan's inline block
 (`hm:docs/plans/PLAN_ADR_GATE_HM_CUTOVER.md:669-681`) made a script with the clone as a
 parameter; that block is an executed plan record and stays. HM's live install
 instruction (`hm:CLAUDE.md:17`) could call this script from the clone; that is HM's change
-surface (decision 1) and is filed (§10). `tests/test_check_installed_skills.py` pins three
-cases: identical trees, one changed byte, one missing installed file.
+surface (decision 1) and is filed (§10). `tests/test_check_installed_skills.py` imports
+`GATE_SKILLS` from the script and pins three cases: identical trees, one changed byte, one
+missing installed file.
 
 ### 5.4 Installation and the hooks
 
@@ -334,13 +369,16 @@ hooks for this repository (§4.1 item 11):
   each subagent started here, the gate's reviewers included. The injected text is the
   doctrine and the registry, which the compliance reviewer reads anyway; it carries no
   review verdict (`_render_constraints` renders the rows and the excerpt alone,
-  `plugins/arch-compliance/hooks/inject_constraints.py:153-176`), so reviewers stay blind
-  to each other and to prior verdicts.
-- **PostToolUse** scans each edited `.py`, `.ts` or `.tsx` file whole. A WARN finding is
-  returned as context and the hook exits 0. A BLOCK finding exits 2 and returns the
-  findings to the session as blocking feedback; the write has already happened.
+  `plugins/arch-compliance/hooks/inject_constraints.py:153-176`), so with respect to
+  hook-injected context reviewers stay blind to each other and to prior verdicts.
+- **PostToolUse** checks edited paths against the build-artifact path guard
+  (`plugins/arch-compliance/hooks/posttooluse_gate.py:284-294`) and scans each edited `.py`,
+  `.ts` or `.tsx` file whole (`added_lines=None` at
+  `plugins/arch-compliance/hooks/posttooluse_gate.py:254,281`). A WARN finding is returned
+  as context and the hook exits 0. A BLOCK finding exits 2 and returns the findings to the
+  session as blocking feedback; the write has already happened.
 
-Because the scan is whole-file, a finding already in a file returns on any edit to that
+Because the AST scan is whole-file, a finding already in a file returns on any edit to that
 file. The census of §4.1 item 5 is the population this concerns; each finding has a
 disposition:
 
@@ -348,7 +386,7 @@ disposition:
 |---|---|---|
 | `plugins/arch-compliance/tests/fixtures/python/bad_except.py:4` `fail-loud.bare-except` | BLOCK | The fixture exists to contain the pattern. The line carries `# fail-loud.bare-except-ok: <reason>`; the registry layer honours the token (`plugins/arch-compliance/python/acf/enforcement.py:50`), and the detector test calls the scanner directly, which still flags the line. |
 | `plugins/arch-compliance/tests/fixtures/typescript/bad.tsx:4` `fail-loud.empty-catch` | BLOCK | Same, with `// fail-loud.empty-catch-ok: <reason>`; the TypeScript self-test still counts three findings in the file. |
-| `plugins/arch-compliance/tests/fixtures/typescript/bad.tsx:7`, `:8` `no-shims.explicit-any` | WARN | Context only; the fixture must contain `any`. |
+| `plugins/arch-compliance/tests/fixtures/typescript/bad.tsx:7`, `plugins/arch-compliance/tests/fixtures/typescript/bad.tsx:8` `no-shims.explicit-any` | WARN | Context only; the fixture must contain `any`. |
 | `plugins/arch-compliance/tests/test_adr_exceptions.py:22` `no-shims.hasattr` | WARN | Context only; the test asserts that a name exists on a module. |
 | `plugins/arch-compliance/tests/test_adr_import_graph.py:46` `no-shims.hasattr` | WARN | Context only; the test asserts a module's public surface. |
 | `plugins/arch-compliance/tests/test_adr_skill_prose.py:53` `no-shims.hasattr` | WARN | Context only; the test asserts that an imported name exists. |
@@ -361,23 +399,30 @@ reason, never a status flip (§9).
 
 Decision 8 puts each generic check in the package, with a live consumer outside the tests:
 
-- **Repeated ids.** `load_mandates` raises `AcfInputError` naming each repeated id
-  (`plugins/arch-compliance/python/acf/registry.py:46-51`). Its callers are the diff
+- **Repeated ids.** `MandateRegistry._unique_ids` (`@model_validator(mode="after")` at
+  `plugins/arch-compliance/python/acf/registry.py:33-41`) raises `AcfInputError` naming each
+  repeated id when `load_mandates` constructs `MandateRegistry`. Its callers are the diff
   CLI, the LLM CLI and both hooks. HM is not reached by the change: its
-  `config/architecture/mandates.yml` at `22eae4f9` is in HM's own schema (rows carry
+  `hm:config/architecture/mandates.yml` at `22eae4f9` is in HM's own schema (rows carry
   `gemini_anchor` and no `languages` or `arch_anchor`), so it does not load through
   `load_mandates`, and HM's tracked files name `acf.registry` and `acf-check-diff` only in
   design and review prose (appendix). Pinned by
   `test_a_repeated_mandate_id_is_refused` in `plugins/arch-compliance/tests/test_registry.py`.
 - **Anchors.** `missing_anchors(registry, doctrine_text) -> list[str]`
-  (`plugins/arch-compliance/python/acf/registry.py:63`) returns the ids whose
-  `arch_anchor` is not a literal substring of the doctrine. Consumers: the `/acf-mandate`
-  validation snippet (live), `plugins/arch-compliance/tests/test_profile_drift.py`, and
-  `tests/test_self_host.py`. Pinned by `test_missing_anchors_names_rows_whose_anchor_is_absent`.
+  (`plugins/arch-compliance/python/acf/registry.py:67-70`) returns the ids whose
+  `arch_anchor.strip()` is not in `{line.strip() for line in doctrine_text.splitlines()}`,
+  so an inline backtick mention of a heading in prose cannot satisfy the check. Consumers:
+  the `/acf-mandate` validation snippet (live),
+  `plugins/arch-compliance/tests/test_profile_drift.py`, and `tests/test_self_host.py`.
+  Pinned by `test_missing_anchors_names_rows_whose_anchor_is_absent` (which includes an
+  inline backtick-quoted heading in the fixture doctrine).
 - **Detector union.** `KNOWN_DETECTORS` stays where the diff CLI defines it
   (`plugins/arch-compliance/python/acf/cli_check_diff.py:25`), because `acf.registry`
   cannot import `acf.judge` (which imports `acf.registry`). The `/acf-mandate` snippet,
-  the drift test and the host test import it.
+  the drift test and the host test import it, and the unused compatibility alias
+  `PYTHON_DETECTOR_IDS` is removed from
+  `plugins/arch-compliance/python/acf/detectors/python_pack.py` and
+  `plugins/arch-compliance/python/acf/detectors/__init__.py`.
 - **The `/acf-mandate` snippet** loads the registry with `KNOWN_DETECTORS`, prints the
   rows, and exits non-zero naming the rows whose anchor `missing_anchors` reports.
   `plugins/arch-compliance/tests/test_acf_mandate_skill.py` extracts the snippet from the
@@ -396,8 +441,9 @@ above, and keeps this host's policy in three tests:
    rows, and each one's `detector` is an existing file under `plugins/arch-compliance/tests/`.
 
 The third test stays in the host because it is this host's policy, not the registry's
-contract: the design document defines `detector` as "Detector fn / guard module / LLM
-prompt id" (`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:102`), and the `/acf-mandate`
+contract: `docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:102,184` defines `detector` as
+"Detector fn / guard module / LLM prompt id / manual verification pointer" and scopes
+unknown-detector validation to enforced `ast` and `guard` rows, and the `/acf-mandate`
 skill tells a `manual` row's author to "Document how humans or external tools satisfy the
 mandate" (`plugins/arch-compliance/skills/acf-mandate/SKILL.md:122`). A loader rule
 "a manual detector is a file" would bind every host to this one's convention (§3).
@@ -451,20 +497,26 @@ plugin's own rules become registry rows with anchors, in the plugin's own format
 
 | New element | Existing element with the same responsibility | Relationship |
 |---|---|---|
-| `tests/test_self_host.py` anchor test | `plugins/arch-compliance/tests/test_profile_drift.py` loop at `c0281bf` | Both now consume `missing_anchors`; one implementation |
-| `tests/test_self_host.py` detector union | `plugins/arch-compliance/python/acf/cli_check_diff.py:25`; the drift test's copy at `c0281bf`; the `/acf-mandate` snippet's narrower union at `c0281bf` | All three import `KNOWN_DETECTORS`; one definition |
-| Repeated-id check | `MandateRegistry.by_id` (silent last-wins at `c0281bf`); `/acf-setup` prose (`plugins/arch-compliance/skills/acf-setup/SKILL.md:110`) | The loader refuses; the prose stays and its false parenthetical is filed (§9) |
-| Manual-row detector check | `load_mandates`'s `ast`/`guard` branch (`plugins/arch-compliance/python/acf/registry.py:56`) | Adjacent, not merged: host policy, not registry contract (§5.5) |
-| Host config paths in `tests/test_self_host.py` | `acf.repo` (`plugins/arch-compliance/python/acf/repo.py:12-21`) | Imported; no second spelling |
-| `scripts/check_installed_skills.py` | `hm:docs/plans/PLAN_ADR_GATE_HM_CUTOVER.md:669-681` (executed record) | Same algorithm, now a reusable script; the HM record stays |
+| `tests/test_self_host.py` anchor test | `plugins/arch-compliance/tests/test_profile_drift.py` loop at `c0281bf`; `/acf-mandate` by-eye instruction at `c0281bf`; `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` by-eye instruction | The two tests and `/acf-mandate` consume `missing_anchors`; `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` is recorded as a current breach in the doctrine and filed (§9 follow-up 4) |
+| `tests/test_self_host.py` detector union | `plugins/arch-compliance/python/acf/cli_check_diff.py:25`; the drift test's copy at `c0281bf`; the `/acf-mandate` snippet's narrower union at `c0281bf` | All three import `KNOWN_DETECTORS`; one definition; unused `PYTHON_DETECTOR_IDS` removed |
+| Repeated-id check | `MandateRegistry.by_id` (silent last-wins at `c0281bf`); `/acf-setup` prose (`plugins/arch-compliance/skills/acf-setup/SKILL.md:110`) | `MandateRegistry._unique_ids` refuses at model validation; the prose stays and its false parenthetical is filed (§9 follow-up 4) |
+| Manual-row detector check | `load_mandates`'s `ast`/`guard` branch (`plugins/arch-compliance/python/acf/registry.py:60`) | Adjacent, not merged: host policy, not registry contract (§5.5) |
+| Host config paths in `tests/test_self_host.py` and `/acf-mandate` | `acf.repo` (`plugins/arch-compliance/python/acf/repo.py:12-21`); `plugins/arch-compliance/skills/architecture-review/SKILL.md:62` literal path | `tests/test_self_host.py` and `/acf-mandate` import `acf.repo`; `plugins/arch-compliance/skills/architecture-review/SKILL.md:62` is recorded as a current breach in the doctrine and filed (§9 follow-up 4) |
+| `scripts/check_installed_skills.py` | `hm:docs/plans/PLAN_ADR_GATE_HM_CUTOVER.md:669-681` (executed record) | Same algorithm, now a reusable script; `tests/test_check_installed_skills.py` imports `GATE_SKILLS` from the script; the HM record stays |
 | `CLAUDE.md` byte-check line | `## Release discipline` in the doctrine | `CLAUDE.md` carries the command and points to the rule |
 | `docs/design/ADR_GATE_HOST_CONTRACT.md` | `hm:docs/design/ADR_GATE_HOST_CONTRACT.md` | Two full copies until §5.7 step 6 replaces HM's with a stub; the provenance block names the canonical one |
 
-**Second way created:** none recorded in the table above. The `CLAUDE.md` is a pointer and
-process file of the kind HM already has, not a second doctrine. **Pattern sweep:** specs
-about the plugin living in another repository: the eight files of §1 (recipe in the
-appendix). Two are live: the host contract moves here; the 1d cutover stays, since its
-change surface is HM's. Six stay beside their ledger rows, listed in §10.
+**Second way created:** none created by this design; the two pre-existing skill-prose
+breaches (`plugins/arch-compliance/skills/architecture-review/SKILL.md:62` and
+`plugins/arch-compliance/skills/acf-setup/SKILL.md:137`) are recorded in the table above
+and in `config/architecture/ARCHITECTURE.md` and filed in §9 follow-up 4. The `CLAUDE.md`
+is a pointer and process file of the kind HM already has, not a second doctrine. **Pattern
+sweep:** specs in `hm:docs/design/` whose subject is the ADR gate or ACF: the twelve files
+of §1 and §10 (executed census script in the appendix). One moves here
+(`hm:docs/design/ADR_GATE_HOST_CONTRACT.md`); one is live on HM's change surface
+(`hm:docs/design/ADR_GATE_HM_CUTOVER.md`) and stays; five post-plugin specs and five
+pre-extraction HM origin specs stay in HM beside their ledger rows and git history, listed
+in §10.
 
 ## 8. Definition of done
 
@@ -473,9 +525,9 @@ change surface is HM's. Six stay beside their ledger rows, listed in §10.
    `tests/test_check_installed_skills.py` (§5.3), the two added to
    `plugins/arch-compliance/tests/test_registry.py`, and the two of
    `plugins/arch-compliance/tests/test_acf_mandate_skill.py`.
-2. Deleting `config/architecture/adr.yml`, or removing one anchor heading from
-   `ARCHITECTURE.md`, fails `tests/test_self_host.py`; a duplicated row in
-   `config/architecture/mandates.yml` fails it through the loader's refusal; restoring
+2. Deleting `config/architecture/adr.yml`, or removing any one of the 14 anchor headings from
+   `config/architecture/ARCHITECTURE.md`, fails `tests/test_self_host.py`; a duplicated row in
+   `config/architecture/mandates.yml` fails it through `MandateRegistry._unique_ids`; restoring
    passes.
 3. `python -m acf.cli_check_diff --repo . --base origin/main` from the root, with
    `PYTHONUTF8=1` on Windows and the branch's package on the path, exits 0 on the branch;
@@ -499,7 +551,7 @@ change surface is HM's. Six stay beside their ledger rows, listed in §10.
 | The installed copy's hooks and package code lag the clone, and the hooks run them | Recorded in `## Release discipline`; follow-up 5 extends the byte check |
 | A stock rule fires on plugin code during an edit | WARN returns context, not a block; a BLOCK on a legitimate line takes the row's exemption token with a reason, never a status flip (§5.4) |
 | The repeated-id refusal breaks a host's registry on upgrade | This repository's registry has no repeated id (`tests/test_self_host.py` loads it); HM's registry is not read by `load_mandates` (§5.5); a host that carried a duplicate had a row silently shadowed, and the refusal names it |
-| The doctrine's lifted rules drift from HM's `GEMINI.md` | They are quoted with an attribution and a line at a named HM commit; drift is visible on either side and is not a defect, since the plugin's doctrine is its own |
+| The doctrine's lifted rules drift from HM's `hm:GEMINI.md` | They are quoted with an attribution and a line at a named HM commit; drift is visible on either side and is not a defect, since the plugin's doctrine is its own |
 | A spec here cites HM files the reviewers cannot open | §0: quote, never only point |
 
 Filed follow-ups, each to a roadmap row in HM (the scheduling surface today) and, once the
@@ -512,12 +564,16 @@ housekeeping skill is extracted, to the plugin's own board:
 2. **Post-merge-housekeeping extraction** (decision 3), the next spec. It also corrects
    `hm:GEMINI.md:61` and adds the row-identity rule for amendments after a verification
    pass or user override.
-3. **Hook quiet flag** (`--quiet-disabled` in `hooks.json`), already filed by 1d
-   (`hm:docs/reviews/ARCHITECTURE_REVIEW_2026-07-30_REMEDIATION.md:213`).
-4. **`/acf-setup` duplicate-id prose.** `plugins/arch-compliance/skills/acf-setup/SKILL.md:110`
-   says a repeated id "should not" occur across stock profiles; both carry
-   `ops.no-build-artifacts`. Fix the text to name that row and keep stop-and-ask for any
-   other repeat.
+3. **Hook quiet flag** (`--quiet-disabled` in `plugins/arch-compliance/hooks/hooks.json`),
+   already filed by 1d (`hm:docs/reviews/ARCHITECTURE_REVIEW_2026-07-30_REMEDIATION.md:213`).
+4. **Skill prose alignment (`/acf-setup` and `/architecture-review`).**
+   `plugins/arch-compliance/skills/acf-setup/SKILL.md:110` says a repeated id "should not"
+   occur across stock profiles when both carry `ops.no-build-artifacts`;
+   `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` instructs a by-eye anchor check
+   instead of `acf.registry.missing_anchors`; and
+   `plugins/arch-compliance/skills/architecture-review/SKILL.md:62` spells
+   `Path("config/architecture/mandates.yml")` instead of `acf.repo.MANDATES_REL`. Reconcile
+   all three skill snippets.
 5. **Byte check scope.** Extend `scripts/check_installed_skills.py` to the installed
    hooks and package code the hooks run, comparing the clone's tracked files under
    `plugins/arch-compliance/hooks/` and `plugins/arch-compliance/python/acf/`.
@@ -529,22 +585,27 @@ housekeeping skill is extracted, to the plugin's own board:
   repository can install the plugin and run the gate with its own declared configuration
   and no HM paths anywhere; the plugin repository is the first such host (1e), Cayenne the
   foreign-stack proof (1f)". Criterion 6 is left for the housekeeping spec.
-- The 1c row records that `ADR_GATE_HOST_CONTRACT.md` moved here, with the stub's path.
+- The 1c row records that `hm:docs/design/ADR_GATE_HOST_CONTRACT.md` moved here, with the
+  stub's path.
 - Priority-board rows for §9 follow-ups 1, 2, 4 and 5, and one for HM's install
   instruction calling `scripts/check_installed_skills.py` (§5.3).
-- The eight HM specs about the plugin, with their HM ledger rows at `22eae4f9` (recipe in
-  the appendix) and their disposition:
+- The twelve HM specs in `hm:docs/design/` whose subject is the ADR gate or ACF, with their
+  HM ledger rows at `22eae4f9` (recipe in the appendix) and their disposition:
 
 | HM spec | Ledger rows | Disposition |
 |---|---|---|
-| `ADR_GATE_HOST_CONTRACT.md` | 4 | Moves here (decision 6); HM keeps a stub |
-| `ADR_GATE_HM_CUTOVER.md` | 6 | Stays: HM's change surface |
-| `ADR_EXTRACTION_TO_PLUGIN.md` | 7 | Stays, superseded |
-| `ADR_GATE_PLUGIN_COMPONENT.md` | 3 | Stays, v3, not re-dispatched |
-| `ADR_GATE_HM_ADOPTION.md` | 0 | Stays, draft |
-| `ADR_PER_FINDING_REVISION_CLASSING.md` | 0 | Stays, stub |
-| `ADR_REVISION_EVIDENCE_AND_CARRYOVER_INSTRUMENTATION.md` | 4 | Stays, v4 draft |
-| `ARCH_COMPLIANCE_SHIFT_LEFT_GATING.md` | 0 | Stays, superseded |
+| `hm:docs/design/ADR_GATE_HOST_CONTRACT.md` | 4 | Moves here (decision 6); HM keeps a stub |
+| `hm:docs/design/ADR_GATE_HM_CUTOVER.md` | 6 | Stays: HM's change surface |
+| `hm:docs/design/ADR_EXTRACTION_TO_PLUGIN.md` | 7 | Stays, superseded |
+| `hm:docs/design/ADR_GATE_PLUGIN_COMPONENT.md` | 3 | Stays, v3, not re-dispatched |
+| `hm:docs/design/ADR_GATE_HM_ADOPTION.md` | 0 | Stays, draft |
+| `hm:docs/design/ADR_PER_FINDING_REVISION_CLASSING.md` | 0 | Stays, stub |
+| `hm:docs/design/ADR_REVISION_EVIDENCE_AND_CARRYOVER_INSTRUMENTATION.md` | 4 | Stays, v4 draft |
+| `hm:docs/design/ADVERSARIAL_DESIGN_REVIEW.md` | 0 | Stays, pre-extraction HM origin spec for the gate |
+| `hm:docs/design/ARCHITECTURE_COMPLIANCE_FRAMEWORK.md` | 0 | Stays, pre-extraction HM origin spec for Tier 1 ACF |
+| `hm:docs/design/ARCHITECTURE_COMPLIANCE_FRAMEWORK_TIER2_LLM_JUDGE.md` | 0 | Stays, pre-extraction HM origin spec for Tier 2 LLM judge |
+| `hm:docs/design/ARCHITECTURE_COMPLIANCE_FRAMEWORK_TIER3_AUDIT.md` | 0 | Stays, pre-extraction HM origin spec for Tier 3 audit |
+| `hm:docs/design/ARCH_COMPLIANCE_SHIFT_LEFT_GATING.md` | 0 | Stays, pre-extraction HM origin spec, superseded |
 
 A future revival of a staying spec is authored here under decision 1.
 
@@ -555,26 +616,29 @@ A future revival of a staying spec is authored here under decision 1.
 - Whether the TypeScript bridge's stock rows stay `enforced` given that `npm ci` is needed
   for the bridge; `unenforced` with a reason is acceptable.
 
-## Appendix — premise verification (2026-10-24)
+## Appendix — premise verification (2026-10-24, updated 2026-11-02)
 
 | Claim | Command | Result |
 |---|---|---|
 | No doctrine or declaration at the base | `git ls-tree --name-only c0281bf` and `git ls-tree c0281bf config` | root `.md`: `README.md`, `SECURITY.md`; no `config/` |
 | 404 tests at the base | `git worktree add <tmp> c0281bf` then `python -m pytest --collect-only -q` | `404 tests collected` (the branch base's own baseline run: `404 passed`) |
-| Seven findings under the host registry at the base code | in a detached worktree at `c0281bf` with `npm ci` in its TypeScript bridge and this branch's three `config/architecture/` files copied in: `PYTHONUTF8=1 PYTHONPATH=<worktree>/plugins/arch-compliance/python python -m acf.cli_check_diff --repo . --base dfff93f5 --json` | exit 1; 2 BLOCK (`bad_except.py:4`, `bad.tsx:4`), 5 WARN (§5.4 table) |
+| Seven findings under the host registry at the base code | in a detached worktree at `c0281bf` with `npm ci` in its TypeScript bridge and this branch's three `config/architecture/` files copied in: `PYTHONUTF8=1 PYTHONPATH=<worktree>/plugins/arch-compliance/python python -m acf.cli_check_diff --repo . --base dfff93f5 --json` | exit 1; 2 BLOCK (`plugins/arch-compliance/tests/fixtures/python/bad_except.py:4`, `plugins/arch-compliance/tests/fixtures/typescript/bad.tsx:4`), 5 WARN (§5.4 table) |
 | Five WARN and exit 0 after the tokens | `PYTHONUTF8=1 PYTHONPATH=plugins/arch-compliance/python python -m acf.cli_check_diff --repo . --base dfff93f5` | the five WARN rows of §5.4; exit 0 |
-| Scanners still flag both fixture lines | `scan_python_file` on `bad_except.py`; `scan_typescript_file` on `bad.tsx` | `fail-loud.bare-except` line 4; `fail-loud.empty-catch` line 4, `no-shims.explicit-any` lines 7 and 8 |
-| Three undeclared-decoding calls in the package | `grep -rn "text=True" plugins/arch-compliance/python plugins/arch-compliance/hooks` | `diff.py:28`, `citations.py:64`, `typescript_bridge.py:53` |
+| Scanners still flag both fixture lines | `scan_python_file` on `plugins/arch-compliance/tests/fixtures/python/bad_except.py`; `scan_typescript_file` on `plugins/arch-compliance/tests/fixtures/typescript/bad.tsx` | `fail-loud.bare-except` line 4; `fail-loud.empty-catch` line 4, `no-shims.explicit-any` lines 7 and 8 |
+| Three undeclared-decoding calls in the package | `git grep -n "text=True" -- plugins/arch-compliance/python plugins/arch-compliance/hooks` | `plugins/arch-compliance/python/acf/diff.py:28`, `plugins/arch-compliance/python/acf/adr/citations.py:64`, `plugins/arch-compliance/python/acf/detectors/typescript_bridge.py:53` |
 | The base snippet rejects a guard row | the `/acf-mandate` snippet at `c0281bf` run against `config/architecture/mandates.yml` | `UnknownDetectorError: enforced mandate 'ops.no-build-artifacts' references unknown detector 'no_build_artifacts'` |
 | Silent last-wins at the base | two rows with id `a` loaded by `load_mandates` at `c0281bf` | 2 rows loaded, `by_id` keeps 1 (the second) |
 | HM's registry is outside `load_mandates` | `load_mandates(<hm>/config/architecture/mandates.yml)` with the branch's package; `yaml.safe_load` of the same file; `git -C <hm> grep -n -e 'acf\.registry' -e 'acf\.cli_check_diff' -e 'acf-check-diff'` | `AcfInputError` (rows lack `languages`, `arch_anchor`); 48 rows keyed with `gemini_anchor`, no repeated id; grep hits in `docs/design/` and `docs/reviews/` only |
-| Detector-union spellings at the base | `git grep -n "KNOWN_DETECTORS =" c0281bf` and the snippet's `known =` line | `cli_check_diff.py:25`, `test_profile_drift.py:13`; snippet builds `PYTHON_DETECTOR_IDS \| TS_DETECTOR_IDS \| LLM_PROMPT_IDS` |
-| Whole-file hook scan | `grep -n "added_lines=None" plugins/arch-compliance/hooks/posttooluse_gate.py` | lines 254, 281 |
+| Detector-union spellings at the base | `git grep -n "KNOWN_DETECTORS =" c0281bf` and the snippet's `known =` line | `plugins/arch-compliance/python/acf/cli_check_diff.py:25`, `plugins/arch-compliance/tests/test_profile_drift.py:13`; snippet builds `PYTHON_DETECTOR_IDS \| TS_DETECTOR_IDS \| LLM_PROMPT_IDS` |
+| No anchor-check function in the package at the base | `git grep -n "arch_anchor" c0281bf -- plugins/arch-compliance/python` | `c0281bf:plugins/arch-compliance/python/acf/registry.py:23` (field declaration) and `c0281bf:plugins/arch-compliance/python/acf/judge.py:154` (prompt template key); no function |
+| Host-path and anchor-check spellings across `.py` and `SKILL.md` on the branch | `git grep -n -E "mandates\.yml|ARCHITECTURE\.md|adr\.yml|arch_anchor|missing_anchors" -- "*.py" "plugins/arch-compliance/skills/*/SKILL.md"` | package owner in `plugins/arch-compliance/python/acf/repo.py` and `plugins/arch-compliance/python/acf/registry.py`; consumers in `plugins/arch-compliance/skills/acf-mandate/SKILL.md:99`, `plugins/arch-compliance/tests/test_profile_drift.py:27`, `tests/test_self_host.py:34`; recorded skill-prose breaches in `plugins/arch-compliance/skills/architecture-review/SKILL.md:62` and `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` |
+| Dropping any of the 14 anchor headings fails `missing_anchors` | for each unique `m.arch_anchor` in `config/architecture/mandates.yml`, remove the matching line from `config/architecture/ARCHITECTURE.md` and assert `missing_anchors(reg, dropped) == [m.id for m in reg.mandates if m.arch_anchor == anchor]` | 14/14 unique anchors (across all 17 rows) return the expected missing row ids |
+| Whole-file hook scan and build-artifact path guard | `git grep -n -E "added_lines=None|no_build_artifacts" -- plugins/arch-compliance/hooks/posttooluse_gate.py` | `added_lines=None` at lines 254, 281; `check_build_artifact_paths` at lines 284-294 |
 | Hook exit 2 on BLOCK | `sed -n 131,134p plugins/arch-compliance/hooks/posttooluse_gate.py` | `return 2` with the blocking-feedback comment |
-| Duplicate across stock profiles | `grep -n "^- id: ops.no-build-artifacts" plugins/arch-compliance/profiles/*/mandates.yml` | python-service line 34, react-app line 23 |
+| Duplicate across stock profiles | `git grep -n "^- id: ops.no-build-artifacts" -- plugins/arch-compliance/profiles/` | `plugins/arch-compliance/profiles/python-service/mandates.yml:34`, `plugins/arch-compliance/profiles/react-app/mandates.yml:23` |
 | HM 1d merged | `git -C <hm> log -1 --format=%h,%cd --date=short 812f9c2b` | `812f9c2b,2026-10-23` |
-| HM plugin specs and their ledger rows | `ls <hm>/docs/design \| grep -E '^(ADR_\|ARCH_COMPLIANCE_)'`; per spec, count ledger lines starting `{` whose `spec_path` equals `docs/design/<name>.md` | the eight names and counts of §10 |
-| HM exit criterion 5 | `grep -n "second repository (Cayenne)\|proves the objective" <hm>/docs/reviews/ARCHITECTURE_REVIEW_2026-07-30_REMEDIATION.md` | lines 5405, 5410 |
-| Lifted HM sentences | `grep -n "Never use bare\|defaulting\|interface probing and silent\|Temporary .bridge\|Refactor within scope\|Single point of definition\|must use POSIX format\|alone is not sufficient" <hm>/GEMINI.md` | 103, 104, 105, 111, 129, 136, 189, 191 |
+| HM specs whose subject is the ADR gate or ACF and their ledger rows | scan all 46 `hm:docs/design/*.md` titles/subjects and count ledger rows in `hm:docs/reviews/adversarial_design_ledger.jsonl` per `spec_path` | 12 specs (7 `hm:docs/design/ADR_*.md` with 4, 6, 7, 3, 0, 0, 4 rows; 5 pre-extraction origin specs `hm:docs/design/ADVERSARIAL_DESIGN_REVIEW.md`, `hm:docs/design/ARCHITECTURE_COMPLIANCE_FRAMEWORK.md`, `hm:docs/design/ARCHITECTURE_COMPLIANCE_FRAMEWORK_TIER2_LLM_JUDGE.md`, `hm:docs/design/ARCHITECTURE_COMPLIANCE_FRAMEWORK_TIER3_AUDIT.md`, `hm:docs/design/ARCH_COMPLIANCE_SHIFT_LEFT_GATING.md` with 0 rows each; §10 table) |
+| HM exit criterion 5 | `git -C <hm> grep -n -E "second repository \(Cayenne\)|proves the objective" -- docs/reviews/ARCHITECTURE_REVIEW_2026-07-30_REMEDIATION.md` | lines 5405, 5410 |
+| Lifted HM sentences | `git -C <hm> grep -n -E "Never use bare|defaulting|interface probing and silent|Temporary .bridge|Refactor within scope|Single point of definition|must use POSIX format|alone is not sufficient" -- GEMINI.md` | lines 103, 104, 105, 111, 129, 136, 189, 191 |
 | Host-contract decision 6 | `sed -n 80,81p <hm>/docs/design/ADR_GATE_HOST_CONTRACT.md` | quoted in §2 item 6 |
 | Hooks no-op without the marker | `sed -n 72,81p plugins/arch-compliance/hooks/posttooluse_gate.py` | exit 0 with an optional stderr note |

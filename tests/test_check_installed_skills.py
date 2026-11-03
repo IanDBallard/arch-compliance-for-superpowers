@@ -9,7 +9,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "check_installed_skills.py"
-SKILLS = ("adversarial-design-review", "responding-to-adversarial-review")
 
 
 def _load_script():
@@ -21,7 +20,7 @@ def _load_script():
 
 
 def _skill_tree(base: Path) -> None:
-    for skill in SKILLS:
+    for skill in _load_script().GATE_SKILLS:
         d = base / "skills" / skill
         (d / "reviewers").mkdir(parents=True)
         (d / "SKILL.md").write_bytes(b"# " + skill.encode() + b"\n")

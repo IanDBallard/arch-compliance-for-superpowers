@@ -53,4 +53,5 @@ def test_missing_anchors_names_rows_whose_anchor_is_absent(tmp_path: Path):
         _ROW.format(id="kept", anchor="## Kept") + _ROW.format(id="gone", anchor="## Gone"),
         encoding="utf-8",
     )
-    assert missing_anchors(load_mandates(path), "# Doctrine\n\n## Kept\n") == ["gone"]
+    doctrine = "# Doctrine\n\nIntro mentions `## Gone` inline in backticks.\n\n## Kept\n"
+    assert missing_anchors(load_mandates(path), doctrine) == ["gone"]

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+, pydantic v2, PyYAML, pytest; Claude Code plugin CLI; the `acf` package (editable install). No new dependency.
 
-**Spec:** `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` (v1 user-approved 2026-10-22 at repo `8dabe82`; v2 2026-10-24 on `feat/self-host`, adding Task 4a). Section references (§N) are v2's. Read it in full; its §0 citation convention also governs this plan.
+**Spec:** `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` (v1 user-approved 2026-10-22 at repo `8dabe82`; v2 2026-10-24 on `feat/self-host`, adding Task 4a; v3 2026-11-02 on `feat/self-host`, splitting `plugin.prose-names-no-host` into `plugin.adr-code-names-no-host` and `plugin.gate-prose-names-no-host`, making `missing_anchors` line-exact, moving `_unique_ids` to `MandateRegistry`, and removing unused `PYTHON_DETECTOR_IDS`). Section references (§N) are v3's. Read it in full; its §0 citation convention also governs this plan.
 
 ## Global Constraints
 

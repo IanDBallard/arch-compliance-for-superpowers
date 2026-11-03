@@ -61,7 +61,7 @@ Lifted: "Path strings persisted to YAML or JSON must use POSIX format" (Historic
 `GEMINI.md` §10, `hm:GEMINI.md:189`). "`Path.as_posix()` alone is not sufficient …
 normalization is a string-level substitution" (`hm:GEMINI.md:191`). This plugin is
 stricter than the lifted text: its persisted path fields refuse a backslash rather than
-normalize it (`PosixStr`, `plugins/arch-compliance/python/acf/adr/contract.py:128`).
+normalize it (`PosixStr`, `plugins/arch-compliance/python/acf/adr/contract.py:129`).
 
 ## Build artifacts
 
@@ -108,7 +108,12 @@ Every ACF exception subclasses `AcfError` and nothing else; no stdlib mixin such
 imports only the standard library (`plugins/arch-compliance/python/acf/repo.py:1-6`).
 Row: `plugin.one-owner-host-paths`; its test scans `plugins/arch-compliance/python/` and
 `plugins/arch-compliance/hooks/`. The repository-level `tests/` and `scripts/` follow
-the rule by importing the `acf.repo` constants, which review checks.
+the rule by importing the `acf.repo` constants, which review checks. Current breach in an
+executable skill snippet, recorded not hidden:
+`plugins/arch-compliance/skills/architecture-review/SKILL.md:62` spells
+`Path("config/architecture/mandates.yml")` instead of importing `acf.repo.MANDATES_REL`;
+reconciling the skill snippet is spec `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md`
+§9 follow-up 4.
 
 ## Declared, never defaulted
 
@@ -125,9 +130,10 @@ this rule and recorded here: the fail-loud ratchet's baseline path when a row om
 ## Prose names no host
 
 Skill prose and runtime messages name no host repository, path or section; a host
-reaches the gate only through its declaration and its doctrine. Row:
-`plugin.prose-names-no-host` (runtime messages); the prose half is pinned by
-`plugins/arch-compliance/tests/test_adr_skill_prose.py`.
+reaches the gate only through its declaration and its doctrine. Rows:
+`plugin.adr-code-names-no-host` (the gate's package and runtime messages) and
+`plugin.gate-prose-names-no-host` (the two gate skills' prose; the other three skills in
+`plugins/arch-compliance/skills/` have no row yet).
 
 ## Frozen ledger format
 
@@ -183,10 +189,16 @@ Task 8 step 1. No row: no test enforces this yet.
 
 Lifted: "When the same operation, constant set, or decision procedure … is needed by more
 than one module, it must have exactly one canonical implementation that every call site
-consumes" (HistoricMansions `GEMINI.md` §7, `hm:GEMINI.md:136`). Current breach, recorded
-not hidden: two git runners, `plugins/arch-compliance/python/acf/diff.py:17` (`run_git`) and
-`plugins/arch-compliance/python/acf/adr/citations.py:54` (`_git`); the consolidation is
-spec §9 follow-up 1. No row: no test enforces this yet.
+consumes" (HistoricMansions `GEMINI.md` §7, `hm:GEMINI.md:136`). Current breaches,
+recorded not hidden: two git runners, `plugins/arch-compliance/python/acf/diff.py:17`
+(`run_git`) and `plugins/arch-compliance/python/acf/adr/citations.py:54` (`_git`),
+consolidated in spec `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` §9 follow-up 1;
+and two skill snippets that re-spell or by-eye a package helper,
+`plugins/arch-compliance/skills/architecture-review/SKILL.md:62` (`Path("config/architecture/mandates.yml")` instead of `acf.repo.MANDATES_REL`) and
+`plugins/arch-compliance/skills/acf-setup/SKILL.md:137` (by-eye anchor check instead of
+`acf.registry.missing_anchors`), tracked in spec
+`docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` §9 follow-up 4. No row: no test
+enforces this yet.
 
 ## Scoped refactor
 

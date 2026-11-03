@@ -6,7 +6,7 @@ from acf.detectors.build_artifacts import BUILD_ARTIFACT_DETECTOR_ID
 from acf.detectors.facade_sinks import FACADE_SINK_DETECTOR_ID
 from acf.detectors.fail_loud_ratchet import FAIL_LOUD_RATCHET_DETECTOR_ID
 from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID
-from acf.detectors.python_pack import PYTHON_AST_DETECTOR_IDS, PYTHON_DETECTOR_IDS
+from acf.detectors.python_pack import PYTHON_AST_DETECTOR_IDS
 
 GUARD_DETECTOR_IDS = frozenset(
     {
@@ -32,5 +32,4 @@ __all__ = [
     "CONFIG_AST_DETECTOR_IDS",
     "GUARD_DETECTOR_IDS",
     "PYTHON_AST_DETECTOR_IDS",
-    "PYTHON_DETECTOR_IDS",
 ]
