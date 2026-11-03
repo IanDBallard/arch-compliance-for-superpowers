@@ -121,11 +121,16 @@ The adversarial-design-review gate's host values are declared by the host in
 `config/architecture/adr.yml`; no default stands in for a missing declaration, and a
 missing declaration fails loud. Source: phase 1c decision 4,
 `plugins/arch-compliance/python/acf/adr/host.py:19-33`. Row:
-`plugin.declared-never-defaulted`. Two defaults elsewhere in the package are outside
+`plugin.declared-never-defaulted`. Three defaults elsewhere in the package are outside
 this rule and recorded here: the fail-loud ratchet's baseline path when a row omits
-`params.baseline` (`plugins/arch-compliance/python/acf/repo.py:23-26`), and
-`resolve_repo` falling back to the process directory
-(`plugins/arch-compliance/python/acf/repo.py:32-44`, documented there as a fallback).
+`params.baseline` (`plugins/arch-compliance/python/acf/repo.py:23-26`), `resolve_repo`
+falling back to the process directory (`plugins/arch-compliance/python/acf/repo.py:32-44`,
+documented there as a fallback), and the Tier-2 LLM judge's default provider and models
+when `--provider` / `ACF_JUDGE_PROVIDER` or `--model` / `ACF_JUDGE_MODEL` are omitted
+(`DEFAULT_PROVIDER = "anthropic"`, `DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6"`,
+`DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"` in
+`plugins/arch-compliance/python/acf/judge.py:25-27`; provider API keys are never
+defaulted or cross-provider-fallback-resolved).
 
 ## Prose names no host
 

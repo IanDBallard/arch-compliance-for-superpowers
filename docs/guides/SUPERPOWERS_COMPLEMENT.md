@@ -43,14 +43,17 @@ Where plugin defaults or injected constraints conflict with Superpowers generics
 
 ## Environment variables
 
-Tier-2 LLM judge (Gemini by default) needs a key when any mandate is `status: enforced` and `detection: llm`:
+Tier-2 LLM judge (`anthropic` by default, `gemini` supported) needs the active provider's key when any mandate is `status: enforced` and `detection: llm`:
 
 | Variable | Purpose |
 |---|---|
-| `GEMINI_API_KEY` | Preferred Gemini API key |
-| `GOOGLE_API_KEY` | Accepted fallback |
+| `ACF_JUDGE_PROVIDER` | Judge provider: `anthropic` (default) or `gemini` (overridden by `--provider`) |
+| `ACF_JUDGE_MODEL` | Optional model override (default: `claude-sonnet-4-6` for `anthropic`, `gemini-2.0-flash` for `gemini`; overridden by `--model`) |
+| `ANTHROPIC_API_KEY` | Required API key when provider is `anthropic` |
+| `GEMINI_API_KEY` | Preferred Gemini API key when provider is `gemini` |
+| `GOOGLE_API_KEY` | Accepted Gemini API key when `GEMINI_API_KEY` is unset and provider is `gemini` |
 
-If neither is set (and no explicit judge provider is wired), the gate **hard-fails** — no silent skip of enforced LLM mandates.
+If the active provider's key is unset (and no explicit judge provider is wired), the gate **hard-fails** — no silent skip of enforced LLM mandates and no cross-provider fallback.
 
 Deterministic Tier-1 gates (`acf-check-diff`, PostToolUse) do not require these keys.
 

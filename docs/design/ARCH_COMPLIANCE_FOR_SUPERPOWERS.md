@@ -130,7 +130,7 @@ Config resolution always prefers the **host project** paths produced by `/acf-se
 
 ### Tier 2 — LLM judgment layer (full)
 
-- Provider interface; **Gemini default**; API key via environment.
+- Provider interface; **Anthropic default (`claude-sonnet-4-6`)**, **Gemini supported (`gemini-2.0-flash`)**; provider/model selectable via `--provider` / `ACF_JUDGE_PROVIDER` and `--model` / `ACF_JUDGE_MODEL`; API key via provider-specific environment variable with no cross-provider fallback.
 - Confidence-gated: high confidence → `BLOCK`, else `WARN` (threshold configurable).
 - Calibration fixtures for both Python and TS/React soft smells; document precision/recall honesty.
 - If a mandate is `status: enforced` and `detection: llm` but the judge is not configured, the gate **hard-fails** (no silent skip).
