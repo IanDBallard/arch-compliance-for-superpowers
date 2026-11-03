@@ -32,6 +32,7 @@ Superpowers owns workflow shape. This plugin owns mandates, gates, audit, and co
 | `/architecture-review` | Faceted audit + optional baseline / drift |
 | `/adversarial-design-review` | Spec-stage adversarial review gate; the host declares `config/architecture/adr.yml` |
 | `/responding-to-adversarial-review` | Answering a blocked adversarial-design-review gate run |
+| `/post-merge-housekeeping` | Post-merge verification, worktree/branch teardown, doc reconciliation, and ADR ledger amendment |
 
 ## Environment variables
 

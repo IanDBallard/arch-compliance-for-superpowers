@@ -17,7 +17,7 @@ When a skill's default and a rule below conflict, the rule below wins.
   in) proceeds to plan-writing. `BLOCKED` returns to the spec through
   `arch-compliance:responding-to-adversarial-review`; the re-run scope follows the
   revision class as the gate skill states it.
-- **Before any gate run:** `python scripts/check_installed_skills.py <INSTALL_PATH>`
+- **Before any gate or post-merge-housekeeping run:** `python scripts/check_installed_skills.py <INSTALL_PATH>`
   (`INSTALL_PATH` is the plugin's `installPath` in
   `~/.claude/plugins/installed_plugins.json`). The rule and what to do on a mismatch are
   the doctrine's `## Release discipline`; never hand-run the review.

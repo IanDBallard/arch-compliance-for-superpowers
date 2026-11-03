@@ -220,7 +220,7 @@ the saving is in not introducing mechanism changes, not in arguing the class.
 
 A CLEARED or CLEARED_WITH_ABSORPTIONS run that skips the ledger row is how the
 series became all-BLOCKED. Do not proceed to `writing-plans` until the controller
-has re-read the row it just wrote. After merge, the host's post-merge process owns the
+has re-read the row it just wrote. After merge, `post-merge-housekeeping` owns the
 `absorbed` / `rejected` / `escapes` amendment — do not leave those at the write-time
 zeros.
 

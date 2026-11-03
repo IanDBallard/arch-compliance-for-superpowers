@@ -40,6 +40,9 @@ Where plugin defaults or injected constraints conflict with Superpowers generics
 | `/acf-setup` | Detect languages; copy matching profile(s) into host `config/architecture/`; point at `ARCHITECTURE.md`; write `.acf/enabled`; print pre-commit/CI snippets; smoke `acf-check-diff`. |
 | `/acf-mandate` | Add / edit / deprecate registry rows with schema validation. Does not generate detector code. |
 | `/architecture-review` | Tier-3 audit + optional baseline / drift report. |
+| `/adversarial-design-review` | Spec-stage adversarial review gate; the host declares `config/architecture/adr.yml`. |
+| `/responding-to-adversarial-review` | Answering a blocked adversarial-design-review gate run. |
+| `/post-merge-housekeeping` | Post-merge verification, worktree/branch teardown, doc reconciliation, and ADR ledger amendment. |
 
 ## Environment variables
 

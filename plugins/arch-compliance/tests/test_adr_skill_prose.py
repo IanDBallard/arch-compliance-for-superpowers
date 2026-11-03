@@ -9,19 +9,25 @@ from pathlib import Path
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 GATE = SKILLS / "adversarial-design-review"
 RESPOND = SKILLS / "responding-to-adversarial-review"
+HOUSEKEEPING = SKILLS / "post-merge-housekeeping"
 FILES = [
     GATE / "SKILL.md", GATE / "claims" / "extraction.md",
     GATE / "reviewers" / "compliance.md", GATE / "reviewers" / "hardening.md",
     GATE / "reviewers" / "refuter.md", GATE / "reviewers" / "sweeper.md",
     RESPOND / "SKILL.md",
+    HOUSEKEEPING / "SKILL.md",
 ]
-FORBIDDEN = ["GEMINI", "CLAUDE.md", "SKILL_PROVENANCE", "scripts.core",
-             "docs/design", "docs/reviews", "docs/architecture", ".cursor"]
+FORBIDDEN = [
+    "GEMINI", "CLAUDE.md", "SKILL_PROVENANCE", "scripts.core",
+    "docs/design", "docs/reviews", "docs/architecture", ".cursor",
+    "run_cms_e2e", "expected_branch.txt", "CMS_SKIP_BRANCH_GUARD",
+    "ARCHITECTURE_REVIEW_2026",
+]
 
 
 def _python_bodies() -> list[tuple[str, str]]:
     bodies = []
-    for skill in (GATE / "SKILL.md", RESPOND / "SKILL.md"):
+    for skill in (GATE / "SKILL.md", RESPOND / "SKILL.md", HOUSEKEEPING / "SKILL.md"):
         text = skill.read_text(encoding="utf-8")
         bodies += [(f"{skill.parent.name}:python", b) for b in re.findall(r"```python\n(.*?)```", text, re.S)]
         bodies += [(f"{skill.parent.name}:python -c", b) for b in re.findall(r'python -c "\n(.*?)"\n', text, re.S)]

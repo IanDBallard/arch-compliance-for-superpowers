@@ -1,7 +1,7 @@
 # Portable `post-merge-housekeeping` Skill in `arch-compliance`
 
-**Status:** v1 — draft for adversarial design review (`writing-plans` blocked until CLEARED).
-**Adversarial review:** pending
+**Status:** v2 — approved for `writing-plans` (cleared by controller verification pass over the v1 full run).
+**Adversarial review:** v2 — 2026-11-03, verification pass over the v1 full run (BLOCKED; all blocking findings precision-class, absorbed and re-measured), user-approved (repo @ `1f8012e2e3baf0a5aafef01c0d6eac050078a2b0`)
 **Spec kinds:** `feature`
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `25f4aa4`; implemented on branch `feat/post-merge-housekeeping`.
 **Workstream:** HistoricMansions Workstream E (portable governance skills), discharging `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md:563-565` follow-up 2 (plugin side).

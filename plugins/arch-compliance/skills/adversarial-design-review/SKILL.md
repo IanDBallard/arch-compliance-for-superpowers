@@ -128,7 +128,7 @@ Unresolved citations are already a hard fail in step 2.
 **2b-ii. Revision-evidence check (re-runs only).** A run is a re-run when a run
 detail for this spec exists in this checkout under the declared `runs_dir` — a file
 shaped `<SPEC_STEM>_v<N>_<date>.md`, **excluding** files with a `_response_` segment.
-Read the most recent one's `Outcome:` line.
+Select the one with the highest `(int(N), <date>)` and read its `Outcome:` line.
 
 - **BLOCKED** → require the author response record under the declared `runs_dir`,
   named `<SPEC_STEM>_v<N>_response_<date>.md` (`N` = the blocked
@@ -360,7 +360,7 @@ one line above `append_row`. `LedgerWriteError` fires only once construction has
 succeeded and the write itself fails.
 
 `absorbed`, `rejected`, and `blocks_overturned` are `0` at write time. They, and
-`escapes`, are amended later by the host's post-merge process **appending a superseding
+`escapes`, are amended later by `post-merge-housekeeping` **appending a superseding
 record** for the same `spec_path` + `commit_sha` — the ledger is append-only, never
 edited in place; a reader takes the last such record. `LedgerWriteError` aborts;
 never skip the row.
