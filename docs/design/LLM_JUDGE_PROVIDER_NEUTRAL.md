@@ -1,8 +1,9 @@
 # Tier-2 LLM Judge — Provider-Neutral Contract (`anthropic` Default + `gemini`)
 
-**Status:** Draft
+**Status:** Approved (v1 — absorptions folded in)
 **Date:** 2026-11-02
 **Base commit:** `80b80f1`
+**Adversarial review:** v1 — 2026-11-02, 4 reviewers, CLEARED_WITH_ABSORPTIONS (repo @ 08bcabe6cbd0535bab08d18a726a1f73ff45d5f1)
 
 ## 1. Problem
 
@@ -82,7 +83,7 @@ the model in `plugins/arch-compliance/python/acf/cli_check_llm.py:16-50`.
 
 ### Non-Goals
 - Adding third-party provider SDK dependencies (`anthropic`, `google-genai`): both
-  providers use `httpx.Client` (`pyproject.toml:14`, `httpx>=0.27`).
+  providers use `httpx.Client` (`pyproject.toml:9`, `httpx>=0.27`).
 - Changing the Tier-2 judge prompt template (`plugins/arch-compliance/python/acf/judge_prompt.md`),
   `LLM_PROMPT_IDS` (`plugins/arch-compliance/python/acf/judge.py:23-30`), or
   confidence-gating semantics (`_to_finding`, `plugins/arch-compliance/python/acf/judge.py:126-143`).
@@ -213,8 +214,9 @@ and close the two parser/validation escape paths diagnosed in §2 item 2:
 2. **`_result_from_text(text: str, mandate: Mandate) -> JudgeResult | None`:**
    - Calls `data = _parse_json_object(text)`.
    - If `not data.get("violation", False)`, returns `None`.
-   - Uses `severity = data.get("severity") if data.get("severity") is not None else mandate.severity`
-     and `confidence = data.get("confidence") if data.get("confidence") is not None else "low"`.
+   - Uses `data.get("severity", mandate.severity)` and `data.get("confidence", "low")` so
+     omitted keys take the mandate/low default, whereas an explicit JSON `null` (`None`) or
+     invalid literal is refused rather than silently repaired.
    - Constructs `JudgeResult(...)` inside `try ... except ValidationError as e: raise JudgeResponseError(f"invalid judge result fields: {e}") from e`.
 
 ### 4.4 CLI Wiring (`plugins/arch-compliance/python/acf/cli_check_llm.py`)
@@ -281,7 +283,7 @@ preserved verbatim so `ALLOWED_DOC_LINES["python/acf/cli_check_llm.py"]` in
 | `## One owner for host paths` (`:105-116`) | `plugin.one-owner-host-paths` | `cli_check_llm.py:40` continues to resolve `MANDATES_REL` via `acf.repo`, and `cli_check_llm.py:28` keeps its exact allowlisted `--mandates` help string in `plugins/arch-compliance/tests/test_repo_paths.py:37-39`. |
 | `## Declared, never defaulted` (`:118-128`) | `plugin.declared-never-defaulted` | `config/architecture/adr.yml` host declarations are untouched; the Tier-2 judge's CLI/env provider and model defaults in `plugins/arch-compliance/python/acf/judge.py` are explicitly recorded in `config/architecture/ARCHITECTURE.md` `## Declared, never defaulted`. |
 | `## Prose names no host` (`:130-136`) | `plugin.adr-code-names-no-host`, `plugin.gate-prose-names-no-host` | Neither `acf/adr/` nor any skill prose under `plugins/arch-compliance/skills/` is modified, and runtime messages in `acf/judge.py` and `acf/cli_check_llm.py` name no host repository, path, or section. |
-| `## Live consumers` (`:146-150`) | *(doctrine rule)* | `PROVIDER_NAMES` and `run_judge` are consumed by `plugins/arch-compliance/python/acf/cli_check_llm.py`; `LLM_PROMPT_IDS` is consumed by `plugins/arch-compliance/python/acf/cli_check_diff.py:16, 25`; `DEFAULT_PROVIDER`, `DEFAULT_ANTHROPIC_MODEL`, `DEFAULT_GEMINI_MODEL`, `AnthropicProvider`, `GeminiProvider`, `resolve_api_key`, and `resolve_provider` are called in the runtime resolution chain `cli_check_llm.main -> run_judge -> resolve_provider -> resolve_api_key`. |
+| `## Live consumers` (`:146-150`) | *(doctrine rule)* | `PROVIDER_NAMES` and `run_judge` are consumed by `plugins/arch-compliance/python/acf/cli_check_llm.py`; `LLM_PROMPT_IDS` is consumed by `plugins/arch-compliance/python/acf/cli_check_diff.py:21, 25`; `DEFAULT_PROVIDER`, `DEFAULT_ANTHROPIC_MODEL`, `DEFAULT_GEMINI_MODEL`, `AnthropicProvider`, `GeminiProvider`, `resolve_api_key`, and `resolve_provider` are called in the runtime resolution chain `cli_check_llm.main -> run_judge -> resolve_provider -> resolve_api_key`. |
 | `## Declared text decoding` (`:164-175`) | *(doctrine rule)* | `_PROMPT_TEMPLATE.read_text(encoding="utf-8")` in `judge.py` and `args.diff_file.read_text(encoding="utf-8")` in `cli_check_llm.py` declare `encoding="utf-8"`. |
 | `## Single point of definition` (`:188-200`) | *(doctrine rule)* | Both `AnthropicProvider.review` and `GeminiProvider.review` delegate prompt rendering to `_build_prompt` and response-text-to-`JudgeResult` parsing/validation to `_result_from_text` (which delegates JSON extraction to `_parse_json_object`). |
 

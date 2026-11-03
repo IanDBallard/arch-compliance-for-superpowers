@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from acf.finding import Severity
-from acf.judge import run_judge
+from acf.judge import PROVIDER_NAMES, run_judge
 from acf.registry import load_mandates
 from acf.repo import MANDATES_REL, resolve_repo
 
@@ -26,6 +26,18 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=None,
         help="Path to mandates.yml (default: config/architecture/mandates.yml under cwd)",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=PROVIDER_NAMES,
+        default=None,
+        help="LLM judge provider (default: ACF_JUDGE_PROVIDER or 'anthropic')",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="LLM model override (default: ACF_JUDGE_MODEL or provider default)",
     )
     parser.add_argument(
         "--json",
@@ -46,7 +58,12 @@ def main(argv: list[str] | None = None) -> int:
     else:
         diff_text = sys.stdin.read()
 
-    findings = run_judge(diff_text, registry.mandates)
+    findings = run_judge(
+        diff_text,
+        registry.mandates,
+        provider_name=args.provider,
+        model=args.model,
+    )
 
     if args.json:
         print(json.dumps([f.model_dump(mode="json") for f in findings], indent=2))
