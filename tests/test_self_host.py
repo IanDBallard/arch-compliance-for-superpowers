@@ -40,3 +40,11 @@ def test_every_manual_row_names_an_existing_test_module():
     missing = [m.id for m in rows if not (ROOT / m.detector).is_file()
                or not m.detector.startswith(MANUAL_DETECTOR_PREFIX)]
     assert missing == []
+
+
+def test_doctrine_declares_post_merge_and_installed_skills_include_housekeeping():
+    doctrine = (ROOT / ARCH_REL).read_text(encoding="utf-8")
+    assert "## Post-merge\n" in doctrine
+    assert "No row: host operational declarations; no test enforces this." in doctrine
+    check_script = (ROOT / "scripts" / "check_installed_skills.py").read_text(encoding="utf-8")
+    assert '"post-merge-housekeeping"' in check_script

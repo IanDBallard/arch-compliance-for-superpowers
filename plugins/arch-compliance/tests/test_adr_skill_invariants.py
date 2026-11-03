@@ -12,6 +12,7 @@ from pathlib import Path
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 GATE = SKILLS / "adversarial-design-review"
 RESPOND = SKILLS / "responding-to-adversarial-review"
+HOUSEKEEPING = SKILLS / "post-merge-housekeeping"
 REVIEWERS = ("refuter", "compliance", "sweeper", "hardening")
 EXPECTED_GATE_FILES = {
     "SKILL.md",
@@ -30,8 +31,10 @@ ENTRY_POINTS = (
 )
 #: Only real import lines count — the symbols are also discussed in prose.
 _ACF_ADR_IMPORT_RE = re.compile(r"^from acf\.adr import .*$", re.MULTILINE)
+_ACF_REPO_IMPORT_RE = re.compile(r"^from acf\.repo import .*$", re.MULTILINE)
 #: A real fence starts a line by itself; a mid-sentence mention must not satisfy it.
 _JSON_FENCE_START_RE = re.compile(r"^```json$", re.MULTILINE)
+_PY_FENCE_BODY_RE = re.compile(r"```python\n(.*?)```", re.S)
 
 
 def _read(path: Path) -> str:
@@ -39,7 +42,7 @@ def _read(path: Path) -> str:
 
 
 def test_both_skills_have_frontmatter_with_a_name_and_description():
-    for root in (GATE, RESPOND):
+    for root in (GATE, RESPOND, HOUSEKEEPING):
         body = _read(root / "SKILL.md")
         assert body.startswith("---\n"), root.name
         assert f"name: {root.name}\n" in body, root.name
@@ -68,7 +71,7 @@ def test_gate_imports_every_python_entry_point():
 
 
 def test_no_skill_file_contains_a_backslash():
-    for root in (GATE, RESPOND):
+    for root in (GATE, RESPOND, HOUSEKEEPING):
         for path in sorted(root.rglob("*.md")):
             assert "\\" not in _read(path), path.relative_to(SKILLS).as_posix()
 
@@ -97,3 +100,33 @@ def test_responding_skill_points_at_the_gate_and_the_mechanical_stop():
     assert "adversarial-design-review" in body
     assert "pre-dispatch mechanical stop" in body
     assert "sweep the claim" in body.lower()
+
+
+def test_housekeeping_skill_invariants():
+    body = _read(HOUSEKEEPING / "SKILL.md")
+    adr_imported = "\n".join(_ACF_ADR_IMPORT_RE.findall(body))
+    for symbol in ("LedgerAmendment", "append_amendment", "load_host_config"):
+        assert symbol in adr_imported, f"{symbol} must be imported in a real `from acf.adr import` line"
+    repo_imported = "\n".join(_ACF_REPO_IMPORT_RE.findall(body))
+    for symbol in ("ADR_REL", "resolve_repo"):
+        assert symbol in repo_imported, f"{symbol} must be imported in a real `from acf.repo import` line"
+    for required in (
+        "dispatch_commit_sha",
+        "_response_",
+        "(int(N),",
+        "## Post-merge",
+        "not declared in ## Post-merge, skipped",
+        "refs/remotes/origin/HEAD",
+        "git ls-remote --symref origin HEAD",
+        "headRefOid",
+        "git fetch --prune",
+        "What ALREADY gets through the guard we just shipped?",
+    ):
+        assert required in body, f"missing required housekeeping invariant: {required}"
+    py_blocks = _PY_FENCE_BODY_RE.findall(body)
+    assert py_blocks, "expected at least one fenced ```python block in post-merge-housekeeping/SKILL.md"
+    for block in py_blocks:
+        assert "absorbed=0" not in block.replace(" ", "")
+    assert "post-merge-housekeeping" in _read(GATE / "SKILL.md")
+    assert "(int(N), <date>)" in _read(GATE / "SKILL.md")
+    assert "post-merge-housekeeping" in _read(RESPOND / "SKILL.md")

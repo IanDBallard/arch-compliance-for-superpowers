@@ -137,8 +137,10 @@ defaulted or cross-provider-fallback-resolved).
 Skill prose and runtime messages name no host repository, path or section; a host
 reaches the gate only through its declaration and its doctrine. Rows:
 `plugin.adr-code-names-no-host` (the gate's package and runtime messages) and
-`plugin.gate-prose-names-no-host` (the two gate skills' prose; the other three skills in
-`plugins/arch-compliance/skills/` have no row yet).
+`plugin.gate-prose-names-no-host` (`plugins/arch-compliance/tests/test_adr_skill_prose.py`
+checks the two gate skills and `post-merge-housekeeping` against the enumerated
+`FORBIDDEN` list of known origin-host (`HistoricMansions`) vocabulary; the other three
+skills in `plugins/arch-compliance/skills/` have no row yet).
 
 ## Frozen ledger format
 
@@ -183,9 +185,10 @@ follow-up 1. No row: no test enforces this yet.
 
 A change to a skill's prose bumps the plugin version in
 `plugins/arch-compliance/.claude-plugin/plugin.json` and `pyproject.toml`. Before a gate
-run, the installed copy of the two gate skills is byte-checked against the clone
+or `post-merge-housekeeping` run, the installed copy of the two gate skills and
+`post-merge-housekeeping` is byte-checked against the clone
 (`scripts/check_installed_skills.py`); on a mismatch the plugin is reinstalled from the
-clone and the session restarted. The check covers those two skill trees only: the hooks
+clone and the session restarted. The check covers those three skill trees only: the hooks
 run the installed copy's `hooks/` and `python/` (`plugins/arch-compliance/hooks/posttooluse_gate.py:22-26`),
 which it does not compare. Source: phase 1d spec risk table (cache drift) and 1d plan
 Task 8 step 1. No row: no test enforces this yet.
@@ -223,3 +226,14 @@ The compliance reviewer checks these first:
 - A check re-implemented in a test or a skill instead of consumed from the package
   (`acf.registry.load_mandates`, `acf.registry.missing_anchors`,
   `acf.cli_check_diff.KNOWN_DETECTORS`, the `acf.repo` constants).
+
+## Post-merge
+
+Host operational declarations read by `post-merge-housekeeping`:
+
+- **Shared-checkout branch lock:** none declared.
+- **Worktree daemon probe:** none declared (tests spawn no background server).
+- **Post-merge CI workflows:** `.github/workflows/ci.yml` (`test` job on `main`).
+- **Durable tracking target:** GitHub Issues on `IanDBallard/arch-compliance-for-superpowers` (`gh issue create`), so filing a follow-up or guard escape never edits an already-cleared spec.
+
+No row: host operational declarations; no test enforces this.

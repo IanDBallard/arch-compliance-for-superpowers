@@ -190,7 +190,7 @@
   arch_anchor: "## Prose names no host"
 
 - id: plugin.gate-prose-names-no-host
-  title: The gate skills' prose names no origin host
+  title: The gate and housekeeping skills' prose contains no known origin-host vocabulary
   severity: WARN
   detection: manual
   detector: plugins/arch-compliance/tests/test_adr_skill_prose.py
