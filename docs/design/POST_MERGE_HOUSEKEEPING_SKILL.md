@@ -3,7 +3,7 @@
 **Status:** v1 — draft for adversarial design review (`writing-plans` blocked until CLEARED).
 **Adversarial review:** pending
 **Spec kinds:** `feature`
-**Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `2929331`; implemented on branch `feat/post-merge-housekeeping`.
+**Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `25f4aa4`; implemented on branch `feat/post-merge-housekeeping`.
 **Workstream:** HistoricMansions Workstream E (portable governance skills), discharging `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md:563-565` follow-up 2 (plugin side).
 **Governing mandates:** `config/architecture/ARCHITECTURE.md` sections `## Fail loud` (`:24-41`), `## No shims` (`:43-53`), `## POSIX paths` (`:55-64`), `## One base exception` (`:99-103`), `## One owner for host paths` (`:105-116`), `## Declared, never defaulted` (`:118-133`), `## Prose names no host` (`:135-141`), `## Frozen ledger format` (`:143-149`), `## Live consumers` (`:151-155`), `## No completeness claims` (`:157-167`), `## Declared text decoding` (`:169-180`), `## Release discipline` (`:182-191`), `## Single point of definition` (`:193-206`), `## Scoped refactor` (`:208-212`), and the five portable governing principles at `docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:43-51`.
 **No state-machine surface.** This design adds or modifies no state machine and no transition.
@@ -12,7 +12,7 @@
 
 ## 0. Citation convention
 
-Unprefixed paths refer to this repository (`IanDBallard/arch-compliance-for-superpowers`) at `main` (`2929331`, which merges `origin/main` `1aac816` with `feat/self-host` `731095f`, `feat/executed-census-response` `80b80f1`, and `feat/judge-provider-neutral` `5623832`). Paths prefixed `hm:` refer to the sibling repository `HistoricMansions` at `b652fab05` (`main`), following the precedent established in `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md:10-32`. Every path is written in full with POSIX slashes and without `...` ellipses.
+Unprefixed paths refer to this repository (`IanDBallard/arch-compliance-for-superpowers`) at `main` (`25f4aa4`, which merges `origin/main` `1aac816` with `feat/self-host` `731095f`, `feat/executed-census-response` `80b80f1`, and `feat/judge-provider-neutral` `5623832`). Paths prefixed `hm:` refer to the sibling repository `HistoricMansions` at `b652fab05` (`main`), following the precedent established in `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md:10-32`. Every path is written in full with POSIX slashes and without `...` ellipses.
 
 ---
 
@@ -249,7 +249,7 @@ The defect class this design retires in `post-merge-housekeeping` is *origin-hos
 5. `config/architecture/ARCHITECTURE.md` (updated `## Prose names no host` and `## Release discipline`, plus new `## Post-merge` section ending with `No row: host operational declarations; no test enforces this.`) and `config/architecture/mandates.yml` (`plugin.gate-prose-names-no-host` title) are updated per §5.3.3, and `tests/test_self_host.py` passes.
 6. `README.md:28-35` and `docs/guides/SUPERPOWERS_COMPLEMENT.md:38-43` list `/post-merge-housekeeping` (and `/adversarial-design-review`, `/responding-to-adversarial-review` in `SUPERPOWERS_COMPLEMENT.md`) per §5.3.5.
 7. `plugins/arch-compliance/.claude-plugin/plugin.json` and `pyproject.toml` versions are bumped to `"0.2.2"`.
-8. `python -m pytest -q` and `PYTHONUTF8=1 python -m acf.cli_check_diff --repo . --base origin/main` (after `main` `2929331` is merged to `origin/main` via PR; `--base main` prior to that merge) pass with zero BLOCK findings.
+8. `python -m pytest -q` and `PYTHONUTF8=1 python -m acf.cli_check_diff --repo . --base origin/main` (after `main` `25f4aa4` is merged to `origin/main` via PR; `--base main` prior to that merge) pass with zero BLOCK findings.
 9. `npm test --prefix plugins/arch-compliance/detectors/typescript` prints `self-test OK`.
 10. This spec clears `/adversarial-design-review`, with its run detail under `docs/reviews/adr_runs/` and its `LedgerRow` in `docs/reviews/adversarial_design_ledger.jsonl` committed on the branch.
 
@@ -275,5 +275,5 @@ The defect class this design retires in `post-merge-housekeeping` is *origin-hos
 | Both gate skills currently say `"the host's post-merge process"` | `git grep -n "post-merge process" -- plugins/arch-compliance/skills/` | `plugins/arch-compliance/skills/adversarial-design-review/SKILL.md:363` and `plugins/arch-compliance/skills/responding-to-adversarial-review/SKILL.md:223` |
 | `LedgerAmendment` has optional `None`-defaulted counters and no read-back in the pipeline | Inspect `plugins/arch-compliance/python/acf/adr/ledger.py:132-166` | Docstring at `:139-140, :146-149` states match by `spec_path` + `commit_sha` and no read-back in pipeline; fields `absorbed`, `rejected`, `blocks_overturned`, `escapes` default to `None` (`:163-166`) |
 | Run-detail file naming and header format | Inspect `plugins/arch-compliance/python/acf/adr/run_detail.py:47, 81-85` | Line 47: `name = f"{stem}_v{version}_{date}.md"`; Line 84: `f"Spec: \`{run.spec_path}\` @ \`{run.commit_sha}\`"` |
-| `GATE_SKILLS` in `scripts/check_installed_skills.py` has 2 skills at `2929331` | `sed -n 18p scripts/check_installed_skills.py` | `GATE_SKILLS = ("adversarial-design-review", "responding-to-adversarial-review")` |
+| `GATE_SKILLS` in `scripts/check_installed_skills.py` has 2 skills at `25f4aa4` | `sed -n 18p scripts/check_installed_skills.py` | `GATE_SKILLS = ("adversarial-design-review", "responding-to-adversarial-review")` |
 | Current plugin version is `0.2.1` | Inspect `pyproject.toml:3` and `plugins/arch-compliance/.claude-plugin/plugin.json:3` | Both carry `"0.2.1"` |
