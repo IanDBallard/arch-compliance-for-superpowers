@@ -3,7 +3,7 @@
 **Status:** Draft (v1)
 **Date:** 2026-11-03
 **Spec kinds:** `feature`
-**Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `f29f91f` (branch `feat/host-detector-extension` at `367e6b5`).
+**Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `a338cad` (branch `feat/host-detector-extension`, which differs from `main` only by this spec).
 **Workstream:** HistoricMansions Workstream E Phase 2 (prerequisite Spec 2a — Tier-1 host detector extension point).
 **Governing mandates:** `config/architecture/ARCHITECTURE.md` sections `## Fail loud` (`:24-41`), `## No shims` (`:43-53`), `## POSIX paths` (`:55-64`), `## One base exception` (`:99-103`), `## One owner for host paths` (`:105-116`), `## Declared, never defaulted` (`:118-133`), `## Prose names no host` (`:135-143`), `## Frozen ledger format` (`:145-151`), `## Live consumers` (`:153-157`), `## No completeness claims` (`:159-169`), `## Declared text decoding` (`:171-182`), `## Release discipline` (`:184-194`), `## Single point of definition` (`:196-209`), `## Scoped refactor` (`:211-215`), and the five portable governing principles at `docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:43-51`.
 **No state-machine surface.** This design adds or modifies no state machine and no transition.
@@ -12,13 +12,13 @@
 
 ## 0. Citation convention
 
-Unprefixed paths refer to this repository (`IanDBallard/arch-compliance-for-superpowers`) on branch `feat/host-detector-extension` at `367e6b5` (one commit ahead of `main` `f29f91f`). Paths prefixed `hm:` refer to the sibling repository `HistoricMansions` at `b652fab05` (`main`), following `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md:10-32`. Every path is written in full with POSIX forward slashes and without `...` ellipses.
+Unprefixed paths refer to this repository (`IanDBallard/arch-compliance-for-superpowers`) on branch `feat/host-detector-extension`, whose only change from `main` at `a338cad` is this spec; every cited line is as at `a338cad`. Paths prefixed `hm:` refer to the sibling repository `HistoricMansions` at `b652fab05` (`main`), following `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md:10-32`. Every path is written in full with POSIX forward slashes and without `...` ellipses.
 
 ---
 
 ## 1. Problem
 
-`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:102, 123, 125` specifies that `Mandate.detector` names a detector function, guard module, LLM prompt id, or manual verification pointer, and that both the Python and TypeScript packs provide extension points for project-specific detectors. However, at `367e6b5`, `arch-compliance` has no mechanism to validate, load, or execute a host-defined `detection: ast` or `detection: guard` detector:
+`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:102, 123, 125` specifies that `Mandate.detector` names a detector function, guard module, LLM prompt id, or manual verification pointer, and that both the Python and TypeScript packs provide extension points for project-specific detectors. However, at `a338cad`, `arch-compliance` has no mechanism to validate, load, or execute a host-defined `detection: ast` or `detection: guard` detector:
 
 1. **`load_mandates` rejects every `ast` or `guard` detector outside the fixed built-in set (`plugins/arch-compliance/python/acf/registry.py:48-64`):**
    - `load_mandates(path: Path, *, known_detectors: frozenset[str] | None = None) -> MandateRegistry` raises `UnknownDetectorError` at `plugins/arch-compliance/python/acf/registry.py:60-63` whenever `m.status == "enforced"`, `m.detection in {"ast", "guard"}`, and `m.detector not in known_detectors`.
@@ -113,7 +113,7 @@ Unprefixed paths refer to this repository (`IanDBallard/arch-compliance-for-supe
 - Updating `tests/test_self_host.py:23`, `plugins/arch-compliance/skills/acf-mandate/SKILL.md`, `plugins/arch-compliance/skills/acf-setup/SKILL.md`, `config/architecture/ARCHITECTURE.md`, and `docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:184`, and bumping the plugin version from `"0.2.2"` to `"0.2.3"` in `pyproject.toml:3` and `plugins/arch-compliance/.claude-plugin/plugin.json:3`.
 
 ### Non-Goals
-- **No `acf.architecture_review` runtime package or `config/architecture/review.yml` changes:** Those belong to Spec 2b (`ARCHITECTURE_REVIEW_PORTABILITY.md`).
+- **No `acf.architecture_review` runtime package and no architecture-review host configuration file:** Both belong to Spec 2b (architecture-review portability), which is not yet written; neither exists in this repository today.
 - **No `PosixRelPath` Pydantic `Annotated` alias in `acf.engine` yet:** Because `acf.engine` is stdlib-only and `parse_host_detector_ref` calls `validate_posix_rel_path` directly, adding an unused `PosixRelPath` alias in Spec 2a would violate `## Live consumers` (`config/architecture/ARCHITECTURE.md:153-157`). Spec 2b will wrap `validate_posix_rel_path` in `Annotated[str, AfterValidator(validate_posix_rel_path)]` where `ReviewHostConfig` consumes it.
 - **No changes to `HistoricMansions` in this slice:** Porting HM's 17 AST detectors and 25 guards to `<posix_rel_path.py>:<callable_name>` in `hm:config/architecture/mandates.yml` belongs to Slice 3 (HM cutover).
 
@@ -370,7 +370,7 @@ def make_line_lookup(
 | `## No shims` (`:43-53`) | `no-shims.hasattr` | Uses `getattr(mod, attr_name, None)` with `callable(...)` rather than `hasattr`. No silent fallback when a host detector fails to import or raises. |
 | `## POSIX paths` (`:55-64`) | `posix-paths.str-serialization` | `validate_posix_rel_path` refuses backslashes via `contains_backslash`, and `_normalize_findings` refuses any `Finding` whose `path` contains a backslash. |
 | `## One base exception` (`:99-103`) | `plugin.one-base-exception` | Reuses `AcfInputError`, `UnknownDetectorError`, and `DetectorPackError` (`plugins/arch-compliance/python/acf/exceptions.py:5-30`), all subclassing `AcfError` alone. |
-| `## One owner for host paths` (`:105-116`) | `plugin.one-owner-host-paths` | Neither `acf/engine.py` nor `acf/detectors/host.py` spells `config/architecture`; `acf/skills/acf-mandate/SKILL.md` continues to import `ARCH_REL`, `MANDATES_REL`, and `resolve_repo` from `acf.repo`. |
+| `## One owner for host paths` (`:105-116`) | `plugin.one-owner-host-paths` | Neither `acf/engine.py` nor `acf/detectors/host.py` spells `config/architecture`; `plugins/arch-compliance/skills/acf-mandate/SKILL.md` continues to import `ARCH_REL`, `MANDATES_REL`, and `resolve_repo` from `acf.repo`. |
 | `## Declared, never defaulted` (`:118-133`) | `plugin.declared-never-defaulted` | When `load_mandates` validates an active host detector row with `known_detectors is not None`, it requires explicit `repo_root: Path` and raises `AcfInputError` if `repo_root is None` rather than guessing `path.parents[2]`. |
 | `## Prose names no host` (`:135-143`) | `plugin.adr-code-names-no-host`, `plugin.gate-prose-names-no-host` | Runtime messages and skill prose in `acf-mandate` and `acf-setup` name no origin host (`HistoricMansions`, `GEMINI.md`, etc.). |
 | `## Live consumers` (`:153-157`) | *(doctrine rule)* | Every added function and constant has a live runtime call site: `validate_posix_rel_path` is called by `parse_host_detector_ref`; `DIFF_CALL_SITES`, `HOOK_CALL_SITES`, `TIER1_CALL_SITES`, `is_host_detector_ref`, `parse_host_detector_ref`, `load_host_detector`, `scan_host_ast_file`, and `scan_host_guards` are called by `load_mandates`, `cli_check_diff.py`, and `hooks/posttooluse_gate.py`; `make_line_lookup` is called by `cli_check_diff.py` and `hooks/posttooluse_gate.py`. |
@@ -416,9 +416,9 @@ def make_line_lookup(
 
 ---
 
-## Appendix — Premise Verification Receipts at `367e6b5`
+## Appendix — Premise Verification Receipts at `a338cad`
 
-| Premise | Command | Observed output at `367e6b5` |
+| Premise | Command | Observed output at `a338cad` |
 |---|---|---|
 | `load_mandates` call sites across runtime, hooks, skills, and tests | `git grep -n "load_mandates" -- plugins/arch-compliance/python plugins/arch-compliance/hooks plugins/arch-compliance/skills plugins/arch-compliance/tests tests` | `hooks/inject_constraints.py:104`, `hooks/posttooluse_gate.py:107`, `python/acf/cli_check_diff.py:70`, `python/acf/cli_check_llm.py:54`, `python/acf/registry.py:48`, `skills/acf-mandate/SKILL.md:95`, `skills/architecture-review/SKILL.md:62`, `tests/test_profile_drift.py:24`, `tests/test_registry.py:10,17,30,47,57`, `tests/test_self_host.py:23` |
 | Duplicate `_line_lookup` closures in `cli_check_diff.py` and `hooks/posttooluse_gate.py` | `git grep -n "_line_lookup" -- plugins/arch-compliance/python plugins/arch-compliance/hooks` | `plugins/arch-compliance/hooks/posttooluse_gate.py:119,125` and `plugins/arch-compliance/python/acf/cli_check_diff.py:76,82` |
