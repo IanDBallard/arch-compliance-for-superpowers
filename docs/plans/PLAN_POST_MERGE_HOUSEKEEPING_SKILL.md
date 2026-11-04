@@ -9,6 +9,7 @@
 **Tech Stack:** Python 3.11+, pytest, Markdown skill definitions (`plugins/arch-compliance/skills/`), YAML mandate registry (`config/architecture/mandates.yml`).
 
 **Spec:** `docs/design/POST_MERGE_HOUSEKEEPING_SKILL.md`
+**Merged:** PR #23 (`f29f91f`, 2026-11-03)
 
 ## Global Constraints
 
