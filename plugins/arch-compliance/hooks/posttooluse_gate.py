@@ -215,10 +215,15 @@ def _scan_paths(
 ) -> tuple[list[Finding], dict[str, list[str]]]:
     from acf.detectors.build_artifacts import (
         BUILD_ARTIFACT_DETECTOR_ID,
+        build_artifact_args,
         scan_build_artifact_paths,
     )
-    from acf.detectors.facade_sinks import FACADE_SINK_DETECTOR_ID, scan_facade_sinks
-    from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, scan_fsm_writes
+    from acf.detectors.facade_sinks import (
+        FACADE_SINK_DETECTOR_ID,
+        facade_sink_args,
+        scan_facade_sinks,
+    )
+    from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, fsm_guard_args, scan_fsm_writes
     from acf.detectors.python_pack import scan_python_file
     from acf.detectors.typescript_bridge import scan_typescript_file
 
@@ -259,9 +264,7 @@ def _scan_paths(
                         text,
                         rel,
                         None,
-                        target_literal_re=str(params.get("target_literal_re", "")),
-                        allowlist_globs=list(params.get("allowlist_globs") or []),
-                        atomic_is_sink=bool(params.get("atomic_is_sink", True)),
+                        **facade_sink_args(params),
                     )
                 )
             for mandate in fsm_specs:
@@ -271,8 +274,7 @@ def _scan_paths(
                         text,
                         rel,
                         None,
-                        state_field=str(params.get("state_field", "")),
-                        validator_name=str(params.get("validator_name", "")),
+                        **fsm_guard_args(params),
                     )
                 )
         else:
@@ -285,13 +287,7 @@ def _scan_paths(
         if mandate.detector != BUILD_ARTIFACT_DETECTOR_ID or mandate.status == "unenforced":
             continue
         params = mandate.params or {}
-        prefixes = params.get("path_prefixes")
-        findings.extend(
-            scan_build_artifact_paths(
-                rel_paths,
-                path_prefixes=list(prefixes) if prefixes else None,
-            )
-        )
+        findings.extend(scan_build_artifact_paths(rel_paths, **build_artifact_args(params)))
     return findings, file_lines
 
 

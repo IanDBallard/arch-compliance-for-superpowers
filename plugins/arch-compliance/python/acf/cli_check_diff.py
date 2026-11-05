@@ -8,10 +8,18 @@ import sys
 from pathlib import Path
 
 from acf.detectors import ALL_PYTHON_DETECTOR_IDS
-from acf.detectors.build_artifacts import BUILD_ARTIFACT_DETECTOR_ID, scan_build_artifact_paths
-from acf.detectors.facade_sinks import FACADE_SINK_DETECTOR_ID, scan_facade_sinks
+from acf.detectors.build_artifacts import (
+    BUILD_ARTIFACT_DETECTOR_ID,
+    build_artifact_args,
+    scan_build_artifact_paths,
+)
+from acf.detectors.facade_sinks import (
+    FACADE_SINK_DETECTOR_ID,
+    facade_sink_args,
+    scan_facade_sinks,
+)
 from acf.detectors.fail_loud_ratchet import FAIL_LOUD_RATCHET_DETECTOR_ID, scan_ratchet
-from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, scan_fsm_writes
+from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, fsm_guard_args, scan_fsm_writes
 from acf.detectors.python_pack import scan_python_file
 from acf.detectors.typescript_bridge import TS_DETECTOR_IDS, scan_typescript_file
 from acf.diff import DiffMode, added_lines, changed_files
@@ -132,9 +140,7 @@ def _scan_changed(
                         text,
                         posix,
                         lines,
-                        target_literal_re=str(params.get("target_literal_re", "")),
-                        allowlist_globs=list(params.get("allowlist_globs") or []),
-                        atomic_is_sink=bool(params.get("atomic_is_sink", True)),
+                        **facade_sink_args(params),
                     )
                 )
             for mandate in fsm_specs:
@@ -144,8 +150,7 @@ def _scan_changed(
                         text,
                         posix,
                         lines,
-                        state_field=str(params.get("state_field", "")),
-                        validator_name=str(params.get("validator_name", "")),
+                        **fsm_guard_args(params),
                     )
                 )
         elif suffix in {".ts", ".tsx"}:
@@ -157,13 +162,7 @@ def _scan_changed(
 
     for mandate in _active_mandates(registry, BUILD_ARTIFACT_DETECTOR_ID):
         params = mandate.params or {}
-        prefixes = params.get("path_prefixes")
-        findings.extend(
-            scan_build_artifact_paths(
-                changed,
-                path_prefixes=list(prefixes) if prefixes else None,
-            )
-        )
+        findings.extend(scan_build_artifact_paths(changed, **build_artifact_args(params)))
 
     for mandate in _active_mandates(registry, FAIL_LOUD_RATCHET_DETECTOR_ID):
         params = mandate.params or {}

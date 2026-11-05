@@ -3,14 +3,24 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import Any
 
-from acf.engine import is_in_scope, posix_path
+from acf.engine import is_in_scope, parse_python, posix_path
 from acf.exceptions import DetectorPackError
 from acf.finding import Finding, Severity
 
 FSM_GUARD_DETECTOR_ID = "fsm_transition_guard"
+FSM_GUARD_MANDATE_ID = "fsm.transition-guard"
+
+
+def fsm_guard_args(params: Mapping[str, Any]) -> dict[str, Any]:
+    """Scanner kwargs for a row's params; both keys are required and default to ``""``."""
+    return {
+        "state_field": str(params.get("state_field", "")),
+        "validator_name": str(params.get("validator_name", "")),
+    }
 
 
 def scan_fsm_writes(
@@ -33,9 +43,8 @@ def scan_fsm_writes(
             "fsm_transition_guard requires params.state_field and params.validator_name"
         )
 
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
+    tree = parse_python(text)
+    if tree is None:
         return []
 
     posix = posix_path(path)
@@ -56,7 +65,7 @@ def scan_fsm_writes(
                 snippet = lines[line - 1].strip() if 0 < line <= len(lines) else ""
                 findings.append(
                     Finding(
-                        mandate_id="fsm.transition-guard",
+                        mandate_id=FSM_GUARD_MANDATE_ID,
                         severity=Severity.BLOCK,
                         path=posix,
                         line=line,

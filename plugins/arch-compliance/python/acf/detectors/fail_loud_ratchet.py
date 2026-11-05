@@ -12,27 +12,24 @@ import json
 from pathlib import Path
 from typing import Any
 
-from acf.engine import posix_path
+from acf.detectors.python_pack import is_bare_or_exception
+from acf.engine import parse_python, posix_path
 from acf.exceptions import DetectorPackError
 from acf.finding import Finding, Severity
 
 FAIL_LOUD_RATCHET_DETECTOR_ID = "fail_loud_ratchet"
+FAIL_LOUD_RATCHET_MANDATE_ID = "fail-loud.ratchet"
 
 
 def count_bare_excepts(text: str) -> int:
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
+    tree = parse_python(text)
+    if tree is None:
         return 0
-    count = 0
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ExceptHandler):
-            continue
-        if node.type is None:
-            count += 1
-        elif isinstance(node.type, ast.Name) and node.type.id == "Exception":
-            count += 1
-    return count
+    return sum(
+        1
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ExceptHandler) and is_bare_or_exception(node)
+    )
 
 
 def scan_tree(
@@ -129,7 +126,7 @@ def scan_ratchet(
     for path, (old, new) in sorted(growth.items()):
         findings.append(
             Finding(
-                mandate_id="fail-loud.ratchet",
+                mandate_id=FAIL_LOUD_RATCHET_MANDATE_ID,
                 severity=Severity.BLOCK,
                 path=path,
                 line=1,
