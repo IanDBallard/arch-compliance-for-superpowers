@@ -288,3 +288,106 @@ def test_site_with_no_active_row_is_refused(
     code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "precommit"])
     assert code == 1
     assert "selects no active" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------- host detectors
+
+_HOST_MODULE = '''from acf.detectors.host import HostHit
+
+
+def scan_ast(text, path, added_lines, *, tree, params):
+    for n, line in enumerate(text.splitlines(), 1):
+        if "HOST_MARKER" in line:
+            yield HostHit(path=path, line=n, message="host ast marker")
+
+
+def scan_guard(repo_root, changed_files, *, params):
+    for rel in changed_files:
+        if rel.endswith(".md"):
+            yield HostHit(path=rel, line=1, message="host guard on a document")
+'''
+
+
+def _host_rows(sites: str) -> str:
+    return f"""- id: host.ast-marker
+  title: Host ast marker
+  severity: BLOCK
+  detection: ast
+  detector: hostdet/rules.py:scan_ast
+  languages: python
+  call_sites: {sites}
+  exemption_tokens: [host.ast-marker-ok]
+  status: enforced
+  arch_anchor: "# Host"
+- id: host.doc-guard
+  title: Host doc guard
+  severity: BLOCK
+  detection: guard
+  detector: hostdet/rules.py:scan_guard
+  languages: none
+  call_sites: {sites}
+  exemption_tokens: [host.doc-ok]
+  status: enforced
+  arch_anchor: "# Host"
+"""
+
+
+def _host_repo(tmp_path: Path, rows: str) -> Path:
+    repo = _init_repo(tmp_path)
+    (repo / "hostdet").mkdir()
+    (repo / "hostdet" / "rules.py").write_text(_HOST_MODULE, encoding="utf-8")
+    _write_mandates(repo, rows)
+    return repo
+
+
+def _json_ids(capsys: pytest.CaptureFixture[str]) -> list[tuple[str, str]]:
+    import json
+
+    out = capsys.readouterr().out
+    return sorted((f["mandate_id"], f["path"]) for f in json.loads(out))
+
+
+def test_host_ast_and_guard_rows_run_at_ci_and_block(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
+) -> None:
+    repo = _host_repo(tmp_path, _host_rows("[ci]"))
+    (repo / "pkg").mkdir()
+    (repo / "pkg" / "a.py").write_text("x = 1  # HOST_MARKER\n", encoding="utf-8")
+    (repo / "notes.md").write_text("plain text\n", encoding="utf-8")
+    _git(repo, "add", "pkg/a.py", "notes.md")
+
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci", "--json"])
+    assert code == 1
+    assert _json_ids(capsys) == [
+        ("host.ast-marker", "pkg/a.py"),
+        ("host.doc-guard", "notes.md"),
+    ]
+
+
+def test_host_guard_exemption_token_on_a_non_code_file_is_honoured(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
+) -> None:
+    repo = _host_repo(tmp_path, _host_rows("[ci]"))
+    (repo / "notes.md").write_text("# host.doc-ok: generated changelog\n", encoding="utf-8")
+    _git(repo, "add", "notes.md")
+
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci", "--json"])
+    assert code == 0
+    assert _json_ids(capsys) == []
+
+
+def test_host_guard_only_row_at_precommit_passes_selection_and_reports(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
+) -> None:
+    """Review Focus 4: a host guard row alone selects the precommit site."""
+    rows = _host_rows("[precommit]")
+    guard_only = rows[rows.index("- id: host.doc-guard") :]
+    repo = _host_repo(tmp_path, guard_only)
+    (repo / "notes.md").write_text("plain text\n", encoding="utf-8")
+    _git(repo, "add", "notes.md")
+
+    code = main(
+        ["--mode", "staged", "--repo", str(repo), "--call-site", "precommit", "--json"]
+    )
+    assert code == 1
+    assert _json_ids(capsys) == [("host.doc-guard", "notes.md")]

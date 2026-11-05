@@ -20,6 +20,7 @@ from acf.detectors.facade_sinks import (
 )
 from acf.detectors.fail_loud_ratchet import FAIL_LOUD_RATCHET_DETECTOR_ID, scan_ratchet
 from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, fsm_guard_args, scan_fsm_writes
+from acf.detectors.host import scan_host_ast_file, scan_host_guards
 from acf.detectors.python_pack import scan_python_file
 from acf.detectors.typescript_bridge import scan_typescript_file
 from acf.diff import DiffMode, added_lines, changed_files
@@ -27,7 +28,7 @@ from acf.enforcement import apply_registry, make_line_lookup
 from acf.exceptions import AcfInputError, DetectorPackError, GitError, UnknownDetectorError
 from acf.finding import Finding, Severity
 from acf.judge import LLM_PROMPT_IDS
-from acf.repo import MANDATES_REL, RATCHET_BASELINE_REL, resolve_repo
+from acf.repo import MANDATES_REL, RATCHET_BASELINE_REL, RepoTree, resolve_repo
 from acf.registry import DIFF_CALL_SITES, MandateRegistry, load_mandates
 
 
@@ -122,6 +123,8 @@ def _scan_changed(
     findings: list[Finding] = []
     file_lines: dict[str, list[str]] = {}
     changed = changed_files(repo, mode, base=base)
+    tree = RepoTree(repo)
+    in_repo: list[str] = []
 
     facade_specs = registry.active(sites, detector=FACADE_SINK_DETECTOR_ID)
     fsm_specs = registry.active(sites, detector=FSM_GUARD_DETECTOR_ID)
@@ -129,11 +132,12 @@ def _scan_changed(
     for rel in changed:
         path = Path(rel)
         suffix = path.suffix.lower()
-        abs_path = repo / path
-        if not abs_path.is_file():
+        abs_path = tree.file(rel)
+        if abs_path is None:
             continue
         lines = frozenset(added_lines(repo, rel, mode, base=base))
         posix = path.as_posix()
+        in_repo.append(posix)
 
         if suffix == ".py":
             text = abs_path.read_text(encoding="utf-8")
@@ -159,11 +163,22 @@ def _scan_changed(
                         **fsm_guard_args(params),
                     )
                 )
+            findings.extend(
+                scan_host_ast_file(
+                    repo, text, posix, lines, registry, language="python", call_sites=sites
+                )
+            )
         elif suffix in {".ts", ".tsx"}:
-            file_lines[posix] = abs_path.read_text(encoding="utf-8").splitlines()
+            text = abs_path.read_text(encoding="utf-8")
+            file_lines[posix] = text.splitlines()
             findings.extend(
                 f.model_copy(update={"path": posix})
                 for f in scan_typescript_file(abs_path, added_lines=lines)
+            )
+            findings.extend(
+                scan_host_ast_file(
+                    repo, text, posix, lines, registry, language="typescript", call_sites=sites
+                )
             )
 
     for mandate in registry.active(sites, detector=BUILD_ARTIFACT_DETECTOR_ID):
@@ -186,6 +201,7 @@ def _scan_changed(
             )
         )
 
+    findings.extend(scan_host_guards(repo, in_repo, registry, file_lines, call_sites=sites))
     return findings, file_lines
 
 

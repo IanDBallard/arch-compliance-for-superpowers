@@ -9,7 +9,9 @@ Runnable as:
 Behavior:
   - If ``.acf/enabled`` is absent: exit 0 (no-op), optional stderr warning.
   - If enabled and ``config/architecture/mandates.yml`` is missing: non-zero exit.
-  - Otherwise scan ``.py`` / ``.ts`` / ``.tsx`` paths and print findings.
+  - Otherwise run the active rows declaring ``hook`` or ``posttooluse``, host
+    detectors included, on the edited in-repo paths and print findings; host
+    guards receive every edited in-repo path.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ _PYTHON_ROOT = _PLUGIN_ROOT / "python"
 if str(_PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(_PYTHON_ROOT))
 
-from acf.repo import ENABLED_REL, MANDATES_REL, resolve_repo
+from acf.repo import ENABLED_REL, MANDATES_REL, RepoTree, resolve_repo
 
 # NOTE: third-party acf imports (pydantic, yaml) are deferred into main() so
 # this hook stays a true no-op (exit 0, no third-party imports) in repos
@@ -194,11 +196,13 @@ def _collect_paths(
                     if isinstance(edit, dict) and edit.get("file_path"):
                         collected.append(str(edit["file_path"]))
 
+    tree = RepoTree(repo)
     resolved: list[Path] = []
     seen: set[str] = set()
     for raw in collected:
-        p = Path(raw)
-        abs_path = p.resolve() if p.is_absolute() else (repo / p).resolve()
+        abs_path = tree.file(raw)
+        if abs_path is None:
+            continue
         key = abs_path.as_posix()
         if key in seen:
             continue
@@ -221,10 +225,12 @@ def _scan_paths(
         scan_facade_sinks,
     )
     from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, fsm_guard_args, scan_fsm_writes
+    from acf.detectors.host import scan_host_ast_file, scan_host_guards
     from acf.detectors.python_pack import scan_python_file
     from acf.detectors.typescript_bridge import scan_typescript_file
     from acf.registry import HOOK_CALL_SITES
 
+    tree = RepoTree(repo)
     findings: list[Finding] = []
     file_lines: dict[str, list[str]] = {}
     rel_paths: list[str] = []
@@ -233,13 +239,8 @@ def _scan_paths(
     fsm_specs = registry.active(HOOK_CALL_SITES, detector=FSM_GUARD_DETECTOR_ID)
 
     for abs_path in paths:
-        if not abs_path.is_file():
-            continue
         suffix = abs_path.suffix.lower()
-        try:
-            rel = abs_path.relative_to(repo).as_posix()
-        except ValueError:
-            rel = abs_path.as_posix()
+        rel = tree.key(abs_path)
         rel_paths.append(rel)
 
         if suffix not in _CODE_SUFFIXES:
@@ -269,15 +270,28 @@ def _scan_paths(
                         **fsm_guard_args(params),
                     )
                 )
+            findings.extend(
+                scan_host_ast_file(
+                    repo, text, rel, None, registry, language="python", call_sites=HOOK_CALL_SITES
+                )
+            )
         else:
             findings.extend(
                 f.model_copy(update={"path": rel})
                 for f in scan_typescript_file(abs_path, added_lines=None)
             )
+            findings.extend(
+                scan_host_ast_file(
+                    repo, text, rel, None, registry, language="typescript", call_sites=HOOK_CALL_SITES
+                )
+            )
 
     for mandate in registry.active(HOOK_CALL_SITES, detector=BUILD_ARTIFACT_DETECTOR_ID):
         params = mandate.params or {}
         findings.extend(scan_build_artifact_paths(rel_paths, **build_artifact_args(params)))
+    findings.extend(
+        scan_host_guards(repo, rel_paths, registry, file_lines, call_sites=HOOK_CALL_SITES)
+    )
     return findings, file_lines
 
 
