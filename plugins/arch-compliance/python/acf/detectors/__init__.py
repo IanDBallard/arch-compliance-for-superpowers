@@ -34,8 +34,10 @@ KNOWN_DETECTORS: Mapping[str, BuiltinDetector] = MappingProxyType(
         POSIX_PATHS_STR_DETECTOR_ID: BuiltinDetector(
             POSIX_PATHS_STR_MANDATE_ID, TIER1_CALL_SITES
         ),
-        "empty_catch": BuiltinDetector(TS_MANDATE_IDS["empty_catch"], TIER1_CALL_SITES),
-        "explicit_any": BuiltinDetector(TS_MANDATE_IDS["explicit_any"], TIER1_CALL_SITES),
+        **{
+            detector_id: BuiltinDetector(mandate_id, TIER1_CALL_SITES)
+            for detector_id, mandate_id in TS_MANDATE_IDS.items()
+        },
         FACADE_SINK_DETECTOR_ID: BuiltinDetector(FACADE_SINK_MANDATE_ID, TIER1_CALL_SITES),
         FSM_GUARD_DETECTOR_ID: BuiltinDetector(FSM_GUARD_MANDATE_ID, TIER1_CALL_SITES),
         BUILD_ARTIFACT_DETECTOR_ID: BuiltinDetector(

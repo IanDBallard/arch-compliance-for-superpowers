@@ -9,9 +9,8 @@ from pathlib import Path
 
 from acf.exceptions import DetectorPackError
 from acf.finding import Finding, Severity
-from acf.engine import posix_path
+from acf.engine import posix_path, validate_hit_fields
 
-TS_DETECTOR_IDS = frozenset({"empty_catch", "explicit_any"})
 TS_MANDATE_IDS = {
     "empty_catch": "fail-loud.empty-catch",
     "explicit_any": "no-shims.explicit-any",
@@ -84,14 +83,15 @@ def scan_typescript_file(
         if not isinstance(item, dict):
             raise DetectorPackError("TypeScript scanner finding must be an object")
         try:
+            line, message = validate_hit_fields(item["line"], item["message"])
             findings.append(
                 Finding(
-                    mandate_id=item["mandate_id"],
+                    mandate_id=TS_MANDATE_IDS[item["detector"]],
                     severity=Severity(item["severity"]),
                     path=posix_path(item["path"]),
-                    line=int(item["line"]),
-                    message=str(item["message"]),
-                    detector=str(item["detector"]),
+                    line=line,
+                    message=message,
+                    detector=item["detector"],
                     detection="ast",
                 )
             )

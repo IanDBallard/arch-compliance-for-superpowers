@@ -1,7 +1,6 @@
 import { CatchClause, Node } from "ts-morph";
 
 export type Finding = {
-  mandate_id: string;
   severity: "BLOCK" | "WARN";
   path: string;
   line: number;
@@ -20,7 +19,6 @@ export function checkEmptyCatch(catchClause: CatchClause, path: string): Finding
   // No statements: empty or comments-only
   const line = catchClause.getStartLineNumber();
   return {
-    mandate_id: "fail-loud.empty-catch",
     severity: "BLOCK",
     path,
     line,

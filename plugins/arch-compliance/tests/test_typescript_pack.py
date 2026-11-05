@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from acf.detectors import typescript_bridge
-from acf.detectors.typescript_bridge import TS_DETECTOR_IDS, scan_typescript_file
+from acf.detectors.typescript_bridge import TS_MANDATE_IDS, scan_typescript_file
 from acf.exceptions import DetectorPackError
 from acf.finding import Severity
 
@@ -11,7 +11,55 @@ FIX = Path(__file__).parent / "fixtures" / "typescript"
 
 
 def test_detector_ids():
-    assert TS_DETECTOR_IDS == frozenset({"empty_catch", "explicit_any"})
+    assert set(TS_MANDATE_IDS) == {"empty_catch", "explicit_any"}
+
+
+def _stub_pack(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, items: list) -> None:
+    import json
+    import subprocess
+
+    pack = tmp_path / "typescript"
+    (pack / "node_modules").mkdir(parents=True)
+    monkeypatch.setattr(typescript_bridge, "_PACK_ROOT", pack)
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(items), stderr="")
+
+    monkeypatch.setattr(typescript_bridge.subprocess, "run", fake_run)
+
+
+def _item(**over):
+    base = {
+        "detector": "empty_catch",
+        "severity": "BLOCK",
+        "path": "a.ts",
+        "line": 3,
+        "message": "m",
+    }
+    return {**base, **over}
+
+
+@pytest.mark.parametrize(
+    "over",
+    [
+        {"detector": "nope"},
+        {"line": "5"},
+        {"line": 0},
+        {"line": True},
+        {"message": ""},
+    ],
+)
+def test_bad_ts_item_is_refused(tmp_path, monkeypatch, over):
+    _stub_pack(monkeypatch, tmp_path, [_item(**over)])
+    with pytest.raises(DetectorPackError):
+        scan_typescript_file(tmp_path / "a.ts")
+
+
+@pytest.mark.parametrize("detector", sorted(TS_MANDATE_IDS))
+def test_valid_item_is_stamped_by_the_bridge(tmp_path, monkeypatch, detector):
+    _stub_pack(monkeypatch, tmp_path, [_item(detector=detector)])
+    (finding,) = scan_typescript_file(tmp_path / "a.ts")
+    assert finding.mandate_id == TS_MANDATE_IDS[detector]
 
 
 def test_missing_node_modules_error_is_actionable(

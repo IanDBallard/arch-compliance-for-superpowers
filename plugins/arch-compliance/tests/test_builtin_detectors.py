@@ -35,3 +35,17 @@ def test_ratchet_runs_at_diff_sites_and_every_other_detector_at_tier1():
     for key, contract in KNOWN_DETECTORS.items():
         if key != "fail_loud_ratchet":
             assert contract.call_sites == TIER1_CALL_SITES, key
+
+
+def test_ts_pack_emits_no_mandate_id_and_rule_files_spell_each_detector():
+    from pathlib import Path
+
+    from acf.detectors.typescript_bridge import TS_MANDATE_IDS
+
+    src = Path(__file__).resolve().parents[1] / "detectors" / "typescript" / "src"
+    texts = {p: p.read_text(encoding="utf-8") for p in src.rglob("*.ts")}
+    assert texts
+    assert not [p for p, t in texts.items() if "mandate_id" in t]
+    rules = "\n".join(t for p, t in texts.items() if p.parent.name == "rules")
+    for key in TS_MANDATE_IDS:
+        assert f'detector: "{key}"' in rules, key
