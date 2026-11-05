@@ -101,7 +101,12 @@ are prose.
 Your final message MUST contain exactly one fenced ```json block matching this schema,
 and NO other ```json block anywhere in your message. Return exactly the fields shown
 below, with no extra keys — a payload carrying an undeclared field (an invented
-`confidence` score, anything not in this shape) is rejected and the run aborts:
+`confidence` score, anything not in this shape) is rejected and the run aborts. The rule
+holds for every object at every nesting level — each `claim_verdicts`, `relationships`,
+`document_conflicts` and `unanchored_findings` item, not only the top level — and for a
+key whose value is `null`: `"suggestion": null` inside a finding is an undeclared key
+and voids the payload exactly as a filled-in one would. Leave out any key the shape does
+not show; never add one just to say "none":
 
 ```json
 {
