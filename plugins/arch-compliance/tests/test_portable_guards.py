@@ -11,6 +11,7 @@ from acf.detectors.facade_sinks import scan_facade_sinks
 from acf.detectors.fail_loud_ratchet import (
     compare_to_baseline,
     count_bare_excepts,
+    scan_ratchet,
     scan_tree,
 )
 from acf.detectors.fsm_guard import scan_fsm_writes
@@ -114,3 +115,21 @@ def test_fail_loud_ratchet_growth(tmp_path: Path) -> None:
 def test_count_bare_excepts_unit() -> None:
     text = "try:\n    x()\nexcept Exception:\n    pass\n"
     assert count_bare_excepts(text) == 1
+
+
+@pytest.mark.parametrize("baseline", ["../x.json", "missing.json"])
+def test_ratchet_refuses_bad_baseline(tmp_path: Path, baseline: str) -> None:
+    with pytest.raises(DetectorPackError, match="baseline"):
+        scan_ratchet(tmp_path, baseline_path=baseline)
+
+
+def test_ratchet_refuses_absolute_outside(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "x.json"
+    with pytest.raises(DetectorPackError, match="baseline"):
+        scan_ratchet(tmp_path, baseline_path=str(outside))
+
+
+@pytest.mark.parametrize("roots", [["../x"], ["missing"]])
+def test_scan_tree_refuses_bad_root(tmp_path: Path, roots: list[str]) -> None:
+    with pytest.raises(DetectorPackError, match="roots"):
+        scan_tree(tmp_path, roots=roots)

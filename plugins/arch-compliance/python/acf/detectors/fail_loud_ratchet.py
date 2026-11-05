@@ -16,6 +16,7 @@ from acf.detectors.python_pack import is_bare_or_exception
 from acf.engine import parse_python, posix_path
 from acf.exceptions import DetectorPackError
 from acf.finding import Finding, Severity
+from acf.repo import RepoTree
 
 FAIL_LOUD_RATCHET_DETECTOR_ID = "fail_loud_ratchet"
 FAIL_LOUD_RATCHET_MANDATE_ID = "fail-loud.ratchet"
@@ -39,8 +40,20 @@ def scan_tree(
     exclude_globs: list[str] | None = None,
 ) -> dict[str, int]:
     """Return POSIX-relative path → bare/broad-except count (counts ≥ 1 only)."""
-    root = repo_root.resolve()
-    search_roots = [root / r for r in (roots or ["."])]
+    tree = RepoTree(repo_root)
+    search_roots: list[Path] = []
+    for r in roots or ["."]:
+        try:
+            located = tree.directory(r)
+        except OSError as exc:
+            raise DetectorPackError(
+                f"fail_loud_ratchet: roots entry {r!r} cannot be checked: {exc}"
+            ) from exc
+        if located is None:
+            raise DetectorPackError(
+                f"fail_loud_ratchet: roots entry {r!r} is not a directory inside the repository"
+            )
+        search_roots.append(located)
     excludes = exclude_globs or [
         "**/tests/**",
         "**/test_*.py",
@@ -50,13 +63,8 @@ def scan_tree(
     ]
     counts: dict[str, int] = {}
     for search in search_roots:
-        if not search.exists():
-            continue
         for path in search.rglob("*.py"):
-            try:
-                rel = path.relative_to(root).as_posix()
-            except ValueError:
-                continue
+            rel = tree.key(path)
             if any(fnmatch.fnmatch(rel, g) for g in excludes):
                 continue
             try:
@@ -72,10 +80,6 @@ def scan_tree(
 
 
 def load_baseline(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise DetectorPackError(
-            f"fail_loud_ratchet: baseline not found: {path.as_posix()}"
-        )
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -116,9 +120,17 @@ def scan_ratchet(
     roots: list[str] | None = None,
     exclude_globs: list[str] | None = None,
 ) -> list[Finding]:
-    baseline_file = Path(baseline_path)
-    if not baseline_file.is_absolute():
-        baseline_file = repo_root / baseline_file
+    tree = RepoTree(repo_root)
+    try:
+        baseline_file = tree.file(str(baseline_path))
+    except OSError as exc:
+        raise DetectorPackError(
+            f"fail_loud_ratchet: baseline {str(baseline_path)!r} cannot be checked: {exc}"
+        ) from exc
+    if baseline_file is None:
+        raise DetectorPackError(
+            f"fail_loud_ratchet: baseline {str(baseline_path)!r} is not a file inside the repository"
+        )
     baseline = load_baseline(baseline_file)
     current = scan_tree(repo_root, roots=roots, exclude_globs=exclude_globs)
     growth = compare_to_baseline(current, baseline)
@@ -132,7 +144,7 @@ def scan_ratchet(
                 line=1,
                 message=(
                     f"Fail-loud ratchet growth: bare/broad-except count "
-                    f"{old} → {new} (baseline {baseline_file.as_posix()})"
+                    f"{old} → {new} (baseline {tree.key(baseline_file)})"
                 ),
                 detector=FAIL_LOUD_RATCHET_DETECTOR_ID,
                 detection="guard",
