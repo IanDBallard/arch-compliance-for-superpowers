@@ -245,3 +245,7 @@ def test_only_unresolved_citations_are_returned_for_the_hard_fail(REPO):
         repo_root=REPO,
     )
     assert unresolved == ["scripts/core/no_such_module_ever.py"]
+
+
+def test_drive_relative_is_external(tmp_path):
+    assert resolve_citation("C:a/b.py", repo_root=tmp_path, proposed=frozenset())[0] == "external"
