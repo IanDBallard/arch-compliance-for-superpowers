@@ -114,7 +114,7 @@ Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exi
 - `acf-check-diff` now requires `--call-site {ci,precommit}`; add it to your pre-commit and CI configuration (omitting it exits 2 with a usage error).
 - Registries copied from a profile before this release declare no `precommit` site on their `ast`/`guard` rows (typically `[ci, hook]`). Add `precommit` to each row you want checked in pre-commit, or your `--call-site precommit` run is refused ("selects no active" mandate, exit 1), never a silent pass.
 - Set `status: unenforced` on any `partial` row whose detector or prompt does not exist yet; an active (`enforced` or `partial`) row naming a missing one is refused when the registry loads.
-- Load-time refusals also cover a `call_sites` value outside `ci`, `precommit`, `hook`, `posttooluse`, `audit` (for example `pre-commit` is refused; use `precommit`), an active `ast`/`guard` row whose only site is `audit`, and a non-built-in row that reuses a built-in mandate id (reserved).
+- Load-time refusals also cover a `call_sites` value outside `ci`, `precommit`, `hook`, `posttooluse`, `audit` (for example `pre-commit` is refused; use `precommit`), an active `ast`/`guard` row whose only site is `audit`, and an active non-built-in row that reuses a built-in mandate id (reserved).
 
 ## Friend success bar
 
