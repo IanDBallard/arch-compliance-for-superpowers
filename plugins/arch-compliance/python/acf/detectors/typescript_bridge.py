@@ -12,6 +12,10 @@ from acf.finding import Finding, Severity
 from acf.engine import posix_path
 
 TS_DETECTOR_IDS = frozenset({"empty_catch", "explicit_any"})
+TS_MANDATE_IDS = {
+    "empty_catch": "fail-loud.empty-catch",
+    "explicit_any": "no-shims.explicit-any",
+}
 
 _PACK_ROOT = Path(__file__).resolve().parents[3] / "detectors" / "typescript"
 

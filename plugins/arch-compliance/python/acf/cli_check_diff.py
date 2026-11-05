@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from acf.detectors import ALL_PYTHON_DETECTOR_IDS
+from acf.detectors import KNOWN_DETECTORS
 from acf.detectors.build_artifacts import (
     BUILD_ARTIFACT_DETECTOR_ID,
     build_artifact_args,
@@ -21,7 +21,7 @@ from acf.detectors.facade_sinks import (
 from acf.detectors.fail_loud_ratchet import FAIL_LOUD_RATCHET_DETECTOR_ID, scan_ratchet
 from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, fsm_guard_args, scan_fsm_writes
 from acf.detectors.python_pack import scan_python_file
-from acf.detectors.typescript_bridge import TS_DETECTOR_IDS, scan_typescript_file
+from acf.detectors.typescript_bridge import scan_typescript_file
 from acf.diff import DiffMode, added_lines, changed_files
 from acf.enforcement import apply_registry
 from acf.exceptions import AcfInputError, DetectorPackError, GitError, UnknownDetectorError
@@ -29,8 +29,6 @@ from acf.finding import Finding, Severity
 from acf.judge import LLM_PROMPT_IDS
 from acf.repo import MANDATES_REL, RATCHET_BASELINE_REL, resolve_repo
 from acf.registry import Mandate, MandateRegistry, load_mandates
-
-KNOWN_DETECTORS = ALL_PYTHON_DETECTOR_IDS | TS_DETECTOR_IDS | LLM_PROMPT_IDS
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -75,7 +73,12 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     try:
-        registry = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS)
+        registry = load_mandates(
+            mandates_path,
+            known_detectors=KNOWN_DETECTORS,
+            llm_prompt_ids=LLM_PROMPT_IDS,
+            repo_root=repo,
+        )
         raw_findings, file_lines = _scan_changed(repo, mode, args.base, registry)
     except (GitError, AcfInputError, UnknownDetectorError, DetectorPackError) as exc:
         print(f"acf: {exc}", file=sys.stderr)

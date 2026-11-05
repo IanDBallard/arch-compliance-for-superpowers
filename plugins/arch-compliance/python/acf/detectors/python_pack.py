@@ -21,14 +21,6 @@ FAIL_LOUD_BARE_EXCEPT_DETECTOR_ID = "fail_loud_bare_except"
 NO_SHIMS_HASATTR_DETECTOR_ID = "no_shims_hasattr"
 POSIX_PATHS_STR_DETECTOR_ID = "posix_paths_str_serialization"
 
-PYTHON_AST_DETECTOR_IDS = frozenset(
-    {
-        "fail_loud_bare_except",
-        "no_shims_hasattr",
-        "posix_paths_str_serialization",
-    }
-)
-
 _PATHY_RE = re.compile(r"path|dir|file", re.IGNORECASE)
 
 
