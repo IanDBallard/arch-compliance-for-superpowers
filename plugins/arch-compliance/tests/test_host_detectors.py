@@ -232,15 +232,23 @@ def test_ast_runner_refuses_bad_items(tmp_path, fresh_host_loader, expr):
         run_ast(tmp_path, body)
 
 
-def test_str_subclass_path_and_bool_line_refused_at_construction(tmp_path, fresh_host_loader):
-    for args in ("path=S(path), line=1", "path=path, line=True"):
-        body = (
-            "class S(str):\n    pass\n"
-            "def scan(text, path, added_lines, *, tree, params):\n"
-            f"    return [HostHit({args}, message='m')]\n"
-        )
-        with pytest.raises(DetectorPackError, match="ValidationError"):
-            run_ast(tmp_path, body)
+@pytest.mark.parametrize(
+    ("args", "token"),
+    [
+        ("path=S(path), line=1", "HostHit path must be exactly a str"),
+        ("path=path, line=True", "hit line must be an int >= 1: True"),
+    ],
+    ids=["str-subclass-path", "bool-line"],
+)
+def test_str_subclass_path_and_bool_line_refused_at_construction(tmp_path, fresh_host_loader, args, token):
+    body = (
+        "class S(str):\n    pass\n"
+        "def scan(text, path, added_lines, *, tree, params):\n"
+        f"    return [HostHit({args}, message='m')]\n"
+    )
+    with pytest.raises(DetectorPackError, match="ValidationError") as info:
+        run_ast(tmp_path, body)
+    assert token in str(info.value)
 
 
 def test_str_return_is_refused(tmp_path, fresh_host_loader):
@@ -360,11 +368,16 @@ def test_guard_hit_through_symlink_outside_root_is_refused(tmp_path, fresh_host_
         run_guard(repo, body)
 
 
-def test_guard_wraps_failures_and_refuses_str_return(tmp_path, fresh_host_loader):
-    with pytest.raises(DetectorPackError):
-        run_guard(tmp_path, "def scan(repo_root, changed_files, *, params):\n    return 'abc'\n")
-    with pytest.raises(DetectorPackError):
-        run_guard(tmp_path, "def scan(repo_root, changed_files, *, params):\n    raise RuntimeError('x')\n")
+@pytest.mark.parametrize(
+    ("body", "token"),
+    [
+        ("return 'abc'", "returned str"),
+        ("raise RuntimeError('guard boom')", "guard boom"),
+    ],
+)
+def test_guard_wraps_failures_and_refuses_str_return(tmp_path, fresh_host_loader, body, token):
+    with pytest.raises(DetectorPackError, match=token):
+        run_guard(tmp_path, f"def scan(repo_root, changed_files, *, params):\n    {body}\n")
 
 
 # ---------------------------------------------------------------- review focus tests

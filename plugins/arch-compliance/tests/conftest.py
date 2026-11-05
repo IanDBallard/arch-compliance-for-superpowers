@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-import acf.detectors.host as host
-
 
 @pytest.fixture
 def fresh_host_loader(monkeypatch):
     """Isolate the host loader's process state (root, sys.path, host modules) per test."""
+    import acf.detectors.host as host
+
     monkeypatch.setattr(host, "_ACTIVE_ROOT", None)
     path_before = list(sys.path)
     keys_before = set(sys.modules)
