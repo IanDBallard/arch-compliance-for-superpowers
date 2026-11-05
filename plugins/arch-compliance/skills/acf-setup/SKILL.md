@@ -211,7 +211,7 @@ diff and always pass. Use `--base` to diff the branch against its merge-base:
 
 ### Upgrading a host installed before `--call-site` (v0.2.3)
 
-- Add `precommit` to the `call_sites` of each `ast`/`guard` row the host wants checked in pre-commit. Registries copied from a profile before this release declare `ci` only, and a `--call-site precommit` run that selects no active row is refused ("selects no active", exit 1), never a silent pass.
+- Add `precommit` to the `call_sites` of each `ast`/`guard` row the host wants checked in pre-commit. Registries copied from a profile before this release declare no `precommit` site (typically `[ci, hook]`), and a `--call-site precommit` run that selects no active row is refused ("selects no active", exit 1), never a silent pass.
 - Add `--call-site ci` / `--call-site precommit` to the host's own CI and pre-commit invocations; omitting it exits 2 with a usage error.
 - Set `status: unenforced` on any `partial` row whose detector or prompt does not exist yet; an active (`enforced` or `partial`) row naming a missing one is refused when the registry loads.
 
@@ -231,7 +231,7 @@ Success criteria:
 
 - Mandates load without `AcfInputError` / `UnknownDetectorError`.
 - Exit 0 if no `BLOCK` findings on the current diff; exit 1 only for real BLOCK findings (still a successful smoke of the toolchain).
-- An exit 2 usage error (a missing or unknown `--call-site`) or a "selects no active" refusal means the invocation or the registry needs fixing (for example a registry whose rows declare `ci` only needs `precommit` added); it is not a pass.
+- An exit 2 usage error (a missing or unknown `--call-site`) or a "selects no active" refusal means the invocation or the registry needs fixing (for example a registry whose rows declare no `precommit` needs `precommit` added); it is not a pass.
 - If the command is missing, help install the plugin Python package, then retry. Do not claim setup complete until the CLI runs.
 
 Optional friend-bar tip: plant a temporary empty `catch {}` (TS) or bare `except:` (Python), stage it, re-run with `--mode staged --call-site precommit`, confirm BLOCK/WARN, then revert.

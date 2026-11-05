@@ -204,10 +204,15 @@ def _readme_detector_rows():
     readme = Path(__file__).resolve().parents[3] / "README.md"
     lines = readme.read_text(encoding="utf-8").splitlines()
     start = next(
-        i for i, line in enumerate(lines)
-        if line.startswith("|") and [c.strip() for c in line.strip().strip("|").split("|")][:2]
-        == ["Detector id", "Mandate id"]
+        (
+            i for i, line in enumerate(lines)
+            if line.startswith("|")
+            and [c.strip() for c in line.strip().strip("|").split("|")][:2]
+            == ["Detector id", "Mandate id"]
+        ),
+        None,
     )
+    assert start is not None, "README.md has no detector table with a 'Detector id | Mandate id' header"
     header = [c.strip() for c in lines[start].strip().strip("|").split("|")]
     assert "Call sites" in header, header
     rows = []

@@ -167,7 +167,7 @@ least one Tier-1 site.
 `guard` detector id to its mandate id and the sites at which a gate runs it
 (`acf.cli_check_diff` re-exports it). `fail_loud_ratchet` runs at `ci` and `precommit`
 only; every other built-in runs at every Tier-1 site. An active built-in row must carry
-its detector's mandate id and may declare only sites at which its detector runs, and
+its detector's mandate id and may declare no Tier-1 site at which its detector does not run, and
 every built-in mandate id is reserved: no other kind of active row may use one.
 `status: partial` gates like `enforced`, so it is held to the same rules; a row whose
 detector or prompt does not exist yet is `unenforced`.

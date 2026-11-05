@@ -73,7 +73,7 @@ Portable Python detectors (enable via profile / `/acf-mandate`):
 | `forbid_facade_sink` | `facade.forbid-sink` | `ci`, `precommit`, `hook`, `posttooluse` | Config AST; `params.target_literal_re` |
 | `fsm_transition_guard` | `fsm.transition-guard` | `ci`, `precommit`, `hook`, `posttooluse` | Config AST; `params.state_field` / `validator_name` |
 
-The call-sites column is each built-in's contract in `acf.detectors.KNOWN_DETECTORS`; an active row for a built-in must carry that mandate id and declare only sites where the detector runs. `plugins/arch-compliance/tests/test_builtin_detectors.py` pins this table to that map. A host can also run its own detector: an `ast` or `guard` row whose `detector` is `<path>.py:<callable>` (a file inside the repository), returning `HostHit` values.
+The call-sites column is each built-in's contract in `acf.detectors.KNOWN_DETECTORS`; an active row for a built-in must carry that mandate id and declare no Tier-1 site at which its detector does not run. `plugins/arch-compliance/tests/test_builtin_detectors.py` pins this table to that map. A host can also run its own detector: an `ast` or `guard` row whose `detector` is `<path>.py:<callable>` (a file inside the repository), returning `HostHit` values.
 
 The registry drives enforcement: `status: unenforced` rows never gate; `enforced` and `partial` both gate (partial means coverage is incomplete, not advisory-only), and a row gates only at the call sites it declares (a `[ci]`-only row is not reported by the PostToolUse hook or by a `--call-site precommit` run). Severity comes from the registry row. Inline exemptions use only the row's `exemption_tokens` — `# <token>: reason` (Python) or `// <token>: reason` (TypeScript). Detectors emit raw findings; they do not interpret exemption comments.
 
@@ -112,7 +112,7 @@ Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exi
 ### Upgrading a host installed before `--call-site` (v0.2.3)
 
 - `acf-check-diff` now requires `--call-site {ci,precommit}`; add it to your pre-commit and CI configuration (omitting it exits 2 with a usage error).
-- Registries copied from a profile before this release declare `ci` only on each `ast`/`guard` row. Add `precommit` to each row you want checked in pre-commit, or your `--call-site precommit` run is refused ("selects no active" mandate, exit 1), never a silent pass.
+- Registries copied from a profile before this release declare no `precommit` site on their `ast`/`guard` rows (typically `[ci, hook]`). Add `precommit` to each row you want checked in pre-commit, or your `--call-site precommit` run is refused ("selects no active" mandate, exit 1), never a silent pass.
 - Set `status: unenforced` on any `partial` row whose detector or prompt does not exist yet; an active (`enforced` or `partial`) row naming a missing one is refused when the registry loads.
 
 ## Friend success bar
