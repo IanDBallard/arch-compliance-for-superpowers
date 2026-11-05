@@ -118,7 +118,7 @@ def test_malformed_host_reference_refused(tmp_path, detector, status, with_known
 
 
 def test_backslash_host_reference_refused(tmp_path):
-    with pytest.raises(AcfInputError, match="scripts"):
+    with pytest.raises(AcfInputError, match="backslash"):
         load_mandates(
             _write(
                 tmp_path,
