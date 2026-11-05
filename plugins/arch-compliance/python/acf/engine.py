@@ -56,9 +56,13 @@ def validate_hit_fields(line: object, message: object) -> tuple[int, str]:
 
 
 def parse_python(text: str) -> ast.Module | None:
-    """Parse Python source; None when it does not parse (the scanners' skip convention)."""
+    """Parse Python source; None when it does not parse (the scanners' skip convention).
+
+    A leading UTF-8 BOM is ignored: ``ast.parse`` rejects it, which would otherwise
+    skip BOM-saved files silently.
+    """
     try:
-        return ast.parse(text)
+        return ast.parse(text.removeprefix("﻿"))
     except SyntaxError:
         return None
 

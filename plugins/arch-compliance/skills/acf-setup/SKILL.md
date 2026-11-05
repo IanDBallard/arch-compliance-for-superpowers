@@ -214,6 +214,7 @@ diff and always pass. Use `--base` to diff the branch against its merge-base:
 - Add `precommit` to the `call_sites` of each `ast`/`guard` row the host wants checked in pre-commit. Registries copied from a profile before this release declare no `precommit` site (typically `[ci, hook]`), and a `--call-site precommit` run that selects no active row is refused ("selects no active", exit 1), never a silent pass.
 - Add `--call-site ci` / `--call-site precommit` to the host's own CI and pre-commit invocations; omitting it exits 2 with a usage error.
 - Set `status: unenforced` on any `partial` row whose detector or prompt does not exist yet; an active (`enforced` or `partial`) row naming a missing one is refused when the registry loads.
+- Load-time refusals also cover a `call_sites` value outside `ci`, `precommit`, `hook`, `posttooluse`, `audit` (for example `pre-commit` is refused; use `precommit`), an active `ast`/`guard` row whose only site is `audit`, and a non-built-in row that reuses a built-in mandate id (reserved).
 
 Remind them the CLI defaults to `<repo>/config/architecture/mandates.yml`. Install the `acf` package into the environment used by hooks/CI (`pip install` from the marketplace plugin’s Python package / editable install as documented in the repo README).
 

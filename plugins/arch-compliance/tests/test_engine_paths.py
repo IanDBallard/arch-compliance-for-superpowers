@@ -65,3 +65,24 @@ def test_validate_hit_fields() -> None:
 def test_parse_python() -> None:
     assert isinstance(parse_python("x = 1"), ast.Module)
     assert parse_python("def (") is None
+
+
+def test_parse_python_ignores_leading_bom() -> None:
+    assert isinstance(parse_python("\ufeffx = 1\n"), ast.Module)
+
+
+_BARE_EXCEPT_SRC = "try:\n    pass\nexcept:\n    pass\n"
+
+
+def test_scan_python_file_finds_bare_except_with_bom() -> None:
+    from acf.detectors.python_pack import scan_python_file
+
+    plain = scan_python_file(_BARE_EXCEPT_SRC, "pkg/mod.py")
+    assert plain
+    assert scan_python_file("\ufeff" + _BARE_EXCEPT_SRC, "pkg/mod.py") == plain
+
+
+def test_count_bare_excepts_counts_bom_file() -> None:
+    from acf.detectors.fail_loud_ratchet import count_bare_excepts
+
+    assert count_bare_excepts("\ufeff" + _BARE_EXCEPT_SRC) == 1

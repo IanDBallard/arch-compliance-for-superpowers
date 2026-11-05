@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from acf.cli_check_diff import KNOWN_DETECTORS
+from acf.detectors import KNOWN_DETECTORS
 from acf.judge import LLM_PROMPT_IDS
 from acf.registry import load_mandates, missing_anchors
 
