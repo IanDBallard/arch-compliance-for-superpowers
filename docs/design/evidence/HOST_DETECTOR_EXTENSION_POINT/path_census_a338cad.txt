@@ -1,0 +1,17 @@
+plugins/arch-compliance/python/acf/adr/citations.py:75	resolve	root = repo_root.resolve()
+plugins/arch-compliance/python/acf/adr/citations.py:76	is_relative_to	return not (root / path).resolve().is_relative_to(root)
+plugins/arch-compliance/python/acf/adr/citations.py:168	join	if (repo_root / path).exists():
+plugins/arch-compliance/python/acf/adr/citations.py:76	resolve	return not (root / path).resolve().is_relative_to(root)
+plugins/arch-compliance/python/acf/adr/citations.py:76	join	return not (root / path).resolve().is_relative_to(root)
+plugins/arch-compliance/python/acf/cli_check_diff.py:66	resolve	args.mandates.resolve() if args.mandates is not None else repo / MANDATES_REL
+plugins/arch-compliance/python/acf/cli_check_diff.py:118	join	abs_path = repo / path
+plugins/arch-compliance/python/acf/cli_check_llm.py:50	resolve	args.mandates.resolve()
+plugins/arch-compliance/python/acf/detectors/fail_loud_ratchet.py:45	resolve	root = repo_root.resolve()
+plugins/arch-compliance/python/acf/detectors/fail_loud_ratchet.py:46	join	search_roots = [root / r for r in (roots or ["."])]
+plugins/arch-compliance/python/acf/detectors/fail_loud_ratchet.py:124	join	baseline_file = repo_root / baseline_file
+plugins/arch-compliance/python/acf/detectors/fail_loud_ratchet.py:60	relative_to	rel = path.relative_to(root).as_posix()
+plugins/arch-compliance/python/acf/detectors/typescript_bridge.py:27	resolve	file_path = Path(path).resolve()
+plugins/arch-compliance/hooks/posttooluse_gate.py:204	resolve	abs_path = p.resolve() if p.is_absolute() else (repo / p).resolve()
+plugins/arch-compliance/hooks/posttooluse_gate.py:204	resolve	abs_path = p.resolve() if p.is_absolute() else (repo / p).resolve()
+plugins/arch-compliance/hooks/posttooluse_gate.py:204	join	abs_path = p.resolve() if p.is_absolute() else (repo / p).resolve()
+plugins/arch-compliance/hooks/posttooluse_gate.py:243	relative_to	rel = abs_path.relative_to(repo).as_posix()
