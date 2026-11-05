@@ -196,3 +196,48 @@ def test_contract_against_dispatch(tmp_path, capsys, gate):
             f"gate {gate}: TypeScript ids {sorted(TS_MANDATE_IDS.values())} not checked "
             "(Node pack or npx unavailable); every other id was"
         )
+
+
+def _readme_detector_rows():
+    from pathlib import Path
+
+    readme = Path(__file__).resolve().parents[3] / "README.md"
+    lines = readme.read_text(encoding="utf-8").splitlines()
+    start = next(
+        i for i, line in enumerate(lines)
+        if line.startswith("|") and [c.strip() for c in line.strip().strip("|").split("|")][:2]
+        == ["Detector id", "Mandate id"]
+    )
+    header = [c.strip() for c in lines[start].strip().strip("|").split("|")]
+    assert "Call sites" in header, header
+    rows = []
+    for line in lines[start + 2:]:
+        if not line.startswith("|"):
+            break
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        rows.append(dict(zip(header, cells, strict=True)))
+    return rows
+
+
+def _ticks(cell):
+    import re
+
+    return re.findall(r"`([^`]+)`", cell)
+
+
+def test_readme_detector_table_matches_known_detectors():
+    rows = _readme_detector_rows()
+    assert rows
+    seen = set()
+    for row in rows:
+        (detector_id,) = _ticks(row["Detector id"])
+        (mandate_id,) = _ticks(row["Mandate id"])
+        assert detector_id in KNOWN_DETECTORS, detector_id
+        contract = KNOWN_DETECTORS[detector_id]
+        assert mandate_id == contract.mandate_id, detector_id
+        assert set(_ticks(row["Call sites"])) == set(contract.call_sites), detector_id
+        seen.add(detector_id)
+    from acf.detectors.typescript_bridge import TS_MANDATE_IDS
+
+    python_keys = set(KNOWN_DETECTORS) - set(TS_MANDATE_IDS)
+    assert python_keys <= seen, sorted(python_keys - seen)

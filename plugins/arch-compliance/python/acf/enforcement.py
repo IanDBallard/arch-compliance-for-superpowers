@@ -5,8 +5,8 @@ the source of truth for what actually gates:
 
 - findings whose mandate is absent from the registry are dropped (not mandated
   by this host);
-- findings whose mandate is ``status: unenforced``, or does not declare the
-  call site the gate runs at, are dropped;
+- findings whose mandate is ``status: unenforced`` are dropped, and so are
+  findings whose row does not run at the gate's call sites;
 - severity always comes from the registry row, not the detector default;
 - the registry row's ``exemption_tokens`` are honored as inline comment
   exemptions (``#`` and ``//`` comment styles, reason required).

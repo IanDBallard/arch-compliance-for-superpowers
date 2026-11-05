@@ -1,5 +1,5 @@
 """The /acf-mandate validation snippet runs as written against a host built from a
-stock profile: it loads the registry with the package's detector union and refuses
+stock profile: it loads the registry with the built-in detector contracts and LLM prompt ids and refuses
 a row whose arch_anchor is missing from the doctrine."""
 from __future__ import annotations
 

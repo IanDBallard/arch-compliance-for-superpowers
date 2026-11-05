@@ -101,21 +101,21 @@ Each row declares at least:
 | `detection` | `ast` \| `llm` \| `grep` \| `guard` \| `manual` |
 | `detector` | Detector fn / guard module / LLM prompt id / manual verification pointer |
 | `languages` | `python` \| `typescript` \| `both` \| `none` |
-| `call_sites` | e.g. `precommit`, `ci`, `posttooluse`, `audit` |
+| `call_sites` | Closed vocabulary `ci`, `precommit`, `hook`, `posttooluse`, `audit` (`hook` and `posttooluse` are two spellings of the PostToolUse site). Tier-1 sets: `DIFF_CALL_SITES` = {`ci`, `precommit`} (`acf-check-diff --call-site`), `HOOK_CALL_SITES` = {`hook`, `posttooluse`}, `TIER1_CALL_SITES` = their union; a gate runs only the active rows that declare its site |
 | `exemption_tokens` | Tokens recognized in `# mandate-ok:` style comments |
 | `status` | `enforced` \| `partial` \| `unenforced` |
 | `arch_anchor` | Heading/anchor in host `ARCHITECTURE.md` (or equivalent) |
 
 Single Pydantic-validated loader is the only read façade for mandate metadata.
 
-A **drift test** fails when example/profile prose anchors, registry rows, and registered detector ids disagree.
+A **drift test** fails when example/profile prose anchors, registry rows, the built-in detector contracts (`acf.detectors.KNOWN_DETECTORS`) and resolvable host detector references disagree.
 
 ### Tier 1 — Deterministic engine (dual packs)
 
 Shared finding schema:
 
 ```text
-{mandate_id, severity, path, line, message, detector, confidence?}
+{mandate_id, severity, path, line, message, detector, confidence?} (the TypeScript pack's output carries no `mandate_id`; the bridge stamps it from `TS_MANDATE_IDS`)
 ```
 
 Paths in findings and baselines use POSIX form.
@@ -158,7 +158,7 @@ Config resolution always prefers the **host project** paths produced by `/acf-se
 | Hook | Behavior |
 |---|---|
 | SubagentStart (or Task-equivalent) | Inject host-project constraints derived from registry / architecture prose so Superpowers implementers see mandates. |
-| PostToolUse | Diff-scoped Tier 1 on edited `.py` / `.ts` / `.tsx` (and configured config paths); feed findings into the turn. |
+| PostToolUse | Diff-scoped Tier 1 on edited `.py` / `.ts` / `.tsx` (and configured config paths); runs rows declaring `hook`/`posttooluse`, runs host guards on every edited in-repo path, and does not scan edited files outside the repository; feed findings into the turn. |
 
 ### Superpowers complement contract
 
@@ -181,7 +181,7 @@ A dual-language host may merge both via `/acf-setup`.
 
 - Missing/malformed `mandates.yml` → typed load error, non-zero CLI exit.
 - Unknown mandate id in `/architecture-review --mandates` → hard fail.
-- Unknown detector id referenced by an enforced `ast` or `guard` row → drift/registry validation fail.
+- Unknown built-in detector id, a built-in row whose id or call sites disagree with its detector, an unresolvable host reference, or no Tier-1 call site on an active (enforced or partial) `ast` or `guard` row → registry validation fail.
 - Unconfigured LLM judge with enforced llm mandates → hard fail at judge call site.
 - Empty target tree for audit → hard fail with glob/cwd context.
 

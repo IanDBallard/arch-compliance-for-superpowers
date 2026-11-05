@@ -35,5 +35,6 @@ as spec §0 of `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` states.
 ## Windows note
 
 Run the diff gate from the repository root with `PYTHONUTF8=1`
-(`PYTHONUTF8=1 python -m acf.cli_check_diff --repo . --base origin/main`) until the git
-runner declares its own encoding (spec §9, follow-up 1).
+(`PYTHONUTF8=1 python -m acf.cli_check_diff --repo . --base origin/main --call-site ci`) until
+the git runner declares its own encoding (spec §9, follow-up 1). `--call-site {ci,precommit}`
+is required and selects the rows that run, as CI's own invocation does.

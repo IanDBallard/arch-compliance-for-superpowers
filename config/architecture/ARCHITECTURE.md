@@ -7,7 +7,8 @@ under `plugins/arch-compliance/hooks/`, the skill prose under
 `plugins/arch-compliance/detectors/typescript/`, the plugin's tests and fixtures under
 `plugins/arch-compliance/tests/`, and the repository-level `tests/`, `scripts/` and
 `config/`. The CI diff gate and the PostToolUse hook run the registry's detectors on
-changed `.py`, `.ts` and `.tsx` files anywhere in the repository; prose and
+changed `.py`, `.ts` and `.tsx` files anywhere in the repository, host guards see every
+changed file inside the repository, and rows run where their `call_sites` say; prose and
 configuration are held to this file by review. Where a
 Superpowers default conflicts with a rule here, the rule here wins
 (`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:51`, principle 5). The five governing
@@ -71,18 +72,25 @@ Do not stage or commit generated trees such as `dist/` or `build/`.
 
 Optional whole-tree freeze of bare/broad-except counts. Enable the mandate and commit a
 `config/architecture/fail_loud_ratchet.json` baseline (`{"files": {"path.py": N}}`).
+The row runs at `ci` and `precommit` only (`acf-check-diff`; a row declaring `hook` is
+refused at load), and `params.baseline` and each `params.roots` entry must name a path
+inside the repository, each root an existing directory (`DetectorPackError` otherwise).
 
 ## Façade sinks
 
 Optional config-driven rule: forbid direct writes to a protected path regex outside
 allowlisted modules. Set `params.target_literal_re` / `allowlist_globs`, then flip
-`status` to `enforced`. Unenforced here: this repository has no `index.yml` façade.
+`status` to `enforced`. The row's `id` must be its detector's mandate id
+(`facade.forbid-sink`) and the row must declare at least one Tier-1 call site.
+Unenforced here: this repository has no `index.yml` façade.
 
 ## FSM transitions
 
 Optional config-driven rule: writes to a state field must call a named validator in the
-same function scope. Set `params.state_field` / `validator_name`, then enforce.
-Unenforced here: this repository has no state field.
+same function scope. Set `params.state_field` / `validator_name`, then enforce. The
+row's `id` must be its detector's mandate id (`fsm.transition-guard`) and the row must
+declare at least one Tier-1 call site. Unenforced here: this repository has no state
+field.
 
 ## Soft fail-loud smells
 
@@ -114,6 +122,64 @@ executable skill snippet, recorded not hidden:
 `Path("config/architecture/mandates.yml")` instead of importing `acf.repo.MANDATES_REL`;
 reconciling the skill snippet is spec `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md`
 §9 follow-up 4.
+
+`acf.repo.RepoTree` is the one place runtime code turns a path string into a location in
+the host repository: containment (`contained`), an existing file or directory (`file`,
+`directory`) and the repository-relative key of a location it returned (`key`). Callers
+hand it the string they hold and never join, resolve or compare against the root
+themselves. `plugins/arch-compliance/tests/test_repo_tree_guard.py` enforces this over
+`plugins/arch-compliance/python/` and `plugins/arch-compliance/hooks/`, outside
+`acf/repo.py`. Three functions are allowlisted, each with its reason:
+`cli_check_diff.main` and `cli_check_llm.main` resolve the operator's `--mandates`
+argument, a file the operator names that may lie outside the repository, and
+`scan_typescript_file` resolves the file a gate already chose, to hand the Node
+subprocess an absolute path. Blind spots, stated rather than claimed covered: a
+repository root held in a variable the guard does not name; paths built by string
+concatenation or `os.path.join`; paths passed through attributes. The guard's scope is
+runtime code; executable skill snippets are outside it.
+
+## Host detectors and call sites
+
+**Reference syntax.** For an `ast` or `guard` row, a `detector` containing `:` is a host
+reference, `<posix_rel_path.py>:<callable_name>`: a relative POSIX path ending in `.py`
+inside the repository, and a callable name that is a Python identifier. Any other value
+is a built-in detector id.
+
+**`HostHit` contract.** A host callable returns `acf.detectors.host.HostHit` values
+(`path`, `line >= 1`, a non-empty `message`), never `Finding`. The runner builds each
+`Finding` from the hit and the mandate row, so a host cannot attach a finding to another
+row. Every failure raised while the runner calls host code becomes a typed ACF error.
+Host `ast` rows declare `languages` in `python`, `typescript` or `both`; host guards see
+every changed file inside the repository.
+
+**Call-site rule.** `call_sites` is a closed vocabulary: `ci`, `precommit`, `hook`,
+`posttooluse` and `audit`. `ci` and `precommit` are the diff sites
+(`acf.registry.DIFF_CALL_SITES`); `hook` and `posttooluse` are two spellings of the one
+PostToolUse site (`HOOK_CALL_SITES`); together they are the Tier-1 sites
+(`TIER1_CALL_SITES`). `acf-check-diff` requires `--call-site {ci,precommit}` and runs
+only rows that are active (not `unenforced`) and declare that site; a site that selects
+no active `ast` or `guard` row is refused, not reported as a clean run. The PostToolUse
+hook runs rows declaring `hook` or `posttooluse`. A row declaring only `[ci]` is not
+reported by the hook or by a `precommit` run. An active `ast` or `guard` row declares at
+least one Tier-1 site.
+
+**Built-in contracts.** `acf.detectors.KNOWN_DETECTORS` maps each built-in `ast` and
+`guard` detector id to its mandate id and the sites at which a gate runs it
+(`acf.cli_check_diff` re-exports it). `fail_loud_ratchet` runs at `ci` and `precommit`
+only; every other built-in runs at every Tier-1 site. An active built-in row must carry
+its detector's mandate id and may declare only sites at which its detector runs, and
+every built-in mandate id is reserved: no other kind of active row may use one.
+`status: partial` gates like `enforced`, so it is held to the same rules; a row whose
+detector or prompt does not exist yet is `unenforced`.
+
+**Trust boundary.** The PostToolUse hook runs host code only when `.acf/enabled`
+exists; committing `.acf/` therefore opts every clone in. `acf-check-diff` runs host
+code only when the host's own pre-commit or CI configuration invokes it, and that
+invocation is the opt-in. The wrapping guarantees typed errors, not confinement: a host
+module runs in the gate's process with its privileges. `load_mandates` never imports
+host code.
+
+No row: enforced by plugins/arch-compliance/tests/test_host_detectors.py, test_builtin_detectors.py, test_registry.py, test_hooks.py and test_diff_cli.py.
 
 ## Declared, never defaulted
 
@@ -225,7 +291,7 @@ The compliance reviewer checks these first:
 - A subprocess text call without an encoding.
 - A check re-implemented in a test or a skill instead of consumed from the package
   (`acf.registry.load_mandates`, `acf.registry.missing_anchors`,
-  `acf.cli_check_diff.KNOWN_DETECTORS`, the `acf.repo` constants).
+  `acf.detectors.KNOWN_DETECTORS`, the `acf.repo` constants).
 
 ## Post-merge
 

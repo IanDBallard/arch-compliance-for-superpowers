@@ -81,7 +81,7 @@ Inputs, not tree-derivable claims:
 8. **A generic check lives in the package; a host test keeps only its host's policy.**
    `MandateRegistry` refuses a repeated mandate id during model validation,
    `acf.registry.missing_anchors` is the one anchor-in-doctrine check, and
-   `acf.cli_check_diff.KNOWN_DETECTORS` is the one detector-id union; this repository's
+   `acf.detectors.KNOWN_DETECTORS` (re-exported by `acf.cli_check_diff`) is the one list of built-in detector contracts; this repository's
    tests and the `/acf-mandate` skill consume them (§5.5). Two existing skill-prose breaches
    in `/architecture-review` and `/acf-setup` are recorded in the doctrine and filed as §9
    follow-up 4 under `## Scoped refactor`. (author's call)
@@ -265,7 +265,8 @@ The doctrine's opening paragraph states the population it governs: the package, 
 hooks, the skill prose, the TypeScript bridge, the plugin's tests and fixtures, and the
 repository-level `tests/`, `scripts/` and `config/`. The CI diff gate and the PostToolUse
 hook run the registry's detectors on changed `.py`, `.ts` and `.tsx` files anywhere in the
-repository; prose and configuration are held to the doctrine by review.
+repository, host guards see every changed file inside the repository, and rows run where
+their `call_sites` say; prose and configuration are held to the doctrine by review.
 
 Then `config/architecture/ARCHITECTURE.md` gains the plugin's own sections. A section whose
 rule an existing test enforces gets one or more `detection: manual` rows in
@@ -370,7 +371,7 @@ hooks for this repository (§4.1 item 11):
   review verdict (`_render_constraints` renders the rows and the excerpt alone,
   `plugins/arch-compliance/hooks/inject_constraints.py:153-176`), so with respect to
   hook-injected context reviewers stay blind to each other and to prior verdicts.
-- **PostToolUse** checks edited paths against the build-artifact path guard
+- **PostToolUse** runs the rows declaring `hook`/`posttooluse`, passes every edited in-repo path to host guards, and checks edited paths against the build-artifact path guard
   (`plugins/arch-compliance/hooks/posttooluse_gate.py:284-294`) and scans each edited `.py`,
   `.ts` or `.tsx` file whole (`added_lines=None` at
   `plugins/arch-compliance/hooks/posttooluse_gate.py:254,281`). A WARN finding is returned
@@ -391,7 +392,7 @@ disposition:
 | `plugins/arch-compliance/tests/test_adr_skill_prose.py:53` `no-shims.hasattr` | WARN | Context only; the test asserts that an imported name exists. |
 
 With the two tokens in place the same command reports the five WARN rows and exits 0
-(appendix). A future BLOCK on a legitimate line takes its row's exemption token with a
+(appendix). Under the host-detector extension (`docs/design/HOST_DETECTOR_EXTENSION_POINT.md`) the three `no-shims.hasattr` rows (`[ci]` only) are no longer reported by the PostToolUse hook, which reports the two `no-shims.explicit-any` WARN rows; the CI gate reports all five. A future BLOCK on a legitimate line takes its row's exemption token with a
 reason, never a status flip (§9).
 
 ### 5.5 The package checks and the self-host test
@@ -415,14 +416,13 @@ Decision 8 puts each generic check in the package, with a live consumer outside 
   `plugins/arch-compliance/tests/test_profile_drift.py`, and `tests/test_self_host.py`.
   Pinned by `test_missing_anchors_names_rows_whose_anchor_is_absent` (which includes an
   inline backtick-quoted heading in the fixture doctrine).
-- **Detector union.** `KNOWN_DETECTORS` stays where the diff CLI defines it
-  (`plugins/arch-compliance/python/acf/cli_check_diff.py:25`), because `acf.registry`
-  cannot import `acf.judge` (which imports `acf.registry`). The `/acf-mandate` snippet,
-  the drift test and the host test import it, and the unused compatibility alias
-  `PYTHON_DETECTOR_IDS` is removed from
-  `plugins/arch-compliance/python/acf/detectors/python_pack.py` and
-  `plugins/arch-compliance/python/acf/detectors/__init__.py`.
-- **The `/acf-mandate` snippet** loads the registry with `KNOWN_DETECTORS`, prints the
+- **Detector union.** `KNOWN_DETECTORS` is defined in `acf.detectors` and re-exported by
+  `acf.cli_check_diff`. The reason for its home still holds: `acf.registry` cannot import
+  `acf.judge` (which imports `acf.registry`), and `acf.detectors` imports `acf.registry`
+  while neither imports `acf.judge`. The `/acf-mandate` snippet, the drift test and the
+  host test import it, the unused compatibility alias `PYTHON_DETECTOR_IDS` is removed, and
+  the detector-id sets it kept are deleted too: `KNOWN_DETECTORS` is the one list.
+- **The `/acf-mandate` snippet** loads the registry with the built-in contracts in `KNOWN_DETECTORS` and `LLM_PROMPT_IDS`, prints the
   rows, and exits non-zero naming the rows whose anchor `missing_anchors` reports.
   `plugins/arch-compliance/tests/test_acf_mandate_skill.py` extracts the snippet from the
   skill and runs it against a host built from the python-service profile: it exits 0 on
@@ -451,7 +451,7 @@ mandate" (`plugins/arch-compliance/skills/acf-mandate/SKILL.md:122`). A loader r
 
 The checkout fetches full history (`fetch-depth: 0`) and one step runs after `pytest`
 in `.github/workflows/ci.yml`:
-`python -m acf.cli_check_diff --repo . --base "origin/${{ github.base_ref || 'main' }}"`
+`python -m acf.cli_check_diff --repo . --base "origin/${{ github.base_ref || 'main' }}" --call-site ci`
 with the host registry. On a `pull_request` event it diffs the branch against its
 merge-base with the base branch and fails the job on a BLOCK finding on an added line. On
 a `push` to `main` the base is `main` itself; `--base` diffs the merge-base three-dot
@@ -497,7 +497,7 @@ plugin's own rules become registry rows with anchors, in the plugin's own format
 | New element | Existing element with the same responsibility | Relationship |
 |---|---|---|
 | `tests/test_self_host.py` anchor test | `plugins/arch-compliance/tests/test_profile_drift.py` loop at `c0281bf`; `/acf-mandate` by-eye instruction at `c0281bf`; `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` by-eye instruction | The two tests and `/acf-mandate` consume `missing_anchors`; `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` is recorded as a current breach in the doctrine and filed (§9 follow-up 4) |
-| `tests/test_self_host.py` detector union | `plugins/arch-compliance/python/acf/cli_check_diff.py:25`; the drift test's copy at `c0281bf`; the `/acf-mandate` snippet's narrower union at `c0281bf` | All three import `KNOWN_DETECTORS`; one definition; unused `PYTHON_DETECTOR_IDS` removed |
+| `tests/test_self_host.py` detector union | `plugins/arch-compliance/python/acf/cli_check_diff.py:25`; the drift test's copy at `c0281bf`; the `/acf-mandate` snippet's narrower union at `c0281bf` | The snippet and the tests load with the built-in contracts in `KNOWN_DETECTORS` (the snippet also with `LLM_PROMPT_IDS`); one definition; unused `PYTHON_DETECTOR_IDS` removed |
 | Repeated-id check | `MandateRegistry.by_id` (silent last-wins at `c0281bf`); `/acf-setup` prose (`plugins/arch-compliance/skills/acf-setup/SKILL.md:110`) | `MandateRegistry._unique_ids` refuses at model validation; the prose stays and its false parenthetical is filed (§9 follow-up 4) |
 | Manual-row detector check | `load_mandates`'s `ast`/`guard` branch (`plugins/arch-compliance/python/acf/registry.py:60`) | Adjacent, not merged: host policy, not registry contract (§5.5) |
 | Host config paths in `tests/test_self_host.py` and `/acf-mandate` | `acf.repo` (`plugins/arch-compliance/python/acf/repo.py:12-21`); `plugins/arch-compliance/skills/architecture-review/SKILL.md:62` literal path | `tests/test_self_host.py` and `/acf-mandate` import `acf.repo`; `plugins/arch-compliance/skills/architecture-review/SKILL.md:62` is recorded as a current breach in the doctrine and filed (§9 follow-up 4) |
