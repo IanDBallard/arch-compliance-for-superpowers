@@ -4,7 +4,7 @@
   detection: ast
   detector: fail_loud_bare_except
   languages: python
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [fail-loud.bare-except-ok]
   status: enforced
   arch_anchor: "## Fail loud"
@@ -15,7 +15,7 @@
   detection: ast
   detector: no_shims_hasattr
   languages: python
-  call_sites: [ci]
+  call_sites: [ci, precommit]
   exemption_tokens: [no-shims.hasattr-ok]
   status: enforced
   arch_anchor: "## No shims"
@@ -26,7 +26,7 @@
   detection: ast
   detector: posix_paths_str_serialization
   languages: python
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [posix-paths.str-serialization-ok]
   status: enforced
   arch_anchor: "## POSIX paths"
@@ -37,7 +37,7 @@
   detection: guard
   detector: no_build_artifacts
   languages: both
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [ops.no-build-artifacts-ok]
   status: enforced
   arch_anchor: "## Build artifacts"
@@ -50,7 +50,7 @@
   detection: guard
   detector: fail_loud_ratchet
   languages: python
-  call_sites: [ci]
+  call_sites: [ci, precommit]
   exemption_tokens: [fail-loud.ratchet-ok]
   status: unenforced
   arch_anchor: "## Fail-loud ratchet"
@@ -65,7 +65,7 @@
   detection: ast
   detector: forbid_facade_sink
   languages: python
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [facade.forbid-sink-ok]
   status: unenforced
   arch_anchor: "## Façade sinks"
@@ -80,7 +80,7 @@
   detection: ast
   detector: fsm_transition_guard
   languages: python
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [fsm.transition-guard-ok]
   status: unenforced
   arch_anchor: "## FSM transitions"

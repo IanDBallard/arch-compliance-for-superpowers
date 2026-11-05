@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -196,8 +197,21 @@ def test_gate_hook_mode_block_finding_exits_2_with_stderr(tmp_path: Path) -> Non
     assert "fail-loud.bare-except" in proc.stderr
 
 
+def _set_call_sites(repo: Path, mandate_id: str, call_sites: str) -> None:
+    """Rewrite one fixture row's call_sites flow list."""
+    path = repo / "config" / "architecture" / "mandates.yml"
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(
+        rf"(- id: {re.escape(mandate_id)}\n(?:  .*\n)*?  call_sites: )\[[^\]]*\]"
+    )
+    text, count = pattern.subn(lambda m: m.group(1) + call_sites, text)
+    assert count == 1, mandate_id
+    path.write_text(text, encoding="utf-8")
+
+
 def test_gate_hook_mode_warn_finding_stays_exit_0_with_context(tmp_path: Path) -> None:
     repo = _seed_host(tmp_path, enabled=True, mandates=True)
+    _set_call_sites(repo, "no-shims.hasattr", "[ci, hook]")
     warn = repo / "warn.py"
     warn.write_text(
         "def f(o):\n    return hasattr(o, 'x')\n",
@@ -215,6 +229,19 @@ def test_gate_hook_mode_warn_finding_stays_exit_0_with_context(tmp_path: Path) -
     assert proc.returncode == 0
     data = json.loads(proc.stdout)
     assert "no-shims.hasattr" in data["hookSpecificOutput"]["additionalContext"]
+
+
+def test_gate_does_not_report_a_row_without_the_hook_site(tmp_path: Path) -> None:
+    repo = _seed_host(tmp_path, enabled=True, mandates=True)
+    _set_call_sites(repo, "fail-loud.bare-except", "[ci]")
+    bad = repo / "bad.py"
+    bad.write_text(
+        "def f():\n    try:\n        g()\n    except Exception:\n        pass\n",
+        encoding="utf-8",
+    )
+    proc = _run(GATE, "--repo", str(repo), "--format", "text", str(bad), cwd=repo)
+    assert proc.returncode == 0
+    assert "fail-loud.bare-except" not in proc.stdout
 
 
 def test_gate_unenforced_mandate_not_reported(tmp_path: Path) -> None:

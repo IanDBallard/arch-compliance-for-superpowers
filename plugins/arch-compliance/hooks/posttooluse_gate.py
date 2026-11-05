@@ -89,10 +89,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        from acf.enforcement import apply_registry
-        from acf.exceptions import AcfInputError, DetectorPackError
+        from acf.detectors import KNOWN_DETECTORS
+        from acf.enforcement import apply_registry, make_line_lookup
+        from acf.exceptions import AcfInputError, DetectorPackError, UnknownDetectorError
         from acf.finding import Severity
-        from acf.registry import load_mandates
+        from acf.registry import HOOK_CALL_SITES, load_mandates
     except ImportError as exc:
         print(
             "acf: ACF is enabled here but its Python dependencies are missing "
@@ -104,25 +105,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        registry = load_mandates(mandates_path)
-    except AcfInputError as exc:
+        registry = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS, repo_root=repo)
+    except (AcfInputError, UnknownDetectorError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
     paths = _collect_paths(args.paths, stdin_payload, repo)
     try:
         raw_findings, file_lines = _scan_paths(repo, paths, registry)
-    except DetectorPackError as exc:
+    except (AcfInputError, DetectorPackError, UnknownDetectorError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
-    def _line_lookup(posix: str, line: int) -> str:
-        lines = file_lines.get(posix)
-        if not lines or not (0 < line <= len(lines)):
-            return ""
-        return lines[line - 1]
-
-    findings = apply_registry(raw_findings, registry, _line_lookup)
+    findings = apply_registry(
+        raw_findings, registry, make_line_lookup(file_lines), call_sites=HOOK_CALL_SITES
+    )
     has_block = any(f.severity == Severity.BLOCK for f in findings)
 
     if out_format == "json":
@@ -226,19 +223,14 @@ def _scan_paths(
     from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, fsm_guard_args, scan_fsm_writes
     from acf.detectors.python_pack import scan_python_file
     from acf.detectors.typescript_bridge import scan_typescript_file
+    from acf.registry import HOOK_CALL_SITES
 
     findings: list[Finding] = []
     file_lines: dict[str, list[str]] = {}
     rel_paths: list[str] = []
 
-    facade_specs = [
-        m for m in registry.mandates
-        if m.detector == FACADE_SINK_DETECTOR_ID and m.status != "unenforced"
-    ]
-    fsm_specs = [
-        m for m in registry.mandates
-        if m.detector == FSM_GUARD_DETECTOR_ID and m.status != "unenforced"
-    ]
+    facade_specs = registry.active(HOOK_CALL_SITES, detector=FACADE_SINK_DETECTOR_ID)
+    fsm_specs = registry.active(HOOK_CALL_SITES, detector=FSM_GUARD_DETECTOR_ID)
 
     for abs_path in paths:
         if not abs_path.is_file():
@@ -283,9 +275,7 @@ def _scan_paths(
                 for f in scan_typescript_file(abs_path, added_lines=None)
             )
 
-    for mandate in registry.mandates:
-        if mandate.detector != BUILD_ARTIFACT_DETECTOR_ID or mandate.status == "unenforced":
-            continue
+    for mandate in registry.active(HOOK_CALL_SITES, detector=BUILD_ARTIFACT_DETECTOR_ID):
         params = mandate.params or {}
         findings.extend(scan_build_artifact_paths(rel_paths, **build_artifact_args(params)))
     return findings, file_lines

@@ -37,7 +37,7 @@ jobs:
         run: pytest
 
       - name: Architecture compliance (diff vs base)
-        run: python -m acf.cli_check_diff --repo . --base "origin/${{ github.base_ref || 'main' }}"
+        run: python -m acf.cli_check_diff --repo . --base "origin/${{ github.base_ref || 'main' }}" --call-site ci
 
       - name: Run TypeScript detector self-test
         working-directory: plugins/arch-compliance/detectors/typescript

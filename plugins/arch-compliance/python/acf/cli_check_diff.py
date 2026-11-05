@@ -23,12 +23,12 @@ from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, fsm_guard_args, scan_
 from acf.detectors.python_pack import scan_python_file
 from acf.detectors.typescript_bridge import scan_typescript_file
 from acf.diff import DiffMode, added_lines, changed_files
-from acf.enforcement import apply_registry
+from acf.enforcement import apply_registry, make_line_lookup
 from acf.exceptions import AcfInputError, DetectorPackError, GitError, UnknownDetectorError
 from acf.finding import Finding, Severity
 from acf.judge import LLM_PROMPT_IDS
 from acf.repo import MANDATES_REL, RATCHET_BASELINE_REL, resolve_repo
-from acf.registry import Mandate, MandateRegistry, load_mandates
+from acf.registry import DIFF_CALL_SITES, MandateRegistry, load_mandates
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,6 +60,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to mandates.yml (default: <repo>/config/architecture/mandates.yml)",
     )
     parser.add_argument(
+        "--call-site",
+        required=True,
+        choices=sorted(DIFF_CALL_SITES),
+        help="Call site this run enforces; only rows declaring it gate",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Emit findings as JSON",
@@ -72,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         args.mandates.resolve() if args.mandates is not None else repo / MANDATES_REL
     )
 
+    sites = frozenset({args.call_site})
     try:
         registry = load_mandates(
             mandates_path,
@@ -79,18 +86,21 @@ def main(argv: list[str] | None = None) -> int:
             llm_prompt_ids=LLM_PROMPT_IDS,
             repo_root=repo,
         )
-        raw_findings, file_lines = _scan_changed(repo, mode, args.base, registry)
+        if not (
+            registry.active(sites, detection="ast") or registry.active(sites, detection="guard")
+        ):
+            raise AcfInputError(
+                f"call site {args.call_site!r} selects no active ast or guard mandate; "
+                "refusing to report a clean run"
+            )
+        raw_findings, file_lines = _scan_changed(repo, mode, args.base, registry, sites)
     except (GitError, AcfInputError, UnknownDetectorError, DetectorPackError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
-    def _line_lookup(posix: str, line: int) -> str:
-        lines = file_lines.get(posix)
-        if not lines or not (0 < line <= len(lines)):
-            return ""
-        return lines[line - 1]
-
-    findings = apply_registry(raw_findings, registry, _line_lookup)
+    findings = apply_registry(
+        raw_findings, registry, make_line_lookup(file_lines), call_sites=sites
+    )
 
     if args.json:
         print(json.dumps([f.model_dump(mode="json") for f in findings], indent=2))
@@ -102,26 +112,19 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _active_mandates(registry: MandateRegistry, detector: str) -> list[Mandate]:
-    return [
-        m
-        for m in registry.mandates
-        if m.detector == detector and m.status != "unenforced"
-    ]
-
-
 def _scan_changed(
     repo: Path,
     mode: DiffMode,
     base: str | None,
     registry: MandateRegistry,
+    sites: frozenset[str],
 ) -> tuple[list[Finding], dict[str, list[str]]]:
     findings: list[Finding] = []
     file_lines: dict[str, list[str]] = {}
     changed = changed_files(repo, mode, base=base)
 
-    facade_specs = _active_mandates(registry, FACADE_SINK_DETECTOR_ID)
-    fsm_specs = _active_mandates(registry, FSM_GUARD_DETECTOR_ID)
+    facade_specs = registry.active(sites, detector=FACADE_SINK_DETECTOR_ID)
+    fsm_specs = registry.active(sites, detector=FSM_GUARD_DETECTOR_ID)
 
     for rel in changed:
         path = Path(rel)
@@ -163,11 +166,11 @@ def _scan_changed(
                 for f in scan_typescript_file(abs_path, added_lines=lines)
             )
 
-    for mandate in _active_mandates(registry, BUILD_ARTIFACT_DETECTOR_ID):
+    for mandate in registry.active(sites, detector=BUILD_ARTIFACT_DETECTOR_ID):
         params = mandate.params or {}
         findings.extend(scan_build_artifact_paths(changed, **build_artifact_args(params)))
 
-    for mandate in _active_mandates(registry, FAIL_LOUD_RATCHET_DETECTOR_ID):
+    for mandate in registry.active(sites, detector=FAIL_LOUD_RATCHET_DETECTOR_ID):
         params = mandate.params or {}
         baseline = params.get("baseline", RATCHET_BASELINE_REL.as_posix())
         findings.extend(

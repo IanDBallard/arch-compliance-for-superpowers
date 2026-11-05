@@ -45,7 +45,7 @@ def test_staged_bare_except_exits_1(tmp_path: Path) -> None:
     )
     _git(repo, "add", "bad.py")
 
-    code = main(["--mode", "staged", "--repo", str(repo)])
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci"])
     assert code == 1
 
 
@@ -58,7 +58,7 @@ def test_staged_clean_file_exits_0(tmp_path: Path) -> None:
     )
     _git(repo, "add", "good.py")
 
-    code = main(["--mode", "staged", "--repo", str(repo)])
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci"])
     assert code == 0
 
 
@@ -81,6 +81,19 @@ _BARE_EXCEPT_ROW = """- id: fail-loud.bare-except
 """
 
 
+_HASATTR_ROW = """- id: no-shims.hasattr
+  title: hasattr shims
+  severity: WARN
+  detection: ast
+  detector: no_shims_hasattr
+  languages: python
+  call_sites: [ci]
+  exemption_tokens: [no-shims.hasattr-ok]
+  status: enforced
+  arch_anchor: "# No shims"
+"""
+
+
 def _stage_bad_py(repo: Path) -> None:
     bad = repo / "bad.py"
     bad.write_text(
@@ -95,16 +108,19 @@ def test_registry_severity_demotes_block_to_warn(tmp_path: Path) -> None:
     _write_mandates(repo, _BARE_EXCEPT_ROW.format(severity="WARN", status="enforced"))
     _stage_bad_py(repo)
 
-    code = main(["--mode", "staged", "--repo", str(repo)])
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci"])
     assert code == 0
 
 
 def test_unenforced_mandate_does_not_gate(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
-    _write_mandates(repo, _BARE_EXCEPT_ROW.format(severity="BLOCK", status="unenforced"))
+    _write_mandates(
+        repo,
+        _BARE_EXCEPT_ROW.format(severity="BLOCK", status="unenforced") + _HASATTR_ROW,
+    )
     _stage_bad_py(repo)
 
-    code = main(["--mode", "staged", "--repo", str(repo)])
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci"])
     assert code == 0
 
 
@@ -121,7 +137,7 @@ def test_registry_exemption_token_exempts_line(tmp_path: Path) -> None:
     )
     _git(repo, "add", "bad.py")
 
-    code = main(["--mode", "staged", "--repo", str(repo)])
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci"])
     assert code == 0
 
 
@@ -150,8 +166,8 @@ def test_base_mode_flags_violation_committed_after_base(tmp_path: Path) -> None:
     _git(repo, "add", "bad.py")
     _git(repo, "commit", "-m", "add bad handler")
 
-    assert main(["--mode", "worktree", "--repo", str(repo)]) == 0  # clean tree
-    assert main(["--base", base, "--repo", str(repo)]) == 1
+    assert main(["--mode", "worktree", "--repo", str(repo), "--call-site", "ci"]) == 0  # clean tree
+    assert main(["--base", base, "--repo", str(repo), "--call-site", "ci"]) == 1
 
 
 def test_base_mode_ignores_violations_already_in_base(tmp_path: Path) -> None:
@@ -170,12 +186,12 @@ def test_base_mode_ignores_violations_already_in_base(tmp_path: Path) -> None:
     _git(repo, "add", "clean.py")
     _git(repo, "commit", "-m", "clean change")
 
-    assert main(["--base", base, "--repo", str(repo)]) == 0
+    assert main(["--base", base, "--repo", str(repo), "--call-site", "ci"]) == 0
 
 
 def test_invalid_base_ref_exits_1(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     repo = _init_repo(tmp_path)
-    code = main(["--base", "does-not-exist-ref", "--repo", str(repo)])
+    code = main(["--base", "does-not-exist-ref", "--repo", str(repo), "--call-site", "ci"])
     assert code == 1
     err = capsys.readouterr().err
     assert "acf:" in err
@@ -188,7 +204,7 @@ def test_missing_mandates_fails_loud(
     repo = tmp_path / "bare"
     repo.mkdir()
     _git(repo, "init")
-    code = main(["--mode", "staged", "--repo", str(repo)])
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci"])
     assert code == 1
     assert "mandates file not found" in capsys.readouterr().err
 
@@ -235,3 +251,40 @@ def test_git_wrapper_raises_outside_a_repository(tmp_path):
         acf_git(plain, "status", "--porcelain")
     proc = run_git(plain, "status", "--porcelain")
     assert proc.returncode != 0
+
+
+def test_ci_only_row_reports_at_ci_not_at_precommit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _init_repo(tmp_path)
+    row = _BARE_EXCEPT_ROW.format(severity="BLOCK", status="enforced").replace(
+        "[ci, hook]", "[ci]"
+    )
+    _write_mandates(repo, row + _HASATTR_ROW.replace("[ci]", "[precommit]"))
+    _stage_bad_py(repo)
+
+    assert main(["--mode", "staged", "--repo", str(repo), "--call-site", "ci"]) == 1
+    assert "fail-loud.bare-except" in capsys.readouterr().out
+    assert main(["--mode", "staged", "--repo", str(repo), "--call-site", "precommit"]) == 0
+    assert "fail-loud.bare-except" not in capsys.readouterr().out
+
+
+def test_call_site_is_required(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    with pytest.raises(SystemExit):
+        main(["--mode", "staged", "--repo", str(repo)])
+
+
+def test_site_with_no_active_row_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _init_repo(tmp_path)
+    row = _BARE_EXCEPT_ROW.format(severity="BLOCK", status="enforced").replace(
+        "[ci, hook]", "[ci]"
+    )
+    _write_mandates(repo, row)
+    _stage_bad_py(repo)
+
+    code = main(["--mode", "staged", "--repo", str(repo), "--call-site", "precommit"])
+    assert code == 1
+    assert "selects no active" in capsys.readouterr().err

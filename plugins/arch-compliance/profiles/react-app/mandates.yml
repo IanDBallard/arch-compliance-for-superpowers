@@ -4,7 +4,7 @@
   detection: ast
   detector: empty_catch
   languages: typescript
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [fail-loud.empty-catch-ok]
   status: enforced
   arch_anchor: "## Fail loud"
@@ -15,7 +15,7 @@
   detection: ast
   detector: explicit_any
   languages: typescript
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [no-shims.explicit-any-ok]
   status: enforced
   arch_anchor: "## No shims"
@@ -26,7 +26,7 @@
   detection: guard
   detector: no_build_artifacts
   languages: both
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [ops.no-build-artifacts-ok]
   status: enforced
   arch_anchor: "## Build artifacts"
