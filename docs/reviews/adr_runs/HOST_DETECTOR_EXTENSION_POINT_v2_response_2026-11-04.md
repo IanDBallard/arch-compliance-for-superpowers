@@ -90,6 +90,21 @@ The table's mandate ids come from the scanners (Appendix row "Built-in mandate i
 
 **Resolution: revised, with C30.** The sufficiency claim is withdrawn. The row-shape checks (Tier-1 site, host `ast` languages) and the per-detector contracts together prevent an active row that loads and runs nowhere. A host row is dispatched by both gates' host runners, so any Tier-1 site serves it. A built-in row is served only at the sites its contract lists. Same falsifying command and output as C30.
 
+Falsifying command and output (as C30):
+
+```text
+$ python proto3.py
+REFUSED SHIPPED ROWS: []
+('x', 'fail_loud_ratchet', ['hook']) id site
+('y', 'llm_fail_loud', ['ci']) unknown
+('z', 'fail_loud_bare_except', ['ci']) id
+...
+$ grep -n "def _check_builtin\|reports only to mandate\|runs only at" docs/design/HOST_DETECTOR_EXTENSION_POINT.md
+235:def _check_builtin(m: Mandate, known: Mapping[str, BuiltinDetector]) -> None:
+243:            f"active mandate {m.id!r}: detector {m.detector!r} reports only to mandate "
+249:            f"active mandate {m.id!r}: detector {m.detector!r} runs only at "
+```
+
 ### C59 (mechanism_justification, load-bearing): "one-root-per-process eviction is justified"
 
 **Resolution: revised (mechanism removed).** Eviction is gone. Decision 6 and §4.4 item 3 record the first root and raise `AcfInputError` for any other root in the same process. That refuses the state instead of repairing it. Multi-root tests reset the loader through the new test-only fixture `fresh_host_loader` (§4.7, `plugins/arch-compliance/tests/conftest.py`). The module name hashes only `rel_path`, since one root is active.
@@ -113,13 +128,52 @@ Each gate resolves one `repo` in `main`, and the hook is a fresh process per edi
 
 **Resolution: revised, with C29.** `_call_host` wraps the call and the materialisation, catching `(Exception, SystemExit)`. The hook's scan `except` becomes `(AcfInputError, DetectorPackError, UnknownDetectorError)` (§4.6 item 2), matching the `acf-check-diff` tuple at `cli_check_diff.py:72`, so the new second-root and `acf`-shadow refusals are caught in both gates as well. Same falsifying command and output as C29.
 
+Falsifying command and output (as C29):
+
+```text
+$ python proto3.py
+...
+gen_bad -> wrapped ValidationError
+gen_exit -> wrapped SystemExit
+$ grep -n "hits = list(raw)\|except (Exception, SystemExit)" docs/design/HOST_DETECTOR_EXTENSION_POINT.md
+301:       hits = list(raw)
+302:   except (Exception, SystemExit) as exc:  # fail-loud.bare-except-ok: <reason>
+```
+
 ### mandate claim C30 is REFUTED (duplicate line)
 
 The same claim as the C30 entry above, listed again under its reviewer heading. Resolution and command as C30.
 
+Falsifying command and output:
+
+```text
+$ python proto3.py
+REFUSED SHIPPED ROWS: []
+('x', 'fail_loud_ratchet', ['hook']) id site
+('y', 'llm_fail_loud', ['ci']) unknown
+('z', 'fail_loud_bare_except', ['ci']) id
+...
+$ grep -n "def _check_builtin\|reports only to mandate\|runs only at" docs/design/HOST_DETECTOR_EXTENSION_POINT.md
+235:def _check_builtin(m: Mandate, known: Mapping[str, BuiltinDetector]) -> None:
+243:            f"active mandate {m.id!r}: detector {m.detector!r} reports only to mandate "
+249:            f"active mandate {m.id!r}: detector {m.detector!r} runs only at "
+```
+
 ### implementability claim C69 is REFUTED (duplicate line)
 
 The same claim as the C69 entry above. Resolution and command as C29 and C69.
+
+Falsifying command and output:
+
+```text
+$ python proto3.py
+...
+gen_bad -> wrapped ValidationError
+gen_exit -> wrapped SystemExit
+$ grep -n "hits = list(raw)\|except (Exception, SystemExit)" docs/design/HOST_DETECTOR_EXTENSION_POINT.md
+301:       hits = list(raw)
+302:   except (Exception, SystemExit) as exc:  # fail-loud.bare-except-ok: <reason>
+```
 
 ## Non-blocking findings folded in
 
