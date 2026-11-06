@@ -42,3 +42,32 @@ def resolve_repo(explicit: Path | None, stdin_cwd: str | None = None) -> Path:
     if stdin_cwd:
         return Path(str(stdin_cwd)).resolve()
     return Path.cwd().resolve()
+
+
+class RepoTree:
+    """The one place a path string becomes a location in the host repository."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve()
+
+    def contained(self, path: str) -> Path | None:
+        """``path`` resolved against the root (an absolute ``path`` is taken as is); None when it leaves the root or cannot be resolved."""
+        try:
+            candidate = (self.root / path).resolve()
+        except (RuntimeError, ValueError):  # symlink loop on Python 3.11 and 3.12; embedded NUL
+            return None
+        return candidate if candidate.is_relative_to(self.root) else None
+
+    def file(self, path: str) -> Path | None:
+        """The existing regular file ``path`` names inside the root, else None. An OSError from stat propagates."""
+        candidate = self.contained(path)
+        return candidate if candidate is not None and candidate.is_file() else None
+
+    def directory(self, path: str) -> Path | None:
+        """The existing directory ``path`` names inside the root, else None. An OSError from stat propagates."""
+        candidate = self.contained(path)
+        return candidate if candidate is not None and candidate.is_dir() else None
+
+    def key(self, location: Path) -> str:
+        """The repository-relative POSIX key of a location this tree returned, or of a path walked beneath one."""
+        return location.relative_to(self.root).as_posix()

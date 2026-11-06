@@ -4,7 +4,7 @@
   detection: ast
   detector: fail_loud_bare_except
   languages: python
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [fail-loud.bare-except-ok]
   status: enforced
   arch_anchor: "# Fail loud"
@@ -15,7 +15,7 @@
   detection: ast
   detector: no_shims_hasattr
   languages: python
-  call_sites: [ci]
+  call_sites: [ci, precommit]
   exemption_tokens: [no-shims.hasattr-ok]
   status: enforced
   arch_anchor: "# No shims"
@@ -26,7 +26,7 @@
   detection: ast
   detector: empty_catch
   languages: typescript
-  call_sites: [ci, hook]
+  call_sites: [ci, precommit, hook]
   exemption_tokens: [fail-loud.empty-catch-ok]
   status: enforced
   arch_anchor: "# Fail loud"

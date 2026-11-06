@@ -26,17 +26,23 @@ Do not stage or commit generated trees such as `dist/` or `build/`.
 
 Optional whole-tree freeze of bare/broad-except counts. Enable the mandate and commit a
 `config/architecture/fail_loud_ratchet.json` baseline (`{"files": {"path.py": N}}`).
+The row runs at `ci` and `precommit` only (`acf-check-diff`; a row declaring `hook` is
+refused at load), and `params.baseline` and each `params.roots` entry must name a path
+inside the repository, each root an existing directory (`DetectorPackError` otherwise).
 
 ## Façade sinks
 
 Optional config-driven rule: forbid direct writes to a protected path regex outside
 allowlisted modules. Set `params.target_literal_re` / `allowlist_globs`, then flip
-`status` to `enforced`.
+`status` to `enforced`. The row's `id` must be its detector's mandate id
+(`facade.forbid-sink`) and the row must declare at least one Tier-1 call site.
 
 ## FSM transitions
 
 Optional config-driven rule: writes to a state field must call a named validator in the
-same function scope. Set `params.state_field` / `validator_name`, then enforce.
+same function scope. Set `params.state_field` / `validator_name`, then enforce. The
+row's `id` must be its detector's mandate id (`fsm.transition-guard`) and the row must
+declare at least one Tier-1 call site.
 
 ## Soft fail-loud smells
 

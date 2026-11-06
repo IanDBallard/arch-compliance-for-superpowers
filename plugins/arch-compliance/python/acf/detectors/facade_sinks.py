@@ -5,14 +5,26 @@ from __future__ import annotations
 import ast
 import fnmatch
 import re
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
-from acf.engine import is_in_scope, posix_path
+from acf.engine import is_in_scope, parse_python, posix_path
 from acf.exceptions import DetectorPackError
 from acf.finding import Finding, Severity
 
 FACADE_SINK_DETECTOR_ID = "forbid_facade_sink"
+FACADE_SINK_MANDATE_ID = "facade.forbid-sink"
 _WRITE_MODE_RE = re.compile(r"[wax]")
+
+
+def facade_sink_args(params: Mapping[str, Any]) -> dict[str, Any]:
+    """Scanner kwargs for a row's params; optional keys pass through only when present."""
+    args: dict[str, Any] = {"target_literal_re": str(params.get("target_literal_re", ""))}
+    for key in ("allowlist_globs", "atomic_is_sink"):
+        if key in params:
+            args[key] = params[key]
+    return args
 
 
 def scan_facade_sinks(
@@ -43,20 +55,19 @@ def scan_facade_sinks(
         ) from exc
 
     posix = posix_path(path)
-    for glob in allowlist_globs or []:
+    for glob in list(allowlist_globs or []):
         if fnmatch.fnmatch(posix, glob):
             return []
 
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
+    tree = parse_python(text)
+    if tree is None:
         return []
 
     findings: list[Finding] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        sink = _classify_sink(node, atomic_is_sink=atomic_is_sink)
+        sink = _classify_sink(node, atomic_is_sink=bool(atomic_is_sink))
         if sink is None:
             continue
         if not _call_mentions_target(node, target_re):
@@ -66,7 +77,7 @@ def scan_facade_sinks(
             continue
         findings.append(
             Finding(
-                mandate_id="facade.forbid-sink",
+                mandate_id=FACADE_SINK_MANDATE_ID,
                 severity=Severity.BLOCK,
                 path=posix,
                 line=line,

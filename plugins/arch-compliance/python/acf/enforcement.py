@@ -5,7 +5,8 @@ the source of truth for what actually gates:
 
 - findings whose mandate is absent from the registry are dropped (not mandated
   by this host);
-- findings whose mandate is ``status: unenforced`` are dropped;
+- findings whose mandate is ``status: unenforced`` are dropped, and so are
+  findings whose row does not run at the gate's call sites;
 - severity always comes from the registry row, not the detector default;
 - the registry row's ``exemption_tokens`` are honored as inline comment
   exemptions (``#`` and ``//`` comment styles, reason required).
@@ -14,7 +15,7 @@ the source of truth for what actually gates:
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 
 from acf.finding import Finding, Severity
 from acf.registry import MandateRegistry
@@ -34,17 +35,31 @@ def token_exempted(line: str, tokens: Iterable[str]) -> bool:
     return False
 
 
+def make_line_lookup(file_lines: Mapping[str, list[str]]) -> LineLookup:
+    """Build the gates' shared lookup over lines they already read; reads no file."""
+
+    def _lookup(posix: str, line: int) -> str:
+        lines = file_lines.get(posix)
+        if not lines or not (0 < line <= len(lines)):
+            return ""
+        return lines[line - 1]
+
+    return _lookup
+
+
 def apply_registry(
     findings: Sequence[Finding],
     registry: MandateRegistry,
     line_lookup: LineLookup,
+    *,
+    call_sites: frozenset[str],
 ) -> list[Finding]:
     """Filter and normalize detector findings against the host registry."""
     by_id = registry.by_id
     kept: list[Finding] = []
     for finding in findings:
         mandate = by_id.get(finding.mandate_id)
-        if mandate is None or mandate.status == "unenforced":
+        if mandate is None or not mandate.runs_at(call_sites):
             continue
         source_line = line_lookup(finding.path, finding.line)
         if mandate.exemption_tokens and token_exempted(source_line, mandate.exemption_tokens):

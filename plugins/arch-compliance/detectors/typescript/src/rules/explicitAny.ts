@@ -12,7 +12,6 @@ export function findExplicitAny(sourceFile: Node, path: string): Finding[] {
     const parent = node.getParent();
     const isAsAny = parent !== undefined && Node.isAsExpression(parent);
     findings.push({
-      mandate_id: "no-shims.explicit-any",
       severity: "WARN",
       path,
       line: node.getStartLineNumber(),

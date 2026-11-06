@@ -3,9 +3,12 @@ decides what gates, at what severity, and what is exempt."""
 
 from __future__ import annotations
 
-from acf.enforcement import apply_registry
+from acf.enforcement import apply_registry, make_line_lookup
 from acf.finding import Finding, Severity
 from acf.registry import Mandate, MandateRegistry
+
+
+CI = frozenset({"ci"})
 
 
 def _mandate(
@@ -15,6 +18,7 @@ def _mandate(
     status: str = "enforced",
     detector: str = "empty_catch",
     exemption_tokens: list[str] | None = None,
+    call_sites: list[str] | None = None,
 ) -> Mandate:
     return Mandate(
         id=mandate_id,
@@ -23,7 +27,7 @@ def _mandate(
         detection="ast",
         detector=detector,
         languages="both",
-        call_sites=["ci"],
+        call_sites=call_sites if call_sites is not None else ["ci"],
         exemption_tokens=exemption_tokens if exemption_tokens is not None else [f"{mandate_id}-ok"],
         status=status,  # type: ignore[arg-type]
         arch_anchor="# x",
@@ -51,19 +55,19 @@ def _no_lines(_path: str, _line: int) -> str:
 
 def test_finding_without_registry_row_is_dropped() -> None:
     reg = _registry(_mandate("fail-loud.empty-catch"))
-    out = apply_registry([_finding("no-shims.explicit-any")], reg, _no_lines)
+    out = apply_registry([_finding("no-shims.explicit-any")], reg, _no_lines, call_sites=CI)
     assert out == []
 
 
 def test_unenforced_mandate_is_dropped() -> None:
     reg = _registry(_mandate("fail-loud.empty-catch", status="unenforced"))
-    out = apply_registry([_finding("fail-loud.empty-catch")], reg, _no_lines)
+    out = apply_registry([_finding("fail-loud.empty-catch")], reg, _no_lines, call_sites=CI)
     assert out == []
 
 
 def test_partial_mandate_is_kept() -> None:
     reg = _registry(_mandate("fail-loud.empty-catch", status="partial"))
-    out = apply_registry([_finding("fail-loud.empty-catch")], reg, _no_lines)
+    out = apply_registry([_finding("fail-loud.empty-catch")], reg, _no_lines, call_sites=CI)
     assert len(out) == 1
 
 
@@ -71,7 +75,7 @@ def test_registry_severity_overrides_detector_severity() -> None:
     reg = _registry(_mandate("fail-loud.empty-catch", severity="WARN"))
     out = apply_registry(
         [_finding("fail-loud.empty-catch", severity=Severity.BLOCK)], reg, _no_lines
-    )
+    , call_sites=CI)
     assert out[0].severity == Severity.WARN
 
 
@@ -81,7 +85,7 @@ def test_double_slash_comment_exemption_for_typescript() -> None:
     def lines(_path: str, _line: int) -> str:
         return "  } catch {} // fail-loud.empty-catch-ok: legacy shim, tracked in #42"
 
-    out = apply_registry([_finding("fail-loud.empty-catch")], reg, lines)
+    out = apply_registry([_finding("fail-loud.empty-catch")], reg, lines, call_sites=CI)
     assert out == []
 
 
@@ -91,7 +95,7 @@ def test_hash_comment_exemption_for_python() -> None:
     def lines(_path: str, _line: int) -> str:
         return "except Exception:  # fail-loud.bare-except-ok: top-level CLI guard"
 
-    out = apply_registry([_finding("fail-loud.bare-except")], reg, lines)
+    out = apply_registry([_finding("fail-loud.bare-except")], reg, lines, call_sites=CI)
     assert out == []
 
 
@@ -101,13 +105,13 @@ def test_exemption_without_reason_does_not_exempt() -> None:
     def lines(_path: str, _line: int) -> str:
         return "  } catch {} // fail-loud.empty-catch-ok:"
 
-    out = apply_registry([_finding("fail-loud.empty-catch")], reg, lines)
+    out = apply_registry([_finding("fail-loud.empty-catch")], reg, lines, call_sites=CI)
     assert len(out) == 1
 
 
 def test_enforced_block_survives_untouched() -> None:
     reg = _registry(_mandate("fail-loud.empty-catch"))
-    out = apply_registry([_finding("fail-loud.empty-catch")], reg, _no_lines)
+    out = apply_registry([_finding("fail-loud.empty-catch")], reg, _no_lines, call_sites=CI)
     assert len(out) == 1
     assert out[0].severity == Severity.BLOCK
 
@@ -122,9 +126,24 @@ def test_custom_exemption_token_from_registry_only() -> None:
     def lines_old_form(_path: str, _line: int) -> str:
         return "except Exception:  # fail-loud.bare-except-ok: no longer in registry"
 
-    assert apply_registry([raw], reg, lines_old_form)  # still gates
+    assert apply_registry([raw], reg, lines_old_form, call_sites=CI)  # still gates
 
     def lines_custom(_path: str, _line: int) -> str:
         return "except Exception:  # legacy-guard: tracked in ticket 9"
 
-    assert apply_registry([raw], reg, lines_custom) == []
+    assert apply_registry([raw], reg, lines_custom, call_sites=CI) == []
+
+
+def test_finding_whose_row_lacks_the_site_is_dropped() -> None:
+    reg = _registry(_mandate("fail-loud.empty-catch", call_sites=["ci"]))
+    raw = [_finding("fail-loud.empty-catch")]
+    assert len(apply_registry(raw, reg, _no_lines, call_sites=frozenset({"ci"}))) == 1
+    assert apply_registry(raw, reg, _no_lines, call_sites=frozenset({"precommit"})) == []
+
+
+def test_make_line_lookup_returns_empty_when_unavailable() -> None:
+    assert make_line_lookup({})("x", 1) == ""
+    lookup = make_line_lookup({"a.py": ["one", "two"]})
+    assert lookup("a.py", 2) == "two"
+    assert lookup("a.py", 0) == ""
+    assert lookup("a.py", 3) == ""

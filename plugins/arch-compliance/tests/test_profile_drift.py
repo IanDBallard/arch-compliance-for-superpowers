@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from acf.cli_check_diff import KNOWN_DETECTORS
+from acf.detectors import KNOWN_DETECTORS
+from acf.judge import LLM_PROMPT_IDS
 from acf.registry import load_mandates, missing_anchors
 
 PROFILES = Path(__file__).resolve().parents[1] / "profiles"
@@ -21,7 +22,9 @@ def test_profile_arch_anchors_match_architecture_md() -> None:
         assert arch_path.is_file(), f"missing {arch_path.as_posix()}"
 
         arch_text = arch_path.read_text(encoding="utf-8")
-        regs = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS)
+        regs = load_mandates(
+            mandates_path, known_detectors=KNOWN_DETECTORS, llm_prompt_ids=LLM_PROMPT_IDS
+        )
         assert regs.mandates, f"{profile_dir.name}: empty mandates.yml"
 
         missing = missing_anchors(regs, arch_text)

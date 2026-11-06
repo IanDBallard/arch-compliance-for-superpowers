@@ -9,7 +9,9 @@ Runnable as:
 Behavior:
   - If ``.acf/enabled`` is absent: exit 0 (no-op), optional stderr warning.
   - If enabled and ``config/architecture/mandates.yml`` is missing: non-zero exit.
-  - Otherwise scan ``.py`` / ``.ts`` / ``.tsx`` paths and print findings.
+  - Otherwise run the active rows declaring ``hook`` or ``posttooluse``, host
+    detectors included, on the edited in-repo paths and print findings; host
+    guards receive every edited in-repo path.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ _PYTHON_ROOT = _PLUGIN_ROOT / "python"
 if str(_PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(_PYTHON_ROOT))
 
-from acf.repo import ENABLED_REL, MANDATES_REL, resolve_repo
+from acf.repo import ENABLED_REL, MANDATES_REL, RepoTree, resolve_repo
 
 # NOTE: third-party acf imports (pydantic, yaml) are deferred into main() so
 # this hook stays a true no-op (exit 0, no third-party imports) in repos
@@ -89,10 +91,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        from acf.enforcement import apply_registry
-        from acf.exceptions import AcfInputError, DetectorPackError
+        from acf.detectors import KNOWN_DETECTORS
+        from acf.enforcement import apply_registry, make_line_lookup
+        from acf.exceptions import AcfInputError, DetectorPackError, UnknownDetectorError
         from acf.finding import Severity
-        from acf.registry import load_mandates
+        from acf.registry import HOOK_CALL_SITES, load_mandates
     except ImportError as exc:
         print(
             "acf: ACF is enabled here but its Python dependencies are missing "
@@ -104,25 +107,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        registry = load_mandates(mandates_path)
-    except AcfInputError as exc:
+        registry = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS, repo_root=repo)
+    except (AcfInputError, UnknownDetectorError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
     paths = _collect_paths(args.paths, stdin_payload, repo)
     try:
         raw_findings, file_lines = _scan_paths(repo, paths, registry)
-    except DetectorPackError as exc:
+    except (AcfInputError, DetectorPackError, UnknownDetectorError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
 
-    def _line_lookup(posix: str, line: int) -> str:
-        lines = file_lines.get(posix)
-        if not lines or not (0 < line <= len(lines)):
-            return ""
-        return lines[line - 1]
-
-    findings = apply_registry(raw_findings, registry, _line_lookup)
+    findings = apply_registry(
+        raw_findings, registry, make_line_lookup(file_lines), call_sites=HOOK_CALL_SITES
+    )
     has_block = any(f.severity == Severity.BLOCK for f in findings)
 
     if out_format == "json":
@@ -197,11 +196,13 @@ def _collect_paths(
                     if isinstance(edit, dict) and edit.get("file_path"):
                         collected.append(str(edit["file_path"]))
 
+    tree = RepoTree(repo)
     resolved: list[Path] = []
     seen: set[str] = set()
     for raw in collected:
-        p = Path(raw)
-        abs_path = p.resolve() if p.is_absolute() else (repo / p).resolve()
+        abs_path = tree.file(raw)
+        if abs_path is None:
+            continue
         key = abs_path.as_posix()
         if key in seen:
             continue
@@ -215,34 +216,31 @@ def _scan_paths(
 ) -> tuple[list[Finding], dict[str, list[str]]]:
     from acf.detectors.build_artifacts import (
         BUILD_ARTIFACT_DETECTOR_ID,
+        build_artifact_args,
         scan_build_artifact_paths,
     )
-    from acf.detectors.facade_sinks import FACADE_SINK_DETECTOR_ID, scan_facade_sinks
-    from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, scan_fsm_writes
+    from acf.detectors.facade_sinks import (
+        FACADE_SINK_DETECTOR_ID,
+        facade_sink_args,
+        scan_facade_sinks,
+    )
+    from acf.detectors.fsm_guard import FSM_GUARD_DETECTOR_ID, fsm_guard_args, scan_fsm_writes
+    from acf.detectors.host import scan_host_ast_file, scan_host_guards
     from acf.detectors.python_pack import scan_python_file
     from acf.detectors.typescript_bridge import scan_typescript_file
+    from acf.registry import HOOK_CALL_SITES
 
+    tree = RepoTree(repo)
     findings: list[Finding] = []
     file_lines: dict[str, list[str]] = {}
     rel_paths: list[str] = []
 
-    facade_specs = [
-        m for m in registry.mandates
-        if m.detector == FACADE_SINK_DETECTOR_ID and m.status != "unenforced"
-    ]
-    fsm_specs = [
-        m for m in registry.mandates
-        if m.detector == FSM_GUARD_DETECTOR_ID and m.status != "unenforced"
-    ]
+    facade_specs = registry.active(HOOK_CALL_SITES, detector=FACADE_SINK_DETECTOR_ID)
+    fsm_specs = registry.active(HOOK_CALL_SITES, detector=FSM_GUARD_DETECTOR_ID)
 
     for abs_path in paths:
-        if not abs_path.is_file():
-            continue
         suffix = abs_path.suffix.lower()
-        try:
-            rel = abs_path.relative_to(repo).as_posix()
-        except ValueError:
-            rel = abs_path.as_posix()
+        rel = tree.key(abs_path)
         rel_paths.append(rel)
 
         if suffix not in _CODE_SUFFIXES:
@@ -259,9 +257,7 @@ def _scan_paths(
                         text,
                         rel,
                         None,
-                        target_literal_re=str(params.get("target_literal_re", "")),
-                        allowlist_globs=list(params.get("allowlist_globs") or []),
-                        atomic_is_sink=bool(params.get("atomic_is_sink", True)),
+                        **facade_sink_args(params),
                     )
                 )
             for mandate in fsm_specs:
@@ -271,27 +267,31 @@ def _scan_paths(
                         text,
                         rel,
                         None,
-                        state_field=str(params.get("state_field", "")),
-                        validator_name=str(params.get("validator_name", "")),
+                        **fsm_guard_args(params),
                     )
                 )
+            findings.extend(
+                scan_host_ast_file(
+                    repo, text, rel, None, registry, language="python", call_sites=HOOK_CALL_SITES
+                )
+            )
         else:
             findings.extend(
                 f.model_copy(update={"path": rel})
                 for f in scan_typescript_file(abs_path, added_lines=None)
             )
-
-    for mandate in registry.mandates:
-        if mandate.detector != BUILD_ARTIFACT_DETECTOR_ID or mandate.status == "unenforced":
-            continue
-        params = mandate.params or {}
-        prefixes = params.get("path_prefixes")
-        findings.extend(
-            scan_build_artifact_paths(
-                rel_paths,
-                path_prefixes=list(prefixes) if prefixes else None,
+            findings.extend(
+                scan_host_ast_file(
+                    repo, text, rel, None, registry, language="typescript", call_sites=HOOK_CALL_SITES
+                )
             )
-        )
+
+    for mandate in registry.active(HOOK_CALL_SITES, detector=BUILD_ARTIFACT_DETECTOR_ID):
+        params = mandate.params or {}
+        findings.extend(scan_build_artifact_paths(rel_paths, **build_artifact_args(params)))
+    findings.extend(
+        scan_host_guards(repo, rel_paths, registry, file_lines, call_sites=HOOK_CALL_SITES)
+    )
     return findings, file_lines
 
 

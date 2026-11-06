@@ -299,8 +299,8 @@ wraps `Path(path)`). A host that declares a location outside its repository gets
 it declared: the gate reads and writes there, and the records are not committed with
 the spec. That is a visible host choice, not a state the gate must prevent, and a
 refusal would be a second implementation of the repo-relative test that
-`acf:plugins/arch-compliance/python/acf/adr/citations.py:49` (`_looks_absolute`) and
-`:74` (`_escapes_repo`) already own.
+`acf:plugins/arch-compliance/python/acf/engine.py` (`looks_absolute`) and
+`acf:plugins/arch-compliance/python/acf/repo.py` (`RepoTree`) already own.
 
 ### 5.3 Deleting the ported defaults
 

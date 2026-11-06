@@ -31,7 +31,9 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, Literal
 
+from acf.engine import looks_absolute
 from acf.exceptions import CitationHistoryUnavailableError
+from acf.repo import RepoTree
 
 CitationKind = Literal[
     "current", "historical", "external", "proposed", "asserted_absent", "unresolved"
@@ -44,11 +46,6 @@ _LINE_SUFFIX_RE = re.compile(r":[\d,\-–\s]+$")
 def _bare_path(citation: str) -> str:
     """Strip a trailing line reference from ``citation``."""
     return _LINE_SUFFIX_RE.sub("", citation.strip()).strip()
-
-
-def _looks_absolute(path: str) -> bool:
-    """True for a drive-letter or root-anchored path — necessarily outside the tree."""
-    return bool(re.match(r"^([A-Za-z]:[\\/]|/|\\\\)", path))
 
 
 def _git(
@@ -69,11 +66,6 @@ def _git(
             f"(exit {result.returncode}): {result.stderr.strip()}"
         )
     return result
-
-
-def _escapes_repo(path: str, repo_root: Path) -> bool:
-    root = repo_root.resolve()
-    return not (root / path).resolve().is_relative_to(root)
 
 
 def _is_ignored(path: str, repo_root: Path) -> bool:
@@ -158,14 +150,15 @@ def resolve_citation(
     # directory classified `current` while its mount was up and `external` when
     # it dropped, which is both wrong and non-reproducible. (The mount really
     # did come and go twice on 2026-08-11.)
-    if _looks_absolute(path):
+    if looks_absolute(path):
         return "external", path
-    if _escapes_repo(path, repo_root):
+    contained = RepoTree(repo_root).contained(path)
+    if contained is None:
         # A relative path that climbs out of the tree names nothing the repo
         # can vouch for; git would answer it with a fatal "outside repository"
         # (exit 128), which is not a git-history failure. Unresolved, as before.
         return "unresolved", None
-    if (repo_root / path).exists():
+    if contained.exists():
         return "current", path
     # Suffix resolution runs BEFORE the ignore test: a tracked file is by
     # definition not ignored, and `git check-ignore` answers about the *string*

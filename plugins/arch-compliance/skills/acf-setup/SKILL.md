@@ -21,7 +21,7 @@ Complete these steps in order. Create a todo per step and check each off.
 6. Align ARCHITECTURE.md (prompt if host already has one)
 7. Write `.acf/enabled` marker
 8. Print pre-commit / CI snippets
-9. Smoke-run `acf-check-diff`
+9. Smoke-run `acf-check-diff --call-site precommit`
 10. Summarize what was written and next steps (`/acf-mandate`, `/architecture-review`)
 
 ## Step 1 — Superpowers prerequisite
@@ -145,9 +145,9 @@ Write an empty (or one-line) marker file:
 <host>/.acf/enabled
 ```
 
-Create `.acf/` if needed. Plugin hooks (see below) no-op until this file exists; once present, missing `config/architecture/mandates.yml` is a hard failure. Do **not** write the marker before mandates are in place.
+Create `.acf/` if needed. `.acf/enabled` is the opt-in for the automatic hooks, host detectors included: plugin hooks (see below) no-op until this file exists, and once it exists the PostToolUse hook runs the host's own detector code (`detector: <path>.py:<callable>` rows) on edit; once present, missing `config/architecture/mandates.yml` is a hard failure. Do **not** write the marker before mandates are in place.
 
-Suggest adding `.acf/` to git if the team wants hooks enabled for everyone; otherwise document that each clone needs the marker.
+Suggest adding `.acf/` to git if the team wants hooks enabled for everyone; otherwise document that each clone needs the marker. Say plainly that committing `.acf/` opts every clone into running the host's detectors on edit.
 
 ### Hook registration (Claude Code)
 
@@ -156,7 +156,7 @@ The plugin ships `hooks/hooks.json` which registers:
 | Event | Script | Purpose |
 |-------|--------|---------|
 | `SubagentStart` | `hooks/inject_constraints.py --format hook` | Inject host mandates + ARCHITECTURE excerpt into subagent context |
-| `PostToolUse` (`Write\|Edit\|MultiEdit`) | `hooks/posttooluse_gate.py --format hook` | Run Tier-1 Python/TS detectors on edited paths; feed findings back |
+| `PostToolUse` (`Write\|Edit\|MultiEdit`) | `hooks/posttooluse_gate.py --format hook` | Run Tier-1 Python/TS detectors, host detectors and host guards on edited paths (rows declaring `hook` or `posttooluse`; edited files outside the repository are not scanned); feed findings back |
 
 No host-side hook copy is required when the plugin is installed — Claude Code loads plugin `hooks/hooks.json` automatically. Manual smoke:
 
@@ -181,7 +181,7 @@ repos:
     hooks:
       - id: acf-check-diff
         name: acf-check-diff
-        entry: acf-check-diff --mode staged
+        entry: acf-check-diff --mode staged --call-site precommit
         language: system
         pass_filenames: false
         stages: [pre-commit]
@@ -190,8 +190,10 @@ repos:
 Fallback if console script is not on PATH:
 
 ```bash
-python -m acf.cli_check_diff --mode staged
+python -m acf.cli_check_diff --mode staged --call-site precommit
 ```
+
+`--call-site {ci,precommit}` is required and selects the rows that run: only active rows that declare that site. A site that selects no active `ast`/`guard` row is refused (exit 1), not reported as a clean run.
 
 ### CI (GitHub Actions sketch)
 
@@ -203,9 +205,16 @@ diff and always pass. Use `--base` to diff the branch against its merge-base:
   with:
     fetch-depth: 0   # --base needs history for merge-base
 - name: Architecture compliance (diff vs base)
-  run: acf-check-diff --base "origin/${{ github.base_ref || 'main' }}" --repo .
-  # or: python -m acf.cli_check_diff --base origin/main --repo .
+  run: acf-check-diff --base "origin/${{ github.base_ref || 'main' }}" --repo . --call-site ci
+  # or: python -m acf.cli_check_diff --base origin/main --repo . --call-site ci
 ```
+
+### Upgrading a host installed before `--call-site` (v0.2.3)
+
+- Add `precommit` to the `call_sites` of each `ast`/`guard` row the host wants checked in pre-commit. Registries copied from a profile before this release declare no `precommit` site (typically `[ci, hook]`), and a `--call-site precommit` run that selects no active row is refused ("selects no active", exit 1), never a silent pass.
+- Add `--call-site ci` / `--call-site precommit` to the host's own CI and pre-commit invocations; omitting it exits 2 with a usage error.
+- Set `status: unenforced` on any `partial` row whose detector or prompt does not exist yet; an active (`enforced` or `partial`) row naming a missing one is refused when the registry loads.
+- Load-time refusals also cover a `call_sites` value outside `ci`, `precommit`, `hook`, `posttooluse`, `audit` (for example `pre-commit` is refused; use `precommit`), an active `ast`/`guard` row whose only site is `audit`, and an active non-built-in row that reuses a built-in mandate id (reserved).
 
 Remind them the CLI defaults to `<repo>/config/architecture/mandates.yml`. Install the `acf` package into the environment used by hooks/CI (`pip install` from the marketplace plugin’s Python package / editable install as documented in the repo README).
 
@@ -214,18 +223,19 @@ Remind them the CLI defaults to `<repo>/config/architecture/mandates.yml`. Insta
 From the **host** root, run one of:
 
 ```bash
-acf-check-diff --mode worktree
+acf-check-diff --mode worktree --call-site precommit
 # or
-python -m acf.cli_check_diff --mode worktree
+python -m acf.cli_check_diff --mode worktree --call-site precommit
 ```
 
 Success criteria:
 
 - Mandates load without `AcfInputError` / `UnknownDetectorError`.
 - Exit 0 if no `BLOCK` findings on the current diff; exit 1 only for real BLOCK findings (still a successful smoke of the toolchain).
+- An exit 2 usage error (a missing or unknown `--call-site`) or a "selects no active" refusal means the invocation or the registry needs fixing (for example a registry whose rows declare no `precommit` needs `precommit` added); it is not a pass.
 - If the command is missing, help install the plugin Python package, then retry. Do not claim setup complete until the CLI runs.
 
-Optional friend-bar tip: plant a temporary empty `catch {}` (TS) or bare `except:` (Python), stage it, re-run with `--mode staged`, confirm BLOCK/WARN, then revert.
+Optional friend-bar tip: plant a temporary empty `catch {}` (TS) or bare `except:` (Python), stage it, re-run with `--mode staged --call-site precommit`, confirm BLOCK/WARN, then revert.
 
 ## Step 10 — Done summary
 
@@ -247,4 +257,4 @@ Tell the user:
 | Writing `.acf/enabled` before mandates | Write marker last among config steps |
 | Leaving polyglot hosts with two active registries | Merge into one `mandates.yml` |
 | Changing ARCHITECTURE headings without updating `arch_anchor` | Keep literal heading strings or update registry |
-| Claiming success without CLI smoke | Run `acf-check-diff` or `python -m acf.cli_check_diff` |
+| Claiming success without CLI smoke | Run `acf-check-diff --call-site precommit` or `python -m acf.cli_check_diff --call-site precommit` |

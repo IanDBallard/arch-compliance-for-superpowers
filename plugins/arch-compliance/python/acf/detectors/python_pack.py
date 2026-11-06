@@ -10,16 +10,16 @@ import ast
 import re
 from pathlib import Path
 
-from acf.engine import is_in_scope, posix_path
+from acf.engine import is_in_scope, parse_python, posix_path
 from acf.finding import Finding, Severity
 
-PYTHON_AST_DETECTOR_IDS = frozenset(
-    {
-        "fail_loud_bare_except",
-        "no_shims_hasattr",
-        "posix_paths_str_serialization",
-    }
-)
+FAIL_LOUD_BARE_EXCEPT_MANDATE_ID = "fail-loud.bare-except"
+NO_SHIMS_HASATTR_MANDATE_ID = "no-shims.hasattr"
+POSIX_PATHS_STR_MANDATE_ID = "posix-paths.str-serialization"
+
+FAIL_LOUD_BARE_EXCEPT_DETECTOR_ID = "fail_loud_bare_except"
+NO_SHIMS_HASATTR_DETECTOR_ID = "no_shims_hasattr"
+POSIX_PATHS_STR_DETECTOR_ID = "posix_paths_str_serialization"
 
 _PATHY_RE = re.compile(r"path|dir|file", re.IGNORECASE)
 
@@ -31,9 +31,8 @@ def scan_python_file(
 ) -> list[Finding]:
     posix = posix_path(path)
     lines = text.splitlines()
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
+    tree = parse_python(text)
+    if tree is None:
         return []
 
     findings: list[Finding] = []
@@ -58,23 +57,23 @@ def _check_bare_except(
     path: str,
     added_lines: frozenset[int] | None,
 ) -> Finding | None:
-    if not _is_bare_or_exception(node):
+    if not is_bare_or_exception(node):
         return None
     line = node.lineno
     if not is_in_scope(line, added_lines):
         return None
     return Finding(
-        mandate_id="fail-loud.bare-except",
+        mandate_id=FAIL_LOUD_BARE_EXCEPT_MANDATE_ID,
         severity=Severity.BLOCK,
         path=path,
         line=line,
         message="Bare except or broad `except Exception` swallows errors",
-        detector="fail_loud_bare_except",
+        detector=FAIL_LOUD_BARE_EXCEPT_DETECTOR_ID,
         detection="ast",
     )
 
 
-def _is_bare_or_exception(node: ast.ExceptHandler) -> bool:
+def is_bare_or_exception(node: ast.ExceptHandler) -> bool:
     if node.type is None:
         return True
     if isinstance(node.type, ast.Name) and node.type.id == "Exception":
@@ -94,12 +93,12 @@ def _check_hasattr(
     if not is_in_scope(line, added_lines):
         return None
     return Finding(
-        mandate_id="no-shims.hasattr",
+        mandate_id=NO_SHIMS_HASATTR_MANDATE_ID,
         severity=Severity.WARN,
         path=path,
         line=line,
         message="`hasattr` probes are no-shim violations",
-        detector="no_shims_hasattr",
+        detector=NO_SHIMS_HASATTR_DETECTOR_ID,
         detection="ast",
     )
 
@@ -141,7 +140,7 @@ def _find_str_path_in_serialization(
                     if is_in_scope(line, added_lines):
                         findings.append(
                             Finding(
-                                mandate_id="posix-paths.str-serialization",
+                                mandate_id=POSIX_PATHS_STR_MANDATE_ID,
                                 severity=Severity.BLOCK,
                                 path=path,
                                 line=line,
@@ -149,7 +148,7 @@ def _find_str_path_in_serialization(
                                     "Do not str()-coerce path-like values into "
                                     "YAML/JSON serialization; use Path.as_posix()"
                                 ),
-                                detector="posix_paths_str_serialization",
+                                detector=POSIX_PATHS_STR_DETECTOR_ID,
                                 detection="ast",
                             )
                         )
@@ -169,7 +168,7 @@ def _find_str_path_in_serialization(
                     if is_in_scope(line, added_lines):
                         findings.append(
                             Finding(
-                                mandate_id="posix-paths.str-serialization",
+                                mandate_id=POSIX_PATHS_STR_MANDATE_ID,
                                 severity=Severity.BLOCK,
                                 path=path,
                                 line=line,
@@ -177,7 +176,7 @@ def _find_str_path_in_serialization(
                                     "Do not str()-coerce path-like values into "
                                     "serialized dict payloads; use Path.as_posix()"
                                 ),
-                                detector="posix_paths_str_serialization",
+                                detector=POSIX_PATHS_STR_DETECTOR_ID,
                                 detection="ast",
                             )
                         )

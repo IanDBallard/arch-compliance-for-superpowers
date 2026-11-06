@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any
 
 from acf.engine import posix_path
 from acf.finding import Finding, Severity
 
 BUILD_ARTIFACT_DETECTOR_ID = "no_build_artifacts"
+BUILD_ARTIFACTS_MANDATE_ID = "ops.no-build-artifacts"
+
+
+def build_artifact_args(params: Mapping[str, Any]) -> dict[str, Any]:
+    """Scanner kwargs for a row's params; ``path_prefixes`` only when present and non-empty."""
+    prefixes = params.get("path_prefixes")
+    return {"path_prefixes": prefixes} if prefixes else {}
 
 
 def scan_build_artifact_paths(
@@ -28,7 +36,7 @@ def scan_build_artifact_paths(
         if any(rel == p.rstrip("/") or rel.startswith(p) for p in prefixes):
             findings.append(
                 Finding(
-                    mandate_id="ops.no-build-artifacts",
+                    mandate_id=BUILD_ARTIFACTS_MANDATE_ID,
                     severity=Severity.BLOCK,
                     path=rel,
                     line=1,

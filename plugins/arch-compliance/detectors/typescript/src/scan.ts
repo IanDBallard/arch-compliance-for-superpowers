@@ -75,25 +75,25 @@ function selfTest(): void {
 
   const expectFinding = (
     findings: Finding[],
-    mandate: string,
+    detector: string,
     line: number,
     severity: Finding["severity"],
   ): void => {
     const hit = findings.find(
-      (f) => f.mandate_id === mandate && f.line === line && f.severity === severity,
+      (f) => f.detector === detector && f.line === line && f.severity === severity,
     );
     if (!hit) {
       failures.push(
-        `expected ${mandate} at line ${line} (${severity}); got ` +
+        `expected ${detector} at line ${line} (${severity}); got ` +
           JSON.stringify(findings),
       );
     }
   };
 
   const bad = scanFile(path.join(fixtures, "bad.tsx"), null);
-  expectFinding(bad, "fail-loud.empty-catch", 4, "BLOCK");
-  expectFinding(bad, "no-shims.explicit-any", 7, "WARN");
-  expectFinding(bad, "no-shims.explicit-any", 8, "WARN");
+  expectFinding(bad, "empty_catch", 4, "BLOCK");
+  expectFinding(bad, "explicit_any", 7, "WARN");
+  expectFinding(bad, "explicit_any", 8, "WARN");
   if (bad.length !== 3) {
     failures.push(`bad.tsx: expected exactly 3 findings, got ${bad.length}`);
   }
