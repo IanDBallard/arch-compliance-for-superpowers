@@ -209,7 +209,7 @@ diff and always pass. Use `--base` to diff the branch against its merge-base:
   # or: python -m acf.cli_check_diff --base origin/main --repo . --call-site ci
 ```
 
-### Upgrading a host installed before `--call-site` (v0.2.3)
+### Upgrading a host installed before `--call-site` (v0.2.4)
 
 - Add `precommit` to the `call_sites` of each `ast`/`guard` row the host wants checked in pre-commit. Registries copied from a profile before this release declare no `precommit` site (typically `[ci, hook]`), and a `--call-site precommit` run that selects no active row is refused ("selects no active", exit 1), never a silent pass.
 - Add `--call-site ci` / `--call-site precommit` to the host's own CI and pre-commit invocations; omitting it exits 2 with a usage error.
