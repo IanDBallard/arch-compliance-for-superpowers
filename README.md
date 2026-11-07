@@ -109,7 +109,7 @@ Plugin `hooks/hooks.json` registers:
 
 Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message.
 
-### Upgrading a host installed before `--call-site` (v0.2.3)
+### Upgrading a host installed before `--call-site` (v0.2.4)
 
 - `acf-check-diff` now requires `--call-site {ci,precommit}`; add it to your pre-commit and CI configuration (omitting it exits 2 with a usage error).
 - Registries copied from a profile before this release declare no `precommit` site on their `ast`/`guard` rows (typically `[ci, hook]`). Add `precommit` to each row you want checked in pre-commit, or your `--call-site precommit` run is refused ("selects no active" mandate, exit 1), never a silent pass.
