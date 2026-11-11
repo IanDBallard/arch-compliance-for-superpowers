@@ -119,3 +119,17 @@ Swept the whole v2 spec (changed and carried text) with a quantifier/count scan 
 | T5 named hook without receipt | `SourceFileLoader.get_code` → probe output above; `load_model_file` → `loader.py:43-77`; `RepoTree.contained`/`file` → `repo.py:53-64`; `MandateRegistry.active` → `registry.py:110-122`; `TIER1_CALL_SITES` → `registry.py:19`. |
 | T6 attribution without quote | Decision 2 quotes `## POSIX paths`; §4.2 quotes `## One owner for host paths`; §4.7 quotes `## Release discipline`; Supersedes header quotes Decision 7; §1.1 quotes the doctrine, the skills and the README. |
 | T7 completeness backed by known-site recipe | §6.1 → executed census, output committed (`host_row_gate_tests.out`). |
+
+## Delta pre-flight (rehearsal, not the gate)
+
+One rehearsal agent with the refuter and sweeper stances adjudicated the twelve v2 claims; all survived. Its findings, absorbed before requesting the gate:
+
+| Finding | Absorption |
+| --- | --- |
+| Agent-facing messages invite the agent to run `acf-allow` or add `--trusted-checkout` | Decision 5: approval is run by a person; the hook notice and the diff-gate refusal ask the agent to have the user review and run `acf-allow`; acf-setup prose forbids the agent running either. |
+| Diff-gate refusal over-broad: a `[hook]`-only host row refused a `--call-site ci` run | Decision 3: a gate needs the approval only when `registry.host_rows(call_sites)` is non-empty; `approval_state`/`require_approval` take `call_sites`; tests added in §6.2 and §6.4; §7 risk row narrowed. |
+| `json.dumps(sort_keys=True)` raises `TypeError` on non-str dict keys | `_canonical` replaces each dict key with its canonical JSON text; §6.2 test added. |
+| `acf-allow` could add a guarded `.resolve()` | §4.3: the repository is `resolve_repo(args.repo)`, as in `cli_check_diff.py:76`. |
+| `write_approval` overlaps `save_baseline` unnamed | §4.2 names it ADJACENT, with the reason no helper is shared. |
+| `load_baseline` wording | §4.2 quotes its docstring (`baseline.py:81-82`) instead of claiming a caller. |
+| test_hooks.py `:145`, `:318`, `:424` said not to match | Checked: those are the `def` lines (`grep -n "def test_gate_clear_error_when_enabled_without_deps\|def test_gate_fails_loud_when_enabled_without_mandates\|def test_gate_unknown_detector_exits_1"` prints 145, 318, 424); carried unchanged. |

@@ -65,9 +65,9 @@ The hook relies on exit `2` being the code whose stderr reaches the agent: *"Exi
 
 1. **`.acf/enabled` keeps its meaning for built-in detectors and stops being sufficient for host code.** With the marker present the hook runs built-in detectors as today. Host rows need an approval (Decision 2) in both gates.
 2. **The approval is per user, outside the repository, and bound to a fingerprint.** It lives in one JSON store at `Path.home() / ".acf" / "approvals.json"`, keyed by `RepoTree(repo).root.as_posix()` (`## POSIX paths`: *"When persisting paths to YAML/JSON, use `Path.as_posix()`"*, `ARCHITECTURE.md:58`). A store inside the repository is refused: when `RepoTree(repo).contained(str(store_path))` is not `None`, the repository is treated as unapproved and the refusal names the reason. `Path.home()` reads `USERPROFILE` on Windows and `HOME` on POSIX, so the process environment decides where the store is; the containment check removes the one route by which a repository could supply its own approval file through that environment.
-3. **One fingerprint covers every active host row and the files they name.** Rows: `registry.host_rows(TIER1_CALL_SITES)` (§4.1). Files: the path part of each row's `detector`. Any change to such a row, an added or removed row, or a changed byte in a named file changes the fingerprint and lapses the approval. Both gates check the same fingerprint, so one approval covers both.
+3. **One fingerprint covers every active host row and the files they name; a gate asks for it only when it would run a host row.** Rows: `registry.host_rows(TIER1_CALL_SITES)` (§4.1). Files: the path part of each row's `detector`. Any change to such a row, an added or removed row, or a changed byte in a named file changes the fingerprint and lapses the approval. Both gates check the same fingerprint, so one approval covers both. A gate run whose call sites select no host row (`registry.host_rows(call_sites)` empty) needs no approval: a `[hook]`-only host row never refuses a `--call-site ci` run.
 4. **What is fingerprinted is what runs.** `load_host_detector` compiles the named file's source on every load instead of letting the import system substitute bytecode from `__pycache__/` (§4.4).
-5. **One approval command, `acf-allow`.** It prints each fingerprinted row (id, detector) and each named file with its SHA-256, then writes the approval. `acf-allow --revoke` removes the repository's entry.
+5. **One approval command, `acf-allow`, run by a person.** It prints each fingerprinted row (id, detector) and each named file with its SHA-256, then writes the approval. `acf-allow --revoke` removes the repository's entry. Every message the gates send toward the agent asks it to have the user review the files and run `acf-allow`; skill prose tells the agent never to run `acf-allow` or add `--trusted-checkout` itself. A person approves the code they reviewed; an agent approving on its own would restore §1.1.
 6. **An unapproved hook run is governed by built-ins and told so, not blocked.** When host rows exist and the approval is missing or stale, the hook skips them, runs the built-ins, and reports one notice to the agent and to the user naming the rows skipped and the command to run. It does not exit non-zero for that reason alone.
 7. **An unapproved diff-gate run is refused unless the invocation declares a trusted checkout.** `acf-check-diff` gains `--trusted-checkout`. Without it, a registry with host rows and no matching approval is refused with exit `1` and a message naming `acf-allow` and `--trusted-checkout`; it never reports a clean run with host rows skipped. CI workflows pass `--trusted-checkout`, so the opt-in is written in the workflow file the host controls.
 8. **Hook-mode failures exit 2.** When the output format is `hook`, the four returns of §1.2 return `2` with the same stderr message, and any other `Exception` raised after the format is known is reported on stderr (type, message, traceback) and returns `2`. Text and JSON formats keep exit `1` and the traceback.
@@ -108,14 +108,14 @@ It imports `acf.loader`, `acf.registry`, `acf.repo` and `acf.exceptions`, so it 
 | `STORE_REL = Path(".acf") / "approvals.json"` | Relative to `Path.home()`. |
 | `ApprovalEntry`, `ApprovalStore` | Pydantic models, `extra="forbid"`: `ApprovalEntry(fingerprint: str, approved: str)`; `ApprovalStore(version: Literal[1] = 1, repos: dict[str, ApprovalEntry] = {})`. |
 | `store_path() -> Path` | `Path.home() / STORE_REL`. |
-| `read_store(path: Path) -> ApprovalStore` | `ApprovalStore()` when `path.is_file()` is false; otherwise `load_model_file(path, ApprovalStore, subject="approval store", fmt="json")` (`plugins/arch-compliance/python/acf/loader.py:43-77`), the caller-side absence check `load_baseline` uses (`plugins/arch-compliance/python/acf/baseline.py:78-86`). Every refusal is that loader's `AcfInputError`. |
+| `read_store(path: Path) -> ApprovalStore` | `ApprovalStore()` when `path.is_file()` is false; otherwise `load_model_file(path, ApprovalStore, subject="approval store", fmt="json")` (`plugins/arch-compliance/python/acf/loader.py:43-77`). That is the split `load_baseline`'s docstring prescribes: *"Absence is a real state decided by the CALLER (existence check before load). The loader itself never returns None."* (`plugins/arch-compliance/python/acf/baseline.py:81-82`). Every refusal is that loader's `AcfInputError`. |
 | `approval_rows(registry) -> list[Mandate]` | `registry.host_rows(TIER1_CALL_SITES)` sorted by `id`. |
 | `file_digests(repo: Path, rows) -> dict[str, str]` | For each distinct path part (`parse_host_detector_ref`), the SHA-256 hex of `RepoTree(repo).file(rel).read_bytes()`. `file` returning `None`, or an `OSError` from `file` or `read_bytes`, raises `AcfInputError` naming the path. |
-| `fingerprint(rows, digests) -> str` | SHA-256 hex of `json.dumps({"rows": [_canonical(m.model_dump(mode="python")) for m in rows], "files": digests}, sort_keys=True, separators=(",", ":"), default=str)`. `_canonical` recurses through dicts and lists and turns a `set` or `frozenset` into a list sorted by each element's canonical JSON text, so a YAML `!!set` in `params` hashes the same in every process. |
+| `fingerprint(rows, digests) -> str` | SHA-256 hex of `json.dumps({"rows": [_canonical(m.model_dump(mode="python")) for m in rows], "files": digests}, sort_keys=True, separators=(",", ":"), default=str)`. `_canonical` recurses through dicts and lists; it turns a `set` or `frozenset` into a list sorted by each element's canonical JSON text, and replaces each dict key with its canonical JSON text (so `1` and `"1"` stay distinct, and a date or tuple key from YAML becomes a string `json.dumps` can sort). A YAML `!!set` or non-string key in `params` therefore hashes the same in every process and never raises inside `json.dumps`. |
 | `ApprovalState` | `enum.Enum`: `NOT_NEEDED` (no rows), `APPROVED`, `MISSING`, `STALE`, `STORE_IN_REPO`. |
-| `approval_state(repo, registry) -> ApprovalState` | `NOT_NEEDED` when `approval_rows` is empty; `STORE_IN_REPO` when the store is contained in the repository; otherwise compares `fingerprint(rows, file_digests(repo, rows))` with the store entry. |
-| `require_approval(repo, registry) -> None` | Raises `AcfInputError` when `approval_state` is `MISSING`, `STALE` or `STORE_IN_REPO`; the message names the reason, the row ids, `acf-allow`, and `--trusted-checkout` for CI. |
-| `write_approval(repo, registry, *, revoke: bool = False) -> None` | Reads the store, sets or removes the repository's entry (`approved` is an ISO-8601 UTC timestamp), writes `model_dump_json` to a temporary file in the same directory and moves it into place with `os.replace`, creating `~/.acf/` when missing. An `OSError` raises `AcfInputError` naming the path. |
+| `approval_state(repo, registry, call_sites: frozenset[str]) -> ApprovalState` | `NOT_NEEDED` when `registry.host_rows(call_sites)` is empty; `STORE_IN_REPO` when the store is contained in the repository; otherwise compares `fingerprint(rows, file_digests(repo, rows))` with the store entry. |
+| `require_approval(repo, registry, call_sites) -> None` | Raises `AcfInputError` when `approval_state(repo, registry, call_sites)` is `MISSING`, `STALE` or `STORE_IN_REPO`. Message: `host detectors need approval: <reason>; rows: <ids>. Ask the user to review the detector files and run acf-allow; a CI workflow passes --trusted-checkout.` |
+| `write_approval(repo, registry, *, revoke: bool = False) -> None` | Reads the store, sets or removes the repository's entry (`approved` is an ISO-8601 UTC timestamp), writes `model_dump_json` to a temporary file in the same directory and moves it into place with `os.replace`, creating `~/.acf/` when missing. An `OSError` raises `AcfInputError` naming the path. Adjacent to `save_baseline` (`baseline.py:68-75`), which writes an in-repository artifact in place and raises `BaselineError`; the approval store is a per-user file read and rewritten by concurrent processes, so it is replaced whole rather than written in place, and no helper is shared. |
 
 Repository paths go through `RepoTree` (`ARCHITECTURE.md:125-130`: *"Callers hand it the string they hold and never join, resolve or compare against the root themselves"*); the store path is compared with the repository only through `RepoTree.contained`.
 
@@ -123,7 +123,7 @@ Repository paths go through `RepoTree` (`ARCHITECTURE.md:125-130`: *"Callers han
 
 `pyproject.toml:18-20` gains `acf-allow = "acf.cli_allow:main"`, the `acf.cli_<name>:main` shape of the two existing scripts.
 
-- `main(argv: list[str] | None = None) -> int`; arguments `--repo PATH` (default `resolve_repo(None)`) and `--revoke`.
+- `main(argv: list[str] | None = None) -> int`; arguments `--repo PATH` and `--revoke`; the repository is `resolve_repo(args.repo)`, as in `cli_check_diff.main` (`cli_check_diff.py:76`), so no new path resolution enters the module.
 - Loads the registry as the diff gate does (`load_mandates(repo / MANDATES_REL, known_detectors=KNOWN_DETECTORS, llm_prompt_ids=LLM_PROMPT_IDS, repo_root=repo)`). A missing or unstat-able host detector file is refused there with `UnknownDetectorError` (`registry.py:160-172`).
 - No approval rows: says so, exits `0`, writes nothing.
 - Store inside the repository: prints the refusal, exits `1`.
@@ -137,9 +137,9 @@ Repository paths go through `RepoTree` (`ARCHITECTURE.md:125-130`: *"Callers han
 
 ### 4.5 PostToolUse hook (`plugins/arch-compliance/hooks/posttooluse_gate.py`)
 
-1. After `load_mandates` succeeds (`:109-113`), compute `state = approval_state(repo, registry)` inside the same `try`; its `AcfInputError` is handled like a malformed registry.
+1. After `load_mandates` succeeds (`:109-113`), compute `state = approval_state(repo, registry, HOOK_CALL_SITES)` inside the same `try`; its `AcfInputError` is handled like a malformed registry.
 2. `_scan_paths(repo, paths, registry, *, run_host: bool)` skips the three host calls (`:273-277`, `:283-287`, `:292-294`) when `run_host` is false; `run_host` is `state in {NOT_NEEDED, APPROVED}`. `rel_paths` and `file_lines` are filled before the host calls (`:243-250`) and the built-in calls read only them.
-3. For `MISSING`, `STALE` or `STORE_IN_REPO`, one notice: `acf: host detectors not run: <reason>; rows skipped: <ids>. Review the detector files, then run acf-allow in this repository.`
+3. For `MISSING`, `STALE` or `STORE_IN_REPO`, one notice: `acf: host detectors not run: <reason>; rows skipped: <ids>. Ask the user to review the detector files and run acf-allow in this repository; do not run it yourself.`
 4. Delivery: `hook` format without a BLOCK finding prepends the notice to `additionalContext` (`:137-147`) and sets a top-level `systemMessage` *(external: the hooks reference lists `systemMessage` among the JSON fields any hook may return, shown to the user)*; `hook` format with a BLOCK finding prints it to stderr before the findings (`:130-133`); `text` and `json` formats print it to stderr, leaving stdout parseable.
 5. Exit codes (Decision 8): each of the four returns of §1.2 becomes `return 2 if out_format == "hook" else 1` (`out_format` is set at `:68-72`, before the first). The code after `:72` runs inside `try: … except Exception as exc:` that, in `hook` format, prints `acf: internal error: <type>: <message>` and the traceback to stderr and returns `2`, and otherwise re-raises. The handler carries the `fail-loud.bare-except-ok` exemption token (`config/architecture/mandates.yml:60`) with that reason, since it reports rather than swallows.
 6. The module docstring (`:9-14`) states the approval rule and the exit codes.
@@ -147,14 +147,14 @@ Repository paths go through `RepoTree` (`ARCHITECTURE.md:125-130`: *"Callers han
 ### 4.6 Diff gate (`plugins/arch-compliance/python/acf/cli_check_diff.py`)
 
 1. `--trusted-checkout` (store true): *"Run host detectors without a local approval. For CI checkouts, where the workflow file is the opt-in."*
-2. Inside the existing `try` (`:83-100`), after `load_mandates` and the empty-selection refusal, `require_approval(repo, registry)` unless `args.trusted_checkout`. Its `AcfInputError` is caught at `:98` and exits `1`, like every other refusal there.
+2. Inside the existing `try` (`:83-100`), after `load_mandates` and the empty-selection refusal, `require_approval(repo, registry, sites)` unless `args.trusted_checkout`. Its `AcfInputError` is caught at `:98` and exits `1`, like every other refusal there.
 
 ### 4.7 Doctrine and prose
 
 | File | Change |
 | --- | --- |
 | `config/architecture/ARCHITECTURE.md:175-180` (`**Trust boundary.**`) | Both gates run host rows only when `~/.acf/approvals.json` holds an approval matching the fingerprint of the active host rows and their files (`acf-allow`), or, for `acf-check-diff`, when the invocation passes `--trusted-checkout`; the hook runs built-ins and reports skipped rows without one; the diff gate refuses. Keep the confinement and `load_mandates` sentences. Add: in hook mode, gate failures exit `2`. The closing line (`:182`) gains `test_approval.py` and `test_cli_allow.py`. |
-| `plugins/arch-compliance/skills/acf-setup/SKILL.md:16-25` (steps) | After step 7, a step: when `mandates.yml` has host rows, show the user the `acf-allow` output and ask them to run it themselves. |
+| `plugins/arch-compliance/skills/acf-setup/SKILL.md:16-25` (steps) | After step 7, a step: when `mandates.yml` has host rows, show the user the detector files and ask them to run `acf-allow` themselves; the agent never runs `acf-allow` or adds `--trusted-checkout`. |
 | `plugins/arch-compliance/skills/acf-setup/SKILL.md:148`, `:150` | `.acf/enabled` turns on the hooks for built-in detectors; host detectors also need each person's `acf-allow`. Committing `.acf/` approves no host code. |
 | `plugins/arch-compliance/skills/acf-setup/SKILL.md:159` (PostToolUse row) | Host detectors and host guards run only with an approval. |
 | `plugins/arch-compliance/skills/acf-setup/SKILL.md:208-209` (CI sketch) | Add `--trusted-checkout` to both lines. |
@@ -212,6 +212,8 @@ The implementer re-runs the census before editing and gives any new line the mat
 
 - `fingerprint` changes when a host row's `params` change, when a host row is added, when a detector file's bytes change, and when a `[ci]`-only host row changes; it does not change when a built-in row changes.
 - A row whose `params` hold a YAML `!!set` gives the same fingerprint in subprocesses run with `PYTHONHASHSEED` `1`, `2` and `3`.
+- A row whose `params` hold mixed `int`/`str` keys, a date key and a tuple key fingerprints without raising, and `{1: x}` and `{"1": x}` fingerprint differently.
+- `approval_state(..., call_sites)` is `NOT_NEEDED` for `DIFF_CALL_SITES` when every host row is `[hook]`-only.
 - `approval_state`: `NOT_NEEDED`, `MISSING`, `APPROVED` after `write_approval`, `STALE` after editing a detector file, `STORE_IN_REPO` with `HOME`/`USERPROFILE` inside the repository.
 - `read_store`: a missing file gives an empty store; invalid JSON and a wrong shape each raise `AcfInputError` naming the path.
 - `write_approval(..., revoke=True)` removes only that repository's entry.
@@ -234,6 +236,7 @@ The implementer re-runs the census before editing and gives any new line the mat
 - Same with `--trusted-checkout`: host rows run.
 - Same after `write_approval`: host rows run without the flag.
 - No host rows, no approval: unchanged behaviour (built-in rows only).
+- A `[hook]`-only host row and no approval: `--call-site ci` runs and is not refused.
 - `acf-allow` prints row ids, detectors, file hashes and the helper limit, writes an entry, exits `0`; no host rows: exit `0`, no store; missing detector file: exit `1`, store unchanged; store inside the repository: exit `1`; `--revoke` removes the entry.
 
 ### 6.5 Guards that must keep passing
@@ -246,7 +249,7 @@ The implementer re-runs the census before editing and gives any new line the mat
 
 | Risk | Mitigation |
 | --- | --- |
-| A host whose CI runs host rows breaks on upgrade until its workflow adds `--trusted-checkout`. | The refusal names the flag; the README upgrade note says so. This repository's own `mandates.yml` has no host row (`grep -n "detector: .*\.py:" config/architecture/mandates.yml` prints nothing), so its CI (`.github/workflows/ci.yml:40`) is unaffected. |
+| A host whose CI runs host rows at the invoked call site breaks on upgrade until its workflow adds `--trusted-checkout`; a run whose call site selects no host row is unaffected (Decision 3). | The refusal names the flag; the README upgrade note says so. This repository's own `mandates.yml` has no host row (`grep -n "detector: .*\.py:" config/architecture/mandates.yml` prints nothing), so its CI (`.github/workflows/ci.yml:40`) is unaffected. |
 | Hand runs and the hook lose host detectors until each person runs `acf-allow`. | Not silently: the hook's notice and the diff gate's refusal both name the command. |
 | The notice on every edit is noise for someone who never wants host detectors at edit time. | Accepted for this version. |
 | CRLF and LF checkouts of one file hash differently. | The approval is per clone, so only that clone's bytes matter. |
