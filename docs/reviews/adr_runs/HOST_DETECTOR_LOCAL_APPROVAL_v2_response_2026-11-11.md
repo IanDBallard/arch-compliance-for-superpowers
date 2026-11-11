@@ -127,3 +127,18 @@ Whole v3 spec re-swept with the quantifier/count scan used for v2.
 | T5 named hook without receipt | `SourceFileLoader.get_code` → `pyc_probe.out`; `load_model_file` → `loader.py:43-77`; `_row_shape` → `registry.py:69-76`; load loop → `registry.py:144-154`; handler → `host.py:85-93`; `LLM_PROMPT_IDS` → `acf/judge.py:29`; `KNOWN_DETECTORS` → `acf/detectors/__init__.py`. |
 | T6 attribution without quote | Unchanged from v2 (quotes kept); Supersedes header now also quotes `ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:161`. |
 | T7 completeness backed by known-site recipe | §6.1 → executed census plus independent grep, outputs committed, and a loud-failure safety net for misses. |
+
+## Delta pre-flight (rehearsal, not the gate)
+
+One rehearsal agent (hardening and sweeper stances) adjudicated ten v3 claims: eight survived, one was unproven (the census "together identify" wording) and one refuted as a universal (missed tests "cannot pass silently"). Absorbed before requesting the gate:
+
+| Finding | Absorption |
+| --- | --- |
+| "Cannot pass silently" is a universal | §6.1 now states, per listed test, how it fails if unseeded, and that §6.3/§6.4 unapproved-run tests assert the notice or refusal text. |
+| The grep cross-check finds builders, not tests | §6.1 says so and names the spellings outside both methods. |
+| Top-level integer `params` key is refused by pydantic before `_json_params` | §4.1 and §6.2 say so; the test case is a nested integer key. |
+| `RecursionError` from `json.dumps` | Named in §4.1's round-trip clause. |
+| `acf-allow` cannot approve a `--mandates` registry | §3 bullet and the refusal text: such runs pass `--trusted-checkout`. |
+| Hook loads without prompt-id validation | §3 bullet: `acf-allow` then reports the prompt-id error naming the row. |
+| Digest check only at first load per process | §4.4 says so. |
+| One approval per worktree | §3 bullet. |
