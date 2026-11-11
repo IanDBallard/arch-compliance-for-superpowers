@@ -1,0 +1,2 @@
+default loader runs: pyc
+source-only loader runs: source
