@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+import site
 import sys
 from pathlib import Path
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolated_home(monkeypatch, tmp_path_factory):
+    """Point the per-user approval store at a fresh home; keep user-site packages importable."""
+    userbase = site.getuserbase()
+    home = str(tmp_path_factory.mktemp("home"))
+    monkeypatch.setenv("PYTHONUSERBASE", userbase)
+    monkeypatch.setenv("HOME", home)
+    monkeypatch.setenv("USERPROFILE", home)
 
 
 @pytest.fixture
