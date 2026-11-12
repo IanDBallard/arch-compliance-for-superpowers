@@ -3,7 +3,7 @@
 - **Spec:** `docs/design/ARCHITECTURE_REVIEW_PORT.md`
 - **Reviewed commit:** `f1511be` (run detail `ARCHITECTURE_REVIEW_PORT_v2_2026-11-12.md`, recorded at `ec43351`)
 - **Revised as:** v3
-- **Declared revision class:** mechanism. v3 defines one path matcher for include, surface and exclusion patterns (`acf.repo.path_matches`), changes how staleness and provenance report git failures, restricts review rows to the `audit` call site, refuses undeclared settings keys on rows with no params-reading detector, and adds a producer-side `auditor` check (`check_auditors`) used by the review and the `acf-mandate` snippet. The remaining entries are precision.
+- **Declared revision class:** mechanism. v3 defines one path matcher for include, surface and exclusion patterns (`acf.repo.path_matches`), changes how staleness and provenance report git failures, states that `auditor` (not `call_sites`) selects review rows, refuses undeclared settings keys on rows with no params-reading detector, and adds a producer-side `auditor` check (`check_auditors`) used by the review and the `acf-mandate` snippet. The remaining entries are precision.
 
 Commands ran from the repository root; `hm` is `C:/Users/iball/Arduino/Projects/HistoricMansions`.
 
@@ -80,10 +80,10 @@ $ grep -c "path_matches" docs/design/ARCHITECTURE_REVIEW_PORT.md
 ```
 
 - **Staleness folding (converged: two reviewers):** answered under C30.
-- **Call sites:** review rows require `audit` (decision 17, §4.5); the origin's twenty reviewed rows without `audit` gain it (§5.1). `## Host detectors and call sites` is now a governing mandate.
+- **Call sites:** `auditor` selects review rows independently of `call_sites`, and the doctrine's call-site rule gains a sentence saying so (decision 17, §4.5, §6). Requiring `audit` instead was rejected: on the origin it would make the guard runner run four enforced guard rows (`hm:scripts/ci/run_guards.py:105-130`). `## Host detectors and call sites` is now a governing mandate.
 - **Unread settings keys:** refused on rows whose detection is not `ast`/`guard`, listed on those rows (§4.2).
 - **`auditor` validated at the producer:** `check_auditors`, called by the review and the `acf-mandate` snippet (§4.5).
-- **Installed Python not covered by the skill check:** the cutover PR records the imported `acf` path and its checkout's `git describe` (§5).
+- **Installed Python not covered by the skill check:** the cutover PR records the imported `acf` path, its version `0.3.0`, and its checkout's `HEAD` (§5).
 - **Encoding debt citation:** moved to `## Declared text decoding` (`config/architecture/ARCHITECTURE.md:246-251`).
 - **"Literal substring" prose:** `acf-mandate/SKILL.md:46` and `acf-setup/SKILL.md:139` reworded to line equality (§6).
 - **Severity scale and `## Scoped refactor`:** both justified in §4.8.
@@ -96,7 +96,7 @@ Swept the v3 spec with the same quantifier grep as the v1 record plus a read of 
 
 | # | Hits in changed text | Disposition |
 |---|---|---|
-| T1 population claims | §5.1 "five already do … the other twenty gain it" | the five ids are listed; the 25 rows are §5.2's recipe |
+| T1 population claims | none new | — |
 | T2 aggregates | "three keys as growth" (§5.4) | each key named beside the count |
 | T3 universal quantifiers | "each git failure reaches the report as itself" (§4.7) | normative behaviour of the design, backed by `run_git` returning status as data |
 | T4 tool behaviour | the ratchet's name matching | cited at `hm:scripts/ci/dead_code_ratchet.py:377-380` |
