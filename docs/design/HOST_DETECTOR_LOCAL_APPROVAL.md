@@ -1,6 +1,7 @@
 # Host Detector Local Approval and Hook Failure Visibility
 
 **Status:** Draft (v4)
+**Adversarial review:** v4 — 2026-11-11, verification pass over the v3 full run (BLOCKED; all blocking findings precision-class, absorbed and re-measured), user-approved (repo @ 86c3c36)
 **Date:** 2026-11-11
 **Spec kinds:** `defect`
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `0da9864` (branch `feat/host-detector-approval`).
