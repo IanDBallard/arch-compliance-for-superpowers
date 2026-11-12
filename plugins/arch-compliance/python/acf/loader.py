@@ -58,11 +58,11 @@ def load_model_file(
     require_file(path, subject=subject)
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise AcfInputError(f"cannot read {subject} {path.as_posix()}: {exc}") from exc
     try:
         raw: Any = yaml.safe_load(text) if fmt == "yaml" else json.loads(text)
-    except (yaml.YAMLError, json.JSONDecodeError) as exc:
+    except (yaml.YAMLError, ValueError, RecursionError) as exc:
         raise AcfInputError(f"invalid {fmt} in {path.as_posix()}: {exc}") from exc
     if many:
         if not isinstance(raw, list):
