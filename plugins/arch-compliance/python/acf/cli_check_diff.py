@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
-from acf.detectors import KNOWN_DETECTORS
+from acf.approval import require_approval
+from acf.detectors import load_gate_registry
 from acf.detectors.build_artifacts import (
     BUILD_ARTIFACT_DETECTOR_ID,
     build_artifact_args,
@@ -27,9 +29,8 @@ from acf.diff import DiffMode, added_lines, changed_files
 from acf.enforcement import apply_registry, make_line_lookup
 from acf.exceptions import AcfInputError, DetectorPackError, GitError, UnknownDetectorError
 from acf.finding import Finding, Severity
-from acf.judge import LLM_PROMPT_IDS
 from acf.repo import MANDATES_REL, RATCHET_BASELINE_REL, RepoTree, resolve_repo
-from acf.registry import DIFF_CALL_SITES, MandateRegistry, load_mandates
+from acf.registry import DIFF_CALL_SITES, MandateRegistry
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -71,6 +72,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Emit findings as JSON",
     )
+    parser.add_argument(
+        "--trusted-checkout",
+        action="store_true",
+        help=(
+            "Run host detectors without a local approval. "
+            "For CI checkouts, where the workflow file is the opt-in."
+        ),
+    )
     args = parser.parse_args(argv)
 
     repo: Path = resolve_repo(args.repo)
@@ -81,12 +90,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sites = frozenset({args.call_site})
     try:
-        registry = load_mandates(
-            mandates_path,
-            known_detectors=KNOWN_DETECTORS,
-            llm_prompt_ids=LLM_PROMPT_IDS,
-            repo_root=repo,
-        )
+        registry = load_gate_registry(repo, mandates_path)
         if not (
             registry.active(sites, detection="ast") or registry.active(sites, detection="guard")
         ):
@@ -94,7 +98,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"call site {args.call_site!r} selects no active ast or guard mandate; "
                 "refusing to report a clean run"
             )
-        raw_findings, file_lines = _scan_changed(repo, mode, args.base, registry, sites)
+        digests = None if args.trusted_checkout else require_approval(repo, registry, sites).digests
+        raw_findings, file_lines = _scan_changed(
+            repo, mode, args.base, registry, sites, digests=digests
+        )
     except (GitError, AcfInputError, UnknownDetectorError, DetectorPackError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return 1
@@ -119,6 +126,8 @@ def _scan_changed(
     base: str | None,
     registry: MandateRegistry,
     sites: frozenset[str],
+    *,
+    digests: Mapping[str, str] | None,
 ) -> tuple[list[Finding], dict[str, list[str]]]:
     findings: list[Finding] = []
     file_lines: dict[str, list[str]] = {}
@@ -165,7 +174,14 @@ def _scan_changed(
                 )
             findings.extend(
                 scan_host_ast_file(
-                    repo, text, posix, lines, registry, language="python", call_sites=sites, digests=None
+                    repo,
+                    text,
+                    posix,
+                    lines,
+                    registry,
+                    language="python",
+                    call_sites=sites,
+                    digests=digests,
                 )
             )
         elif suffix in {".ts", ".tsx"}:
@@ -177,7 +193,14 @@ def _scan_changed(
             )
             findings.extend(
                 scan_host_ast_file(
-                    repo, text, posix, lines, registry, language="typescript", call_sites=sites, digests=None
+                    repo,
+                    text,
+                    posix,
+                    lines,
+                    registry,
+                    language="typescript",
+                    call_sites=sites,
+                    digests=digests,
                 )
             )
 
@@ -201,7 +224,9 @@ def _scan_changed(
             )
         )
 
-    findings.extend(scan_host_guards(repo, in_repo, registry, file_lines, call_sites=sites, digests=None))
+    findings.extend(
+        scan_host_guards(repo, in_repo, registry, file_lines, call_sites=sites, digests=digests)
+    )
     return findings, file_lines
 
 
