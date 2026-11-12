@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from types import MappingProxyType
 
 from acf.detectors.build_artifacts import BUILD_ARTIFACT_DETECTOR_ID, BUILD_ARTIFACTS_MANDATE_ID
@@ -21,7 +22,13 @@ from acf.detectors.python_pack import (
     POSIX_PATHS_STR_MANDATE_ID,
 )
 from acf.detectors.typescript_bridge import TS_MANDATE_IDS
-from acf.registry import DIFF_CALL_SITES, TIER1_CALL_SITES, BuiltinDetector
+from acf.registry import (
+    DIFF_CALL_SITES,
+    TIER1_CALL_SITES,
+    BuiltinDetector,
+    MandateRegistry,
+    load_mandates,
+)
 
 KNOWN_DETECTORS: Mapping[str, BuiltinDetector] = MappingProxyType(
     {
@@ -49,4 +56,20 @@ KNOWN_DETECTORS: Mapping[str, BuiltinDetector] = MappingProxyType(
     }
 )
 
-__all__ = ["KNOWN_DETECTORS"]
+def load_gate_registry(repo: Path, mandates_path: Path) -> MandateRegistry:
+    """Load a registry the way every gate validates it (known detectors and prompt ids).
+
+    ``acf.judge`` imports ``httpx``; it is imported here so that importing
+    ``acf.detectors`` (the hook's path) stays free of it.
+    """
+    from acf.judge import LLM_PROMPT_IDS
+
+    return load_mandates(
+        mandates_path,
+        known_detectors=KNOWN_DETECTORS,
+        llm_prompt_ids=LLM_PROMPT_IDS,
+        repo_root=repo,
+    )
+
+
+__all__ = ["KNOWN_DETECTORS", "load_gate_registry"]

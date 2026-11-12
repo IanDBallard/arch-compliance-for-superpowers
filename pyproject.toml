@@ -16,7 +16,8 @@ dependencies = [
 dev = ["pytest>=8.0", "setuptools>=68"]
 
 [project.scripts]
-acf-check-diff = "acf.cli_check_diff:main"
+acf-allow = "acf.cli_allow:main"
+acf-check-diff ="acf.cli_check_diff:main"
 acf-check-llm = "acf.cli_check_llm:main"
 
 [tool.pytest.ini_options]
