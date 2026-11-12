@@ -61,7 +61,7 @@ $ grep -c "external, not load-bearing" docs/design/HOST_DETECTOR_LOCAL_APPROVAL.
 
 ## Carried to the implementation plan (stricter choices within the spec, no spec change)
 
-- The hook loads its registry through `load_gate_registry` like the diff gate and `acf-allow`.
+- ~~The hook loads its registry through `load_gate_registry` like the diff gate and `acf-allow`.~~ Not carried: spec §4.3 keeps the hook's own call and `acf.judge` imports `httpx` (plan ruling R1).
 - The runners' `digests` parameter becomes a required keyword.
 - `acf-mandate/SKILL.md:96`'s validation snippet calls `load_gate_registry` instead of re-spelling it.
 - Setup prose uses the `acf-check-diff` console script rather than `python -m acf.cli_check_diff` (current-directory import shadowing).
