@@ -186,7 +186,7 @@ The spec is done when both stages have merged. A defect the origin stage exposes
 
 ### 5.1 Registry schema
 
-`hm:scripts/core/architecture/registry.py:21-34` (`MandateEntry`, `extra="forbid"`) gains `languages` and `params`, and renames `gemini_anchor` to `arch_anchor`. Consumers of the field in code and tests, from `git grep -n gemini_anchor -- scripts tests` at `b2611977f`: `registry.py:33`, `tests/test_arch_mandate_registry.py:24,48,65,81,90`, `tests/test_mandate_registry_drift.py:43,60,62`, `tests/test_run_guards.py:111`. Every row gains `languages` (`python` for Python-tree rows, `none` for rows whose subject is not code in one language).
+`hm:scripts/core/architecture/registry.py:21-34` (`MandateEntry`, `extra="forbid"`) gains `languages` and `params`, and renames `gemini_anchor` to `arch_anchor`. Consumers of the field in code and tests, from `git grep -n gemini_anchor -- scripts tests` at `b2611977f`: `hm:scripts/core/architecture/registry.py:33`, `hm:tests/test_arch_mandate_registry.py:24,48,65,81,90`, `hm:tests/test_mandate_registry_drift.py:43,60,62`, `hm:tests/test_run_guards.py:111`. Every row gains `languages` (`python` for Python-tree rows, `none` for rows whose subject is not code in one language).
 
 ### 5.2 Row dispositions
 
@@ -219,19 +219,19 @@ Three gate files import the review package, from `git grep -n architecture_revie
 
 | Gate file | Uses | After cutover |
 |---|---|---|
-| `hm:scripts/ci/arch_compliance/llm_judge.py:88-98` | `load_rubric(auditor)` reads `<auditor>.md` from the skill's auditors directory as the judge prompt | the five prompts the llm rows use move to a gate-owned directory, keyed by mandate id in `llm_judge.py`, because the rows' `auditor` values become rule ids |
+| `hm:scripts/ci/arch_compliance/llm_judge.py:88-98` | `load_rubric(auditor)` reads `<auditor>.md` from the skill's auditors directory as the judge prompt | the five prompts the llm rows use move to a gate-owned directory, keyed by mandate id in `hm:scripts/ci/arch_compliance/llm_judge.py`, because the rows' `auditor` values become rule ids |
 | `hm:scripts/ci/baseline_staleness.py:87` | `load_baseline` from the review package | `acf.baseline.load_baseline` |
-| `hm:scripts/ci/check_ui_prepass_staged.py:17` | `scan_text` from `ui_logic_prepass` | `ui_logic_prepass.py` moves under `scripts/ci/` as gate-owned code |
+| `hm:scripts/ci/check_ui_prepass_staged.py:17` | `scan_text` from `ui_logic_prepass` | `hm:scripts/core/architecture_review/ui_logic_prepass.py` moves under `hm:scripts/ci/` as gate-owned code |
 
 `hm:tests/test_mandate_registry_drift.py:84-93` (auditor pointers resolve to prompt files) changes to check that each `auditor` is a plugin rule id.
 
 ### 5.5 Baseline reset
 
-The origin baseline counts one label per auditor, and one label spans up to six rows (three-tier-hfsm covers six rows in §5.2), so no count can be split across mandate ids. The cutover PR deletes `compliance_baseline.json` and runs `/arch-compliance:architecture-review --update-baseline` once; the prior baseline stays in git history.
+The origin baseline counts one label per auditor, and one label spans up to six rows (three-tier-hfsm covers six rows in §5.2), so no count can be split across mandate ids. The cutover PR deletes `hm:docs/architecture/compliance_baseline.json` and runs `/arch-compliance:architecture-review --update-baseline` once; the prior baseline stays in git history.
 
 ### 5.6 Deletions
 
-`hm:.claude/skills/architecture-review/` and `hm:.cursor/skills/architecture-review/`; from `hm:scripts/core/architecture_review/`, every module except the one §5.4 moves; their tests (`tests/test_arch_baseline.py`, `test_arch_facets.py`, `test_arch_review_aggregator.py`, `test_arch_review_contract.py`, `test_arch_review_rollup.py`, `test_arch_review_rubric.py`, `test_rubric_extract_section6.py`, and the fixture `tests/fixtures/architecture_review_skill/`). `hm:scripts/core/skill_install.py` stays: the other dual-installed skill uses it. The docs manifest moves to `hm:config/architecture/arch-docs-manifest.yml`, and `hm:config/architecture/ARCHITECTURE.md:9-10`, which reads *"The architecture documents listed, in order, in `.claude/skills/architecture-review/rubric/arch-docs-manifest.yml`"*, points to the new path.
+`hm:.claude/skills/architecture-review/` and `hm:.cursor/skills/architecture-review/`; from `hm:scripts/core/architecture_review/`, every module except the one §5.4 moves; their tests (`hm:tests/test_arch_baseline.py`, `hm:tests/test_arch_facets.py`, `hm:tests/test_arch_review_aggregator.py`, `hm:tests/test_arch_review_contract.py`, `hm:tests/test_arch_review_rollup.py`, `hm:tests/test_arch_review_rubric.py`, `hm:tests/test_rubric_extract_section6.py`, and the fixture `hm:tests/fixtures/architecture_review_skill/`). `hm:scripts/core/skill_install.py` stays: the other dual-installed skill uses it. The docs manifest moves to `hm:config/architecture/arch-docs-manifest.yml`, and `hm:config/architecture/ARCHITECTURE.md:9-10`, which reads *"The architecture documents listed, in order, in `.claude/skills/architecture-review/rubric/arch-docs-manifest.yml`"*, points to the new path.
 
 ---
 
@@ -239,7 +239,7 @@ The origin baseline counts one label per auditor, and one label spans up to six 
 
 | Path | Change |
 |---|---|
-| `plugins/arch-compliance/python/acf/review/` (new) | `__init__.py`, `contract.py`, `host.py`, `rules.py`, `packs.py`, `packs/*.yml` (six), `doctrine.py`, `prepass.py`, `aggregator.py`, `rollup.py` |
+| `plugins/arch-compliance/python/acf/review/` (new) | modules `__init__`, `contract`, `host`, `rules`, `packs`, `doctrine`, `prepass`, `aggregator`, `rollup`; six pack files under `packs/` |
 | `plugins/arch-compliance/python/acf/repo.py` | `REVIEW_REL` |
 | `plugins/arch-compliance/python/acf/registry.py` | `missing_anchors` takes a sequence of texts |
 | `plugins/arch-compliance/python/acf/baseline.py` | aggregates `AuditorFinding`; declared subsystem prefixes |
