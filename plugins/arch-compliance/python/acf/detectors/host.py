@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import importlib.machinery
 import importlib.util
 import sys
-from collections.abc import Callable, Iterable, MutableMapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -50,7 +51,29 @@ def _describe(exc: BaseException) -> str:
         return "host exception (message unavailable)"
 
 
-def load_host_detector(repo_root: Path, detector: str) -> Callable[..., Iterable[HostHit]]:
+class _SourceOnlyLoader(importlib.machinery.SourceFileLoader):
+    """Compile the source bytes only: never a cached .pyc, and refuse bytes that differ from an approved digest."""
+
+    def __init__(self, fullname: str, path: str, expected_sha256: str | None) -> None:
+        super().__init__(fullname, path)
+        self._expected_sha256 = expected_sha256
+
+    def get_code(self, fullname: str) -> Any:
+        data = self.get_data(self.path)
+        if self._expected_sha256 is not None and hashlib.sha256(data).hexdigest() != self._expected_sha256:
+            raise ImportError("changed since approval")
+        return compile(data, self.path, "exec", dont_inherit=True)
+
+
+def _expected(digests: Mapping[str, str] | None, mandate: Mandate) -> str | None:
+    if digests is None:
+        return None
+    return digests[parse_host_detector_ref(mandate.detector)[0]]
+
+
+def load_host_detector(
+    repo_root: Path, detector: str, *, expected_sha256: str | None = None
+) -> Callable[..., Iterable[HostHit]]:
     global _ACTIVE_ROOT
     rel_path, attr = parse_host_detector_ref(detector)
     tree = RepoTree(repo_root)
@@ -75,7 +98,9 @@ def load_host_detector(repo_root: Path, detector: str) -> Callable[..., Iterable
     mod = cached
     try:
         if mod is None:  # not loaded yet
-            spec = importlib.util.spec_from_file_location(name, module_path)
+            spec = importlib.util.spec_from_file_location(
+                name, module_path, loader=_SourceOnlyLoader(name, str(module_path), expected_sha256)
+            )
             if spec is None or spec.loader is None:
                 raise ImportError(f"no loader for {rel_path!r}")
             mod = importlib.util.module_from_spec(spec)
@@ -158,6 +183,7 @@ def scan_host_ast_file(
     *,
     language: str,
     call_sites: frozenset[str],
+    digests: Mapping[str, str] | None,
 ) -> list[Finding]:
     mandates = [
         m
@@ -173,7 +199,7 @@ def scan_host_ast_file(
             return []
     findings: list[Finding] = []
     for mandate in mandates:
-        fn = load_host_detector(repo_root, mandate.detector)
+        fn = load_host_detector(repo_root, mandate.detector, expected_sha256=_expected(digests, mandate))
         hits = _call_host(
             fn, mandate, f"on {path!r}", text, path, added_lines, tree=tree, params=mandate.params
         )
@@ -188,12 +214,13 @@ def scan_host_guards(
     file_lines: MutableMapping[str, list[str]],
     *,
     call_sites: frozenset[str],
+    digests: Mapping[str, str] | None,
 ) -> list[Finding]:
     mandates = registry.host_rows(call_sites, detection="guard")
     tree = RepoTree(repo_root)
     findings: list[Finding] = []
     for mandate in mandates:
-        fn = load_host_detector(repo_root, mandate.detector)
+        fn = load_host_detector(repo_root, mandate.detector, expected_sha256=_expected(digests, mandate))
         hits = _call_host(fn, mandate, "as a guard", tree.root, tuple(changed_files), params=mandate.params)
         found = _to_findings(hits, mandate, repo_root=repo_root, expected_path=None)
         for finding in found:

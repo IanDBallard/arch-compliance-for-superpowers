@@ -165,7 +165,7 @@ def _scan_changed(
                 )
             findings.extend(
                 scan_host_ast_file(
-                    repo, text, posix, lines, registry, language="python", call_sites=sites
+                    repo, text, posix, lines, registry, language="python", call_sites=sites, digests=None
                 )
             )
         elif suffix in {".ts", ".tsx"}:
@@ -177,7 +177,7 @@ def _scan_changed(
             )
             findings.extend(
                 scan_host_ast_file(
-                    repo, text, posix, lines, registry, language="typescript", call_sites=sites
+                    repo, text, posix, lines, registry, language="typescript", call_sites=sites, digests=None
                 )
             )
 
@@ -201,7 +201,7 @@ def _scan_changed(
             )
         )
 
-    findings.extend(scan_host_guards(repo, in_repo, registry, file_lines, call_sites=sites))
+    findings.extend(scan_host_guards(repo, in_repo, registry, file_lines, call_sites=sites, digests=None))
     return findings, file_lines
 
 

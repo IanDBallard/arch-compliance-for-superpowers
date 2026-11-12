@@ -272,7 +272,7 @@ def _scan_paths(
                 )
             findings.extend(
                 scan_host_ast_file(
-                    repo, text, rel, None, registry, language="python", call_sites=HOOK_CALL_SITES
+                    repo, text, rel, None, registry, language="python", call_sites=HOOK_CALL_SITES, digests=None
                 )
             )
         else:
@@ -282,7 +282,7 @@ def _scan_paths(
             )
             findings.extend(
                 scan_host_ast_file(
-                    repo, text, rel, None, registry, language="typescript", call_sites=HOOK_CALL_SITES
+                    repo, text, rel, None, registry, language="typescript", call_sites=HOOK_CALL_SITES, digests=None
                 )
             )
 
@@ -290,7 +290,7 @@ def _scan_paths(
         params = mandate.params or {}
         findings.extend(scan_build_artifact_paths(rel_paths, **build_artifact_args(params)))
     findings.extend(
-        scan_host_guards(repo, rel_paths, registry, file_lines, call_sites=HOOK_CALL_SITES)
+        scan_host_guards(repo, rel_paths, registry, file_lines, call_sites=HOOK_CALL_SITES, digests=None)
     )
     return findings, file_lines
 
