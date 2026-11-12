@@ -87,13 +87,12 @@ From an environment where the `acf` package is importable, run:
 ```bash
 python -c "
 import sys
-from acf.detectors import KNOWN_DETECTORS
-from acf.judge import LLM_PROMPT_IDS
-from acf.registry import load_mandates, missing_anchors
+from acf.detectors import load_gate_registry
+from acf.registry import missing_anchors
 from acf.repo import ARCH_REL, MANDATES_REL, resolve_repo
 
 repo = resolve_repo(None)
-reg = load_mandates(repo / MANDATES_REL, known_detectors=KNOWN_DETECTORS, llm_prompt_ids=LLM_PROMPT_IDS, repo_root=repo)
+reg = load_gate_registry(repo, repo / MANDATES_REL)
 print(f'OK: {len(reg.mandates)} mandates from {reg.source_path}')
 for m in reg.mandates:
     print(f'  {m.id} status={m.status} detection={m.detection} detector={m.detector}')
@@ -133,7 +132,7 @@ Say explicitly: `/acf-mandate` updates registry rows only. Implementing detector
 - Action taken (add/edit/deprecate) and mandate `id`s
 - Validation command result
 - Any missing detector/prompt/auditor stubs
-- Reminder to re-run `acf-check-diff` (with `--call-site ci` or `--call-site precommit`, which selects the rows that run) after meaningful enforcement changes
+- Reminder to re-run `acf-check-diff` (with `--call-site ci` or `--call-site precommit`, which selects the rows that run) after meaningful enforcement changes; the re-run needs the user to run `acf-allow` again after a host row or detector file changes (never run it or add `--trusted-checkout` yourself)
 
 ## Common mistakes
 

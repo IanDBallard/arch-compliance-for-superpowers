@@ -55,11 +55,11 @@ From this repo root (developers / CI):
 ```bash
 pip install -e ".[dev]"
 acf-check-diff --mode staged --call-site precommit        # local: staged or --mode worktree
-acf-check-diff --base origin/main --call-site ci          # CI: diff vs merge-base (needs full git history)
+acf-check-diff --base origin/main --call-site ci --trusted-checkout   # CI: diff vs merge-base (needs full git history)
 pytest
 ```
 
-`acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host mandate registry, and host guards see every changed file inside the repository. `--call-site {ci,precommit}` is required: the gates run the active rows whose `call_sites` declare that site. `BLOCK` findings exit non-zero. In CI use `--base` — a fresh checkout has an empty staged/worktree diff.
+`acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host mandate registry, and host guards see every changed file inside the repository. `--call-site {ci,precommit}` is required: the gates run the active rows whose `call_sites` declare that site. `BLOCK` findings exit non-zero. In CI use `--base` — a fresh checkout has an empty staged/worktree diff. A registry with host rows runs them only after the user has reviewed the detector files and run `acf-allow` (stored in `~/.acf/approvals.json`), or, for `acf-check-diff`, when the invocation passes `--trusted-checkout`, which CI workflows pass because the workflow file is the opt-in; without either, the diff gate refuses.
 
 Portable Python detectors (enable via profile / `/acf-mandate`):
 
@@ -105,9 +105,15 @@ test a property of a host, not of this plugin, and mean nothing here.
 Plugin `hooks/hooks.json` registers:
 
 - **SubagentStart** — `inject_constraints.py` injects host mandates + an ARCHITECTURE excerpt into subagent context.
-- **PostToolUse** (`Write|Edit|MultiEdit`) — `posttooluse_gate.py` runs the active rows declaring `hook` or `posttooluse` on edited `.py`/`.ts`/`.tsx` files, and host guards on every edited path inside the repository (edited files outside the repository are not scanned). `BLOCK` findings exit 2 so Claude receives them as blocking feedback; `WARN` findings come back as additional context.
+- **PostToolUse** (`Write|Edit|MultiEdit`) — `posttooluse_gate.py` runs the active rows declaring `hook` or `posttooluse` on edited `.py`/`.ts`/`.tsx` files, and host guards on every edited path inside the repository (edited files outside the repository are not scanned). `BLOCK` findings and gate failures exit 2 so Claude receives them as blocking feedback; `WARN` findings come back as additional context. Host rows run only with an approval (`acf-allow`); without one the hook skips them with a notice and runs the built-ins.
 
-Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message.
+Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message. Committing `.acf/` approves no host code; each person runs `acf-allow` themselves.
+
+### Upgrading a host with host detectors (v0.2.5)
+
+- Host detector rows (`detector: <path>.py:<callable>`) now run only with a per-user approval. Review the detector files, then run `acf-allow` in the repository; the approval is bound to the active host rows and their files, so run it again after any of them changes.
+- Add `--trusted-checkout` to the host's CI invocation of `acf-check-diff`; leave it out of pre-commit configuration. Without an approval or the flag, the diff gate refuses a registry that has host rows.
+- The PostToolUse hook skips unapproved host rows with a notice and runs the built-ins; in hook mode every gate failure now exits 2.
 
 ### Upgrading a host installed before `--call-site` (v0.2.4)
 
