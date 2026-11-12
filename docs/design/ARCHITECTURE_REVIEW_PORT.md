@@ -1,11 +1,11 @@
 # Architecture Review Port: Generic Rules, Technology Packs and Repository Settings
 
-**Status:** Draft (v2)
+**Status:** Draft (v3)
 **Date:** 2026-11-12
 **Spec kinds:** `feature`
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `50d727f` (branch `feat/architecture-review-port`).
 **Roadmap:** workstream E phase 2, part one of two (`hm:docs/reviews/ARCHITECTURE_REVIEW_2026-07-30_REMEDIATION.md`, section "Workstream E — Portable governance skills"). Part two, moving the origin repository's enforcement gate onto `acf-check-diff`, is a separate later spec (§10).
-**Governing mandates:** `config/architecture/ARCHITECTURE.md` sections `## Fail loud` (`:26-44`), `## No shims` (`:45-56`), `## POSIX paths` (`:57-67`), `## React boundaries` (`:101-107`), `## One base exception` (`:108-113`), `## One owner for host paths` (`:114-141`), `## Declared, never defaulted` (`:187-203`), `## Prose names no host` (`:204-213`), `## Live consumers` (`:222-227`), `## No completeness claims` (`:228-239`), `## Declared text decoding` (`:240-252`), `## Release discipline` (`:253-264`), `## Single point of definition` (`:265-279`). For the origin stage (§5), the origin repository's spec-authoring rule quoted in §5.
+**Governing mandates:** `config/architecture/ARCHITECTURE.md` sections `## Fail loud` (`:26-44`), `## No shims` (`:45-56`), `## POSIX paths` (`:57-67`), `## React boundaries` (`:101-107`), `## One base exception` (`:108-113`), `## One owner for host paths` (`:114-141`), `## Declared, never defaulted` (`:187-203`), `## Prose names no host` (`:204-213`), `## Live consumers` (`:222-227`), `## No completeness claims` (`:228-239`), `## Declared text decoding` (`:240-252`), `## Release discipline` (`:253-264`), `## Single point of definition` (`:265-279`), `## Scoped refactor` (`:280-284`), `## Host detectors and call sites` (`:142-186`, its call-site rule at `:156-165`). For the origin stage (§5), the origin repository's spec-authoring rule quoted in §5.
 **No state-machine surface.** This design adds or modifies no state machine and no transition.
 
 ---
@@ -37,13 +37,14 @@ The goal is to keep the origin review's capabilities and move every repository d
 | 7 | Cursor support for the origin `architecture-review` is lost at cutover and a follow-up row is filed on the origin roadmap board (§5.6). | user, 2026-11-12 |
 | 8 | Baseline staleness moves into the plugin's roll-up; the origin's pre-push staleness check is deleted (§4.7 step 7, §5.4). | user, 2026-11-12 |
 | 9 | Every rule is opt-in through a mandate row; no rule runs by default. | author |
-| 10 | A rule's settings are read from the row's `params`, one flat namespace shared with the row's detector, so a fact both need is declared once; a rule's settings keys reuse the key names of the built-in detector that checks the same subject (§4.2). | author |
+| 10 | A rule's settings are read from the row's `params`, one flat namespace shared with the row's detector, and a rule's settings keys reuse the key names of the built-in detector that checks the same subject (§4.2). On one row, a fact the rule and the row's detector both need is therefore declared once; on two rows a fact repeats, as it can between two detector rows today. | author |
 | 11 | The pack format reserves a `detectors` slot whose shape this spec fixes and part two adds; this spec ships `hints` only (`## Live consumers`). | author |
 | 12 | The origin repository's drift baseline is reset at cutover, not migrated (§5.7). | author |
 | 13 | The plugin's `react-boundaries` auditor is absorbed into the generic `ui-logic-isolation` rule. | author |
 | 14 | A repository-supplied auditor prompt needs no `acf-allow` approval: it is text read by read-only agents, as the audited code is. This spec adds no repository-supplied executable code. | author |
 | 15 | The origin review's JSON sidecar is not ported: nothing reads it (recipe A of §5.4 matches `_last_run` only at its writer, `hm:.claude/skills/architecture-review/SKILL.md:154`). | author |
 | 16 | Anchors resolve in `ARCH_REL` alone, as the ADR host contract requires of a pointer file, and the review declares no doctrine documents; auditors read the documents `ARCH_REL` points to, as the ADR compliance reviewer does (§4.6). | author |
+| 17 | A row joins the review only at the `audit` call site, so review rows follow the doctrine's rule that rows run where their `call_sites` say (§4.5). | author |
 
 ---
 
@@ -70,7 +71,7 @@ The goal is to keep the origin review's capabilities and move every repository d
 
 ### 4.2 Rule library
 
-Each rule has a prompt file and a settings model registered in `acf.review.rules.RULES: dict[str, type[RuleSettings]]`. A settings model reads the keys it declares from the row's `params` and validates their types; keys it does not declare belong to the row's detector or to nobody, and the report lists, per reviewed row, every `params` key the rule did not read, so an unread key is visible rather than silently ignored. `RuleSettings` declares the keys every rule reads: `surface: list[str] | None` (globs; absent means the target-tree files matched by the packs of the row's own `languages`, §4.7 step 3), `surface_exclude: list[str]` and `docs: list[str]` (repository documents the auditor reads in full).
+Each rule has a prompt file and a settings model registered in `acf.review.rules.RULES: dict[str, type[RuleSettings]]`. A settings model reads the keys it declares from the row's `params` and validates their types. On a row whose `detection` is `ast` or `guard`, keys the rule does not declare may belong to the row's detector, so the report lists them per row; on any other row nothing else reads `params`, so an undeclared key fails loud with the mandate id. `allowlist_globs` keeps the matching rule of the `facade.forbid-sink` detector that owns the key (`fnmatch`, where `*` crosses `/`; `plugins/arch-compliance/python/acf/detectors/facade_sinks.py:59`): the review hands it to the auditor and matches no file against it. `RuleSettings` declares the keys every rule reads: `surface: list[str] | None` (globs; absent means the target-tree files matched by the packs of the row's own `languages`, §4.7 step 3), `surface_exclude: list[str]` and `docs: list[str]` (repository documents the auditor reads in full).
 
 | Rule id | Principle | Settings keys beyond `RuleSettings` | Source |
 |---|---|---|---|
@@ -133,11 +134,11 @@ A repository declares the review's host values in `config/architecture/review.ym
 | `subsystems` | list of `PosixStr` prefixes | drift buckets, longest prefix wins and an unmatched path is `other`; an empty list keeps the first-segment rule of `plugins/arch-compliance/python/acf/baseline.py:50-56` |
 | `exclude` | list of globs | added to the built-in exclusions of §4.7 step 2 |
 
-`PosixStr` is the existing backslash-refusing alias (`plugins/arch-compliance/python/acf/adr/contract.py:129`). A missing `review.yml` fails loud and names `/acf-setup`. `## Declared, never defaulted` is extended to name `review.yml`, and records the review's three built-in meanings: the built-in exclusion list, an absent `surface`, and an empty `subsystems` list.
+`PosixStr` is the existing backslash-refusing alias (`plugins/arch-compliance/python/acf/adr/contract.py:129`). A missing `review.yml` fails loud and names `/acf-setup`. `## Declared, never defaulted` is extended to name `review.yml`, and records each built-in meaning the review gives an absent or empty value: the built-in exclusion list and the built-in test-path list (§4.7 step 2), each overridable only by `--include-tests` or added to by `exclude`; an absent `surface` (§4.7 step 3); an empty `subsystems` list; and an absent optional rule setting (`exception_base`, `inventory`, `state_field`, `validator_name`), which turns that setting's check off, while an absent list setting (`surface_exclude`, `docs`, `exempt_paths` and the other lists) is empty.
 
 ### 4.5 Mandate rows
 
-The review reads `MANDATES_REL` with `load_mandates` and no detector arguments, as `plugins/arch-compliance/python/acf/cli_check_llm.py:54` does. An active row (`Mandate.is_active`) joins the review when its `auditor` field is set (`registry.py:61`):
+The review reads `MANDATES_REL` with `load_mandates` and no detector arguments, as `plugins/arch-compliance/python/acf/cli_check_llm.py:54` does. An active row (`Mandate.is_active`) joins the review when its `auditor` field is set (`registry.py:61`) and its `call_sites` include `audit`, the site the call-site rule names but no gate runs (`config/architecture/ARCHITECTURE.md:156-165`). `acf.review.rules.check_auditors(registry, repo)` applies the checks below; the review calls it in step 1, and the `acf-mandate` validation snippet calls it too, so a bad `auditor` value is refused when the row is written, not only when the review next runs:
 
 - `auditor` is a rule id in `RULES` → its settings are read from `params` (§4.2); a wrong type fails loud with the mandate id.
 - `auditor` ends in `.md` → a repository prompt (the hatch), resolved through `RepoTree.file`; a missing file fails loud; `params` passes to the auditor as given (JSON-only already: `registry.py:75-88`).
@@ -160,12 +161,12 @@ A pointer host therefore carries its anchors as headings in `ARCH_REL`; the orig
 The skill (`plugins/arch-compliance/skills/architecture-review/SKILL.md`, rewritten) keeps the origin invocation: `[--paths <glob>] [--include-tests] [--mandates <id,...>] [--update-baseline]`.
 
 1. Load `review.yml`, the registry and the declared packs; validate every reviewed row (§4.5).
-2. Resolve the target tree through `RepoTree.files(globs, exclude)`, whose patterns follow `pathlib.Path.glob` (`**` matches zero or more directories, so `templates/families/**/*.tex` includes `templates/families/x.tex`): files matching the packs' `files` globs, or `--paths`, minus the built-in exclusions (`.git/`, `.venv/`, `__pycache__/`, `node_modules/`, `.worktrees/`, `worktrees/`, `dist/`, `build/`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`), `exclude`, and the test paths (`tests/`, `test_*.py`, `*_test.py`, `**/*.test.*`, `**/*.spec.*`) unless `--include-tests`. An empty tree raises `EmptyTargetTreeError`.
+2. Resolve the target tree through `RepoTree.files(include, exclude)`. One matcher, `acf.repo.path_matches(key, pattern)`, serves every include, surface and exclusion pattern: a pattern ending in `/` matches any path with a directory segment of that name, at any depth; a pattern with no `/` matches a file's basename at any depth; any other pattern matches the whole repository-relative path, `**` standing for zero or more directory segments and `*` for characters within one segment (so `templates/families/**/*.tex` includes `templates/families/x.tex`, and `tests/` excludes `plugins/arch-compliance/tests/test_x.py`). The tree is files matching the packs' `files` globs, or `--paths`, minus the built-in exclusions (`.git/`, `.venv/`, `__pycache__/`, `node_modules/`, `.worktrees/`, `worktrees/`, `dist/`, `build/`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`), `exclude`, and the test paths (`tests/`, `test_*.py`, `*_test.py`, `**/*.test.*`, `**/*.spec.*`) unless `--include-tests`. An empty tree raises `EmptyTargetTreeError`.
 3. For each group, resolve each row's surface and doctrine section. A row with no `surface` uses the target-tree files matched by the `files` globs of the declared packs whose `language` is one of the row's `languages` (`both` is `python` and `typescript`; `none` is the `none`-language packs). A row with a `surface` uses `RepoTree.files(surface, …)` minus `surface_exclude`, the built-in exclusions, `exclude` and test paths unless `--include-tests`; `--paths` does not narrow it, as the origin's frontend and template lists ignored `--paths` (`hm:.claude/skills/architecture-review/SKILL.md:51-61`). A declared `surface` matching no file fails loud with the mandate id.
 4. Pre-pass: run the hints of the packs each row receives (§4.3) over its surface; render candidates as `file:line [tell] snippet`. A rule with no hints is still reviewed, without candidates.
 5. Dispatch one read-only agent per group (tools `Read`, `Grep`, `Glob`), giving it the rule or repository prompt, `_contract.md`, its rows, surfaces, doctrine sections, `docs` and candidates.
 6. Parse each payload with `acf.review.aggregator.parse_auditor_payload`, built on the shared extractor of §4.8. A contract violation marks that group FAILED, keeps its raw payload and error, and the run continues; any FAILED group makes the exit status non-zero.
-7. Drift (report-only) against `baseline_path`, then staleness: the roll-up warns when the baseline is older than `baseline_max_age_days`, more than `baseline_max_commits` commits behind `HEAD`, or its commit is not in history (ported from `hm:scripts/ci/baseline_staleness.py:24-76`); then provenance: blame each finding's line and classify it against the baseline commit as pre-baseline, post-baseline, uncommitted or unresolved (ported from `hm:.claude/skills/architecture-review/SKILL.md:123-145`). Neither changes the exit status. Both run `git` through the existing runner `acf.diff.run_git` (`plugins/arch-compliance/python/acf/diff.py:17-30`), which returns the exit status as data: a non-zero `rev-list` status is "commit not in history", while a missing `git` raises and fails the run, so the two are never folded together. `run_git` declares no output encoding; that is the doctrine's recorded runner follow-up (`config/architecture/ARCHITECTURE.md:265-279`), not new here.
+7. Drift (report-only) against `baseline_path`, then staleness: the roll-up warns when the baseline is older than `baseline_max_age_days` or more than `baseline_max_commits` commits behind `HEAD` (ported from `hm:scripts/ci/baseline_staleness.py:24-76`), and when `git rev-list --count <commit>..HEAD` exits non-zero it reports "staleness unknown" with git's own error text, never a guess at the cause; then provenance: blame each finding's line and classify it against the baseline commit as pre-baseline, post-baseline, uncommitted or unresolved (ported from `hm:.claude/skills/architecture-review/SKILL.md:123-145`). Neither changes the exit status. Provenance reports a finding whose blame fails as "unresolved" with git's error text. Both run `git` through the existing runner `acf.diff.run_git` (`plugins/arch-compliance/python/acf/diff.py:17-30`), which returns the exit status as data, so each git failure reaches the report as itself, and a missing `git` raises and fails the run. `run_git` declares no output encoding; that is debt `## Declared text decoding` already records (`config/architecture/ARCHITECTURE.md:246-251`), not new here.
 8. Render the report under `report_dir` (a same-day report gets a numeric suffix), optionally write the baseline, print the roll-up.
 
 Every file the package reads (rule and repository prompts, `ARCH_REL`, pack files, `review.yml`) is read with `encoding="utf-8"` (`## Declared text decoding`). Every host path string becomes a location through `RepoTree` (`contained` for write targets, `file`/`directory` for reads, the new `files` for globbing).
@@ -176,13 +177,16 @@ Every file the package reads (rule and repository prompts, `ARCH_REL`, pack file
 - **Payload extraction.** The fence regex, the exactly-one-block check and the JSON decode of `plugins/arch-compliance/python/acf/adr/parser.py:26-60` move to `acf.agent_payload.extract_json_block(payload, *, subject, error)`, which raises the exception class its caller passes. `parse_reviewer_payload` passes `ReviewerContractViolationError`, so the ADR gate's behaviour and tests are unchanged; `parse_auditor_payload` passes a new `AuditorContractViolationError(AcfError)`. Each exception derives from `AcfError` alone, as `plugins/arch-compliance/tests/test_adr_exceptions.py:24-45` requires; each parser keeps only its own policy (identity check and abort, versus a FAILED group).
 - **Writes.** `acf.loader.write_text_record(path, text, *, error)` makes the parent directory, writes UTF-8 text and wraps `OSError` in `error` with the POSIX path. `save_baseline` (`baseline.py:68-75`), `write_run_detail` (`plugins/arch-compliance/python/acf/adr/run_detail.py:178-190`) and the report writer use it; the report's error is a new `ReportWriteError(AcfError)`.
 - **Baseline.** `aggregate` folds by `(mandate_id, subsystem)`; `subsystem_of` takes the declared prefix list. Drift never changes the exit status.
+- **Severity.** `AuditorFinding` keeps the origin auditor contract's four levels (`hm:scripts/core/architecture_review/contract.py:16`), whose reports separate `nit` from `suggestion`; the ADR gate's three-level `Severity` (`plugins/arch-compliance/python/acf/adr/contract.py:38`) grades design-review findings for a block decision, which no review severity feeds.
+- **Scope.** The edits to `acf/adr/parser.py`, `acf/adr/run_detail.py` and `acf/baseline.py` are the call sites of the shared helpers this design introduces, the code paths it changes, which `## Scoped refactor` permits; no other ADR-gate module changes.
 
 New exports and their live call sites (`## Live consumers`):
 
 | Export | Call site |
 |---|---|
 | `acf.repo.REVIEW_REL`, `acf.review.host.load_review_config` | skill step 1 |
-| `acf.repo.RepoTree.files` | skill steps 2–3 |
+| `acf.repo.RepoTree.files`, `acf.repo.path_matches` | skill steps 2–3 |
+| `acf.review.rules.check_auditors` | skill step 1; `acf-mandate` validation snippet |
 | `acf.review.rules.RULES` and settings models | skill step 1 |
 | `acf.review.packs.TechPack` loader | skill step 1 |
 | `acf.review.prepass` scan | skill step 4 |
@@ -209,7 +213,7 @@ A row whose `auditor` names a repository `.md` file is dispatched with that prom
 
 The cutover is part of this spec. It lands in two stages, in order:
 
-1. **Plugin stage.** The changes of §6 merge in this repository and release as `0.3.0`. The origin repository's developer reinstalls the plugin, and `scripts/check_installed_skills.py`, extended to the `architecture-review` skill tree, confirms the installed skill matches the release.
+1. **Plugin stage.** The changes of §6 merge in this repository and release as `0.3.0`. The origin repository's developer reinstalls the plugin, and `scripts/check_installed_skills.py`, extended to the `architecture-review` skill tree, confirms the installed skill matches the release. That check compares skill trees only (`config/architecture/ARCHITECTURE.md:260-261`); the review's Python runs from the `acf` the controller imports, so the cutover PR records `python -c "import acf; print(acf.__file__)"` and that checkout's `git describe`, showing the release.
 2. **Origin stage.** One PR in `hm:` makes the changes of §5.1–§5.7. Acceptance item 2 (§9) runs on that branch through the installed `0.3.0` plugin, as the last change before merge, as phase 1d's acceptance run did (`hm:docs/reviews/ARCHITECTURE_REVIEW_2026-07-30_REMEDIATION.md`, phase 1d row: *"a live acceptance gate run through the installed plugin on the branch as the last change before squash-merge"*).
 
 The spec is done when both stages have merged. A plugin defect the origin stage exposes is fixed by a plugin patch release before the origin PR merges. No origin file imports `acf` today (`git grep -l -E "^(from|import) acf" b2611977f -- scripts tests` prints nothing) and the cutover adds no such import, so origin CI needs no new dependency.
@@ -218,7 +222,7 @@ The origin repository's spec-authoring rule governs this stage: *"A spec that de
 
 ### 5.1 Registry schema
 
-`hm:scripts/core/architecture/registry.py:21-34` (`MandateEntry`, `extra="forbid"`) gains `languages` and `params`, and renames `gemini_anchor` to `arch_anchor`. Every row gains `languages`: `python` for rows whose subject is Python code, `typescript` for the admin JavaScript rows (`§6`, `admin-literal-type-gating`, `admin-notification-mechanism`), `none` otherwise. The field's consumers are in §5.4 (recipe B). No origin code reads `languages` or `params` until part two retires `MandateEntry`, so the dead-code ratchet records both as new unread fields (§5.4).
+`hm:scripts/core/architecture/registry.py:21-34` (`MandateEntry`, `extra="forbid"`) gains `languages` and `params`, and renames `gemini_anchor` to `arch_anchor`. Every row gains `languages`: `python` for rows whose subject is Python code, `typescript` for the admin JavaScript rows (`§6`, `admin-literal-type-gating`, `admin-notification-mechanism`), `none` otherwise. The field's consumers are in §5.4 (recipe B). No origin code reads `languages` or `params` until part two retires `MandateEntry`, so the dead-code ratchet records both as new unread fields (§5.4). Each of the 25 rows of §5.2 declares `audit` in `call_sites` (decision 17); five already do (`§5`, `§6`, `§13`, `§14`, `path-provenance`), and the other twenty gain it.
 
 ### 5.2 Row dispositions
 
@@ -266,13 +270,13 @@ Recipes, run at `b2611977f`, each reproducing the sites already known (the three
 | `hm:scripts/ci/baseline_staleness.py`, `hm:tests/test_baseline_staleness.py`, `hm:scripts/setup_git_hooks.py:138`, `hm:tests/test_push_scope_hook.py:21,25-26` | A | the module and its test are deleted; the pre-push line is removed; in the hook test the assertion at `:21` goes and the ordering assertion drops its `baseline` term (`:25-26` become `assert predicate < tier`) (decision 8) |
 | `hm:scripts/core/skill_install.py`, `hm:tests/test_skill_install.py` | A | deleted: recipe A finds `hm:scripts/core/architecture_review/__init__.py:10` as the module's only importer outside its own test, and `git ls-tree -d --name-only b2611977f .cursor/skills/` lists only `architecture-review` |
 | `hm:tests/test_arch_baseline.py`, `hm:tests/test_arch_facets.py`, `hm:tests/test_arch_review_aggregator.py`, `hm:tests/test_arch_review_contract.py`, `hm:tests/test_arch_review_rollup.py`, `hm:tests/test_arch_review_rubric.py`, `hm:tests/test_rubric_extract_section6.py`; `hm:tests/fixtures/architecture_review_skill/` | A | deleted with the modules they test |
-| `hm:tests/test_mandate_registry_drift.py:84-93` | A | the auditor-pointer test is deleted: the plugin refuses an unknown `auditor` at run time (§4.5), and origin CI cannot import the plugin's rule list |
+| `hm:tests/test_mandate_registry_drift.py:84-93` | A | the auditor-pointer test is deleted: the plugin's `check_auditors` refuses an unknown `auditor` (§4.5), and origin CI cannot import the plugin's rule list; the anchor test at `:60-62` stays, checking each anchor against its home document, `hm:GEMINI.md` |
 | `hm:config/architecture/ARCHITECTURE.md:8-9` | A | points to `hm:config/architecture/arch-docs-manifest.yml`, where the manifest moves; the file also gains the anchor headings of §5.5 |
 | `hm:docs/architecture/CONTENT_METADATA_ACCESS_INVENTORY.md:260` | read of the inventory the `single-owner` row names | the row for the deleted golden-summary helper is removed |
 | `hm:config/architecture/coverage_map.yml:111,118,290,294,332,336,339,341,343,354,358` | A | backstop strings name the new rule ids and the moved pre-pass path |
 | `hm:config/architecture/mandates.yml:516` | A | remediation text names the moved pre-pass path |
 | `hm:scripts/schemas/types.py:9` | A | docstring no longer names the deleted contract |
-| `hm:config/architecture/dead_code_baseline.json:44-46,195-201,265` | A, B | regenerated by `python -m scripts.ci.dead_code_ratchet --update-baseline` (`hm:scripts/ci/dead_code_ratchet.py:493`) after the other edits: entries for deleted symbols leave, `MandateEntry.gemini_anchor` becomes `MandateEntry.arch_anchor`, and `MandateEntry.languages` and `MandateEntry.params` enter as fields no origin code reads until part two; the PR states that growth |
+| `hm:config/architecture/dead_code_baseline.json:44-46,195-201,265` | A, B | regenerated by `python -m scripts.ci.dead_code_ratchet --update-baseline` (`hm:scripts/ci/dead_code_ratchet.py:493`) after the other edits: entries for deleted symbols leave, `MandateEntry.gemini_anchor` becomes `MandateEntry.arch_anchor`, and the ratchet, which matches keys by name (`hm:scripts/ci/dead_code_ratchet.py:377-380`), reports three keys as growth: `MandateEntry.arch_anchor` (test-only, replacing `gemini_anchor`), `MandateEntry.languages` and `MandateEntry.params` (unread until part two); the PR states that growth |
 | `hm:config/architecture/debt_baseline.json:131` | A | entry for the deleted contract module removed |
 | `hm:scripts/core/architecture/registry.py:33`, `hm:tests/test_arch_mandate_registry.py:24,48,65,81,90`, `hm:tests/test_mandate_registry_drift.py:43,60,62`, `hm:tests/test_run_guards.py:111` | B | renamed to `arch_anchor` |
 | `hm:scripts/core/exceptions.py:1227` (`SkillLayoutError`), `:1241-1280` (six review classes), `:1380` (`BaselineStalenessError`), `:1452` (`UnknownMandateError`), `:1456` (`BaselineError`) | A, C | deleted: their raisers and their tests are deleted above |
@@ -299,7 +303,7 @@ The origin baseline counts one label per auditor, and the `three-tier-hfsm` labe
 | `plugins/arch-compliance/python/acf/review/` (new) | modules `__init__` (with `doctrine_section`), `contract`, `host`, `rules`, `packs`, `prepass`, `aggregator`, `rollup`; six pack files under `packs/` |
 | `plugins/arch-compliance/python/acf/agent_payload.py` (new) | `extract_json_block(payload, *, subject, error)` |
 | `plugins/arch-compliance/python/acf/adr/parser.py` | uses `extract_json_block` |
-| `plugins/arch-compliance/python/acf/repo.py` | `REVIEW_REL`; `RepoTree.files` |
+| `plugins/arch-compliance/python/acf/repo.py` | `REVIEW_REL`; `RepoTree.files`; `path_matches` |
 | `plugins/arch-compliance/python/acf/registry.py` | `anchor_line`; `missing_anchors` rewritten on it, same signature |
 | `plugins/arch-compliance/python/acf/loader.py` | `write_text_record` |
 | `plugins/arch-compliance/python/acf/baseline.py` | aggregates the shared protocol; declared subsystem prefixes; writes through `write_text_record` |
@@ -308,8 +312,8 @@ The origin baseline counts one label per auditor, and the `three-tier-hfsm` labe
 | `plugins/arch-compliance/skills/architecture-review/SKILL.md` | rewritten (§4.7) |
 | `plugins/arch-compliance/skills/architecture-review/rules/` (new) | twelve rule prompts and `_contract.md` |
 | `plugins/arch-compliance/skills/architecture-review/auditors/` | deleted (four files) |
-| `plugins/arch-compliance/skills/acf-mandate/SKILL.md` | `:47` auditor description |
-| `plugins/arch-compliance/skills/acf-setup/SKILL.md` | writes `review.yml` |
+| `plugins/arch-compliance/skills/acf-mandate/SKILL.md` | `:46` anchor rule worded as line equality, as `missing_anchors` matches; `:47` auditor description; the validation snippet calls `check_auditors` |
+| `plugins/arch-compliance/skills/acf-setup/SKILL.md` | writes `review.yml`; `:139` anchor rule worded as line equality |
 | `config/architecture/mandates.yml`, `plugins/arch-compliance/profiles/react-app/mandates.yml` | `auditor: ui-logic-isolation` (§4.10) |
 | `config/architecture/review.yml` (new) | this repository's declaration: `packs: [python, ts-js]` |
 | `config/architecture/ARCHITECTURE.md` | `## React boundaries` names the rule; `## Declared, never defaulted` names `review.yml` and records §4.4's built-in meanings; `## One owner for host paths` (`:121-125`) and `## Single point of definition` (`:273-274`) retire the recorded `architecture-review/SKILL.md:62` breach; `## Release discipline` names the extended check |
@@ -323,15 +327,15 @@ The origin baseline counts one label per auditor, and the `three-tier-hfsm` labe
 
 ## 7. Tests
 
-- `test_review_rules.py`: every `RULES` key has a prompt file and every prompt file a key; a wrong-typed key fails with the mandate id; unread `params` keys are listed; an unknown `auditor` raises `UnknownMandateError`; an inactive row is not reviewed.
+- `test_review_rules.py`: every `RULES` key has a prompt file and every prompt file a key; a wrong-typed key fails with the mandate id; an undeclared key is listed on an `ast`/`guard` row and refused on an `llm` row; `check_auditors` raises `UnknownMandateError` for an unknown `auditor` and for a missing hatch file; an inactive row and a row without `audit` are not reviewed.
 - `test_review_packs.py`: each pack loads; hint keys are rule ids; patterns compile; an add-on without its base is refused; a `detectors` key is refused; a `python` row receives `python` and `none`-language hints and no `ts-js` hints.
 - `test_review_host.py`: a missing field, an extra field, a backslash path and a missing file each fail loud.
 - `test_registry.py`: `anchor_line` finds the first matching line; `missing_anchors` keeps its results (its existing test unchanged). `test_review_doctrine.py`: section bounds by heading level and for a non-heading anchor line; an unresolved anchor fails with the mandate id.
 - `test_agent_payload.py`: zero blocks, two blocks and bad JSON raise the passed error class; the ADR parser's and `test_adr_exceptions.py`'s existing tests pass unchanged.
 - `test_review_prepass.py`: candidates per pack, language and surface; `surface_exclude` applies; no hints yields no candidates.
 - `test_review_aggregator.py`: payload parsing; a finding outside the group's rows is a violation; the report does not overwrite.
-- `test_review_rollup.py`: staleness by age, by commits and by a missing commit; no warning when fresh.
-- `test_repo.py`: `RepoTree.files` matches at depth 0 and below for `**`, excludes, and stays inside the root.
+- `test_review_rollup.py`: staleness by age and by commits; a non-zero `rev-list` reports "staleness unknown" with git's text; no warning when fresh.
+- `test_repo.py`: `path_matches` for each pattern form (trailing `/` at any depth, basename at any depth, path with `**` at depth 0 and below); `RepoTree.files` excludes and stays inside the root.
 - `test_baseline.py`: aggregation over both finding models; prefix subsystems, longest wins, `other` for unmatched; empty list keeps first-segment behaviour.
 - `test_loader.py`: `write_text_record` wraps `OSError` in the given error.
 - Prose: no rule prompt, skill file or pack file contains the forbidden origin vocabulary.
@@ -345,7 +349,7 @@ The origin baseline counts one label per auditor, and the `three-tier-hfsm` labe
 | Generic prompts lose precision the origin auditors' hard-coded lists gave | Settings carry the lists; acceptance compares finding counts per rule on the origin repository (§9). |
 | `presentation-as-data` assumes a style schema with element and variant keys | The keys are settings; a repository without such a schema does not enable the rule. |
 | Svelte and SQL hints are regular expressions over raw text | They seed candidates; the auditor decides. |
-| A shared `params` key means different things to a detector and a rule | Rule keys reuse the built-in detector's key names for the same subject (decision 10); the report lists keys a rule did not read. |
+| A shared `params` key means different things to a detector and a rule | Rule keys reuse the built-in detector's key names and matching rules for the same subject (decision 10, §4.2); keys a rule did not read are listed on detector rows and refused elsewhere. |
 | Staleness now shows when the review runs, not on every origin push | Decision 8. |
 | The origin pre-pass tells live in the moved gate module and in the `ts-js` pack until part two | Part two moves the gate's staged check onto the plugin (§10). |
 
@@ -361,5 +365,5 @@ The origin baseline counts one label per auditor, and the `three-tier-hfsm` labe
 
 ## 10. Follow-ups
 
-- Part two: the origin repository's detectors, guards and judge onto `acf-check-diff`, including the pack `detectors` slot, Svelte script extraction, one file-to-technology map shared with the gate's suffix routing, and the gate's staged UI check moved onto `acf.review.prepass`.
+- Part two: the origin repository's detectors, guards and judge onto `acf-check-diff`, including the pack `detectors` slot, Svelte script extraction, one file-to-technology map shared with the gate's suffix routing (`plugins/arch-compliance/python/acf/cli_check_diff.py:152`, `:188`) and the PostToolUse hook's suffix set (`plugins/arch-compliance/hooks/posttooluse_gate.py:50`), the gate's staged UI check moved onto `acf.review.prepass`, and the fail-loud ratchet's own file walk (`plugins/arch-compliance/python/acf/detectors/fail_loud_ratchet.py:57-68`) moved onto `RepoTree.files`.
 - Phase 1e: Cayenne installs the plugin.
