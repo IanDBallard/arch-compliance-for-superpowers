@@ -9,6 +9,7 @@
 **Tech Stack:** Python 3.11+, pydantic v2, PyYAML, pytest; `importlib.machinery.SourceFileLoader`.
 
 **Spec:** `docs/design/HOST_DETECTOR_LOCAL_APPROVAL.md` (v4, cleared by verification pass at `86c3c36`). Section references (§) below are to the spec. Where this plan is silent, the spec governs.
+**Merged:** PR #33 (`7bec270`, 2026-11-12). The final review's fix wave (`a14bddf`) added work beyond these tasks: the diff-gate `as_posix()` fixes in two tests, `write_approval` taking the printed `digests` so `acf-allow` records exactly what it showed, `{}` as the not-needed digests value in both gates, and prose fixes. Follow-ups filed: #34 (TypeScript bridge `shell=True` on Windows, spec §3), #35 (`acf-allow` prints no `params`), #36 (hook notice lists CI-only host rows).
 
 ## Global Constraints
 
