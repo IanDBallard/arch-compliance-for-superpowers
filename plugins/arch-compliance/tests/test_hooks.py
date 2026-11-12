@@ -10,7 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-HOOKS = Path(__file__).resolve().parents[1] / "hooks"
+import pytest
+
+from acf.approval import write_approval
+from acf.detectors import load_gate_registry
+from acf.repo import MANDATES_REL
+
+HOOKS =Path(__file__).resolve().parents[1] / "hooks"
 INJECT = HOOKS / "inject_constraints.py"
 GATE = HOOKS / "posttooluse_gate.py"
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -397,6 +403,10 @@ def _seed_host_rows(tmp_path: Path, rows: str, *, enabled: bool = True) -> Path:
     return repo
 
 
+def _approve(repo: Path) -> None:
+    write_approval(repo, load_gate_registry(repo, repo / MANDATES_REL))
+
+
 def _read_log(log: Path) -> list:
     if not log.is_file():
         return []
@@ -445,6 +455,7 @@ def test_gate_runs_hook_host_rows_and_not_ci_only_host_guards(tmp_path: Path) ->
         + _host_row("host.ci-guard", "guard", "scan_guard", "[ci]", log, name="ci")
     )
     repo = _seed_host_rows(tmp_path, rows)
+    _approve(repo)
     code = repo / "a.py"
     code.write_text("x = 1  # HOST_MARKER\n", encoding="utf-8")
     doc = repo / "notes.md"
@@ -469,7 +480,8 @@ def test_gate_edited_file_outside_repo_yields_no_finding_and_no_host_call(
         "host.doc-guard", "guard", "scan_guard", "[hook]", log, name="hook"
     )
     repo = _seed_host_rows(tmp_path, rows)
-    outside_dir = tmp_path / "elsewhere"
+    _approve(repo)
+    outside_dir =tmp_path / "elsewhere"
     outside_dir.mkdir()
     outside = outside_dir / "bad.py"
     outside.write_text(
@@ -489,6 +501,7 @@ def test_gate_native_absolute_path_is_reported_under_its_posix_key(tmp_path: Pat
     """Review Focus 1: str(abs_path) is Windows-native on Windows."""
     log = tmp_path / "log.jsonl"
     repo = _seed_host_rows(tmp_path, _host_row("host.ast-marker", "ast", "scan_ast", "[hook]", log))
+    _approve(repo)
     (repo / "pkg").mkdir()
     edited = repo / "pkg" / "a.py"
     edited.write_text(
@@ -501,3 +514,170 @@ def test_gate_native_absolute_path_is_reported_under_its_posix_key(tmp_path: Pat
     found = sorted((f["mandate_id"], f["path"]) for f in json.loads(proc.stdout))
     assert found == [("fail-loud.bare-except", "pkg/a.py"), ("host.ast-marker", "pkg/a.py")]
     assert ["ast", "pkg/a.py"] in _read_log(log)
+
+
+# ------------------------------------------------------- approval and hook exit codes
+
+_BARE_EXCEPT = "def f():\n    try:\n        g()\n    except Exception:\n        pass\n"
+_NOTICE_HEAD = "acf: host detectors not run: "
+
+
+def _hook_payload(repo: Path, edited: Path) -> str:
+    return json.dumps(
+        {
+            "cwd": str(repo),
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Edit",
+            "tool_input": {"file_path": str(edited)},
+        }
+    )
+
+
+def _unapproved_repo(tmp_path: Path) -> tuple[Path, Path]:
+    log = tmp_path / "log.jsonl"
+    repo = _seed_host_rows(tmp_path, _host_row("host.ast-marker", "ast", "scan_ast", "[hook]", log))
+    return repo, log
+
+
+def test_gate_unapproved_hook_skips_host_rows_with_notice(tmp_path: Path) -> None:
+    repo, log = _unapproved_repo(tmp_path)
+    _set_call_sites(repo, "no-shims.hasattr", "[ci, hook]")
+    edited = repo / "a.py"
+    edited.write_text("def f(o):\n    return hasattr(o, 'x')  # HOST_MARKER\n", encoding="utf-8")
+    proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited))
+    assert proc.returncode == 0, proc.stderr
+    assert _read_log(log) == []
+    out = json.loads(proc.stdout)
+    context = out["hookSpecificOutput"]["additionalContext"]
+    assert "no-shims.hasattr" in context
+    assert not out["hookSpecificOutput"].get("blocked")
+    for text in (context, out["systemMessage"]):
+        assert "acf-allow" in text
+        assert "host.ast-marker" in text
+    assert context.startswith(_NOTICE_HEAD)
+    assert "no approval for this repository" in context
+
+
+def test_gate_unapproved_hook_block_exits_2_with_notice(tmp_path: Path) -> None:
+    repo, log = _unapproved_repo(tmp_path)
+    edited = repo / "bad.py"
+    edited.write_text(_BARE_EXCEPT, encoding="utf-8")
+    proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited))
+    assert proc.returncode == 2
+    assert _read_log(log) == []
+    assert _NOTICE_HEAD in proc.stderr
+    assert proc.stderr.index(_NOTICE_HEAD) < proc.stderr.index("fail-loud.bare-except")
+
+
+def test_gate_stale_approval_notice(tmp_path: Path) -> None:
+    repo, log = _unapproved_repo(tmp_path)
+    _approve(repo)
+    rules = repo / "hostdet" / "rules.py"
+    rules.write_text(rules.read_text(encoding="utf-8") + "\n# edited\n", encoding="utf-8")
+    edited = repo / "a.py"
+    edited.write_text("x = 1  # HOST_MARKER\n", encoding="utf-8")
+    proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited))
+    assert proc.returncode == 0, proc.stderr
+    assert _read_log(log) == []
+    assert "changed since approval" in json.loads(proc.stdout)["systemMessage"]
+
+
+def test_gate_unapproved_json_stdout_parses(tmp_path: Path) -> None:
+    repo, log = _unapproved_repo(tmp_path)
+    edited = repo / "a.py"
+    edited.write_text("x = 1  # HOST_MARKER\n", encoding="utf-8")
+    proc = _run(GATE, "--repo", str(repo), "--format", "json", str(edited), cwd=repo)
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout) == []
+    assert _NOTICE_HEAD in proc.stderr
+    assert _read_log(log) == []
+
+
+def _case_mandates_missing(tmp_path: Path) -> tuple[Path, Path, dict[str, str] | None]:
+    repo = _seed_host(tmp_path, enabled=True, mandates=False)
+    edited = repo / "a.py"
+    edited.write_text("x = 1\n", encoding="utf-8")
+    return repo, edited, None
+
+
+def _case_no_deps(tmp_path: Path) -> tuple[Path, Path, dict[str, str] | None]:
+    repo = _seed_host(tmp_path, enabled=True, mandates=True)
+    edited = repo / "a.py"
+    edited.write_text("x = 1\n", encoding="utf-8")
+    return repo, edited, _no_deps_env(tmp_path)
+
+
+def _case_unknown_builtin(tmp_path: Path) -> tuple[Path, Path, dict[str, str] | None]:
+    repo = _seed_host(tmp_path, enabled=True, mandates=True)
+    mandates = repo / "config" / "architecture" / "mandates.yml"
+    mandates.write_text(
+        mandates.read_text(encoding="utf-8").replace(
+            "detector: no_shims_hasattr", "detector: no_such_detector"
+        ),
+        encoding="utf-8",
+    )
+    edited = repo / "a.py"
+    edited.write_text("x = 1\n", encoding="utf-8")
+    return repo, edited, None
+
+
+def _case_approved_host_raises(tmp_path: Path) -> tuple[Path, Path, dict[str, str] | None]:
+    log = tmp_path / "log.jsonl"
+    repo = _seed_host_rows(tmp_path, _host_row("host.ast-marker", "ast", "scan_ast", "[hook]", log))
+    (repo / "hostdet" / "rules.py").write_text(
+        "def scan_ast(text, path, added_lines, *, tree, params):\n"
+        "    raise RuntimeError('host detector exploded')\n",
+        encoding="utf-8",
+    )
+    _approve(repo)
+    edited = repo / "a.py"
+    edited.write_text("x = 1\n", encoding="utf-8")
+    return repo, edited, None
+
+
+def _case_non_utf8_edit(tmp_path: Path) -> tuple[Path, Path, dict[str, str] | None]:
+    repo = _seed_host(tmp_path, enabled=True, mandates=True)
+    edited = repo / "a.py"
+    edited.write_bytes(b"\xff")
+    return repo, edited, None
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        _case_mandates_missing,
+        _case_no_deps,
+        _case_unknown_builtin,
+        _case_approved_host_raises,
+        _case_non_utf8_edit,
+    ],
+    ids=lambda c: c.__name__,
+)
+def test_gate_hook_exit_2_on_gate_input_failures(tmp_path: Path, case) -> None:
+    repo, edited, env = case(tmp_path)
+    proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited), env=env)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert any(line.startswith("acf:") for line in proc.stderr.splitlines()), proc.stderr
+
+
+def test_gate_hook_empty_store_exits_2(tmp_path: Path) -> None:
+    repo, _log = _unapproved_repo(tmp_path)
+    store = Path.home() / ".acf" / "approvals.json"
+    store.parent.mkdir(parents=True, exist_ok=True)
+    store.write_text("", encoding="utf-8")
+    edited = repo / "a.py"
+    edited.write_text("x = 1\n", encoding="utf-8")
+    proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited))
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert any(line.startswith("acf:") for line in proc.stderr.splitlines()), proc.stderr
+
+
+def test_gate_hook_deleted_detector_file_exits_2(tmp_path: Path) -> None:
+    repo, _log = _unapproved_repo(tmp_path)
+    _approve(repo)
+    (repo / "hostdet" / "rules.py").unlink()
+    edited = repo / "a.py"
+    edited.write_text("x = 1\n", encoding="utf-8")
+    proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited))
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert any(line.startswith("acf:") for line in proc.stderr.splitlines()), proc.stderr
