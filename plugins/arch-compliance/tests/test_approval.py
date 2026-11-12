@@ -153,7 +153,7 @@ def test_fingerprint_stable_across_hash_seeds(tmp_path: Path) -> None:
     )
     outputs = set()
     for seed in ("1", "2", "3"):
-        env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONPATH": str(PY_DIR), "PYTHONUTF8": "1"}
+        env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONPATH": PY_DIR.as_posix(), "PYTHONUTF8": "1"}
         proc = subprocess.run(
             [sys.executable, "-c", code, str(repo)],
             capture_output=True, text=True, env=env, check=False,
@@ -253,3 +253,15 @@ def test_two_rows_one_file_single_digest(tmp_path: Path) -> None:
     repo = _repo(tmp_path, [_host("h1", "[hook]"), _host("h2", "[ci]")])
     digests = file_digests(repo, approval_rows(_registry(repo)))
     assert list(digests) == ["hostdet/rules.py"]
+
+
+def test_write_approval_records_the_given_digests(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, [_host("h1", "[hook]")])
+    reg = _registry(repo)
+    rows = approval_rows(reg)
+    printed = file_digests(repo, rows)
+    (repo / "hostdet" / "rules.py").write_text("def check(*a, **k):\n    return [3]\n", encoding="utf-8")
+    write_approval(repo, reg, digests=printed)
+    stored = read_store(store_path()).repos[repo.resolve().as_posix()]
+    assert stored.fingerprint == fingerprint(rows, printed)
+    assert check_approval(repo, reg, HOOK_CALL_SITES).state is ApprovalState.STALE

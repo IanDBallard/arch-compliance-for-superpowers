@@ -126,7 +126,7 @@ def test_load_gate_registry_refuses_unknown_prompt_id(tmp_path: Path) -> None:
 
 
 def test_detectors_import_does_not_import_httpx() -> None:
-    env = {**os.environ, "PYTHONPATH": str(PY_DIR)}
+    env = {**os.environ, "PYTHONPATH": PY_DIR.as_posix()}
     result = subprocess.run(
         [sys.executable, "-c", "import acf.detectors, sys; print('httpx' in sys.modules)"],
         capture_output=True,

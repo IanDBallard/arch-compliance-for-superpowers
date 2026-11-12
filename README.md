@@ -111,7 +111,7 @@ Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exi
 
 ### Upgrading a host with host detectors (v0.2.5)
 
-- Host detector rows (`detector: <path>.py:<callable>`) now run only with a per-user approval. Review the detector files, then run `acf-allow` in the repository; the approval is bound to the active host rows and their files, so run it again after any of them changes.
+- Host detector rows (`detector: <path>.py:<callable>`) now run only with a per-user approval. Review the detector files, then run `acf-allow` in the repository; the approval is bound to the active host rows and their files, so run it again after any of them changes. One approval per checkout directory: the key is the resolved root, so each clone and each git worktree needs its own `acf-allow`.
 - Add `--trusted-checkout` to the host's CI invocation of `acf-check-diff`; leave it out of pre-commit configuration. Without an approval or the flag, the diff gate refuses a registry that has host rows.
 - The PostToolUse hook skips unapproved host rows with a notice and runs the built-ins; in hook mode every gate failure now exits 2.
 

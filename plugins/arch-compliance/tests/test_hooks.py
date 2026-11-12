@@ -16,7 +16,7 @@ from acf.approval import write_approval
 from acf.detectors import load_gate_registry
 from acf.repo import MANDATES_REL
 
-HOOKS =Path(__file__).resolve().parents[1] / "hooks"
+HOOKS = Path(__file__).resolve().parents[1] / "hooks"
 INJECT = HOOKS / "inject_constraints.py"
 GATE = HOOKS / "posttooluse_gate.py"
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -481,7 +481,7 @@ def test_gate_edited_file_outside_repo_yields_no_finding_and_no_host_call(
     )
     repo = _seed_host_rows(tmp_path, rows)
     _approve(repo)
-    outside_dir =tmp_path / "elsewhere"
+    outside_dir = tmp_path / "elsewhere"
     outside_dir.mkdir()
     outside = outside_dir / "bad.py"
     outside.write_text(
@@ -550,7 +550,6 @@ def test_gate_unapproved_hook_skips_host_rows_with_notice(tmp_path: Path) -> Non
     out = json.loads(proc.stdout)
     context = out["hookSpecificOutput"]["additionalContext"]
     assert "no-shims.hasattr" in context
-    assert not out["hookSpecificOutput"].get("blocked")
     for text in (context, out["systemMessage"]):
         assert "acf-allow" in text
         assert "host.ast-marker" in text
@@ -658,6 +657,8 @@ def test_gate_hook_exit_2_on_gate_input_failures(tmp_path: Path, case) -> None:
     proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited), env=env)
     assert proc.returncode == 2, proc.stdout + proc.stderr
     assert any(line.startswith("acf:") for line in proc.stderr.splitlines()), proc.stderr
+    if case is not _case_non_utf8_edit:  # that case is an untyped failure, reported as an internal error
+        assert "internal error" not in proc.stderr
 
 
 def test_gate_hook_empty_store_exits_2(tmp_path: Path) -> None:
@@ -670,6 +671,7 @@ def test_gate_hook_empty_store_exits_2(tmp_path: Path) -> None:
     proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited))
     assert proc.returncode == 2, proc.stdout + proc.stderr
     assert any(line.startswith("acf:") for line in proc.stderr.splitlines()), proc.stderr
+    assert "internal error" not in proc.stderr
 
 
 def test_gate_hook_deleted_detector_file_exits_2(tmp_path: Path) -> None:

@@ -98,6 +98,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"call site {args.call_site!r} selects no active ast or guard mandate; "
                 "refusing to report a clean run"
             )
+        # NOT_NEEDED selects no host row at these call sites, so the empty map is never indexed.
         digests = None if args.trusted_checkout else require_approval(repo, registry, sites).digests
         raw_findings, file_lines = _scan_changed(
             repo, mode, args.base, registry, sites, digests=digests

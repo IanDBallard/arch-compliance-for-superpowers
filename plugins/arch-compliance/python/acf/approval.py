@@ -19,7 +19,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -99,7 +99,7 @@ def file_digests(repo: Path, rows: list[Mandate]) -> dict[str, str]:
     return digests
 
 
-def fingerprint(rows: list[Mandate], digests: dict[str, str]) -> str:
+def fingerprint(rows: list[Mandate], digests: Mapping[str, str]) -> str:
     text = json.dumps(
         {"rows": [m.model_dump(mode="json") for m in rows], "files": digests},
         sort_keys=True,
@@ -154,7 +154,13 @@ def require_approval(
     )
 
 
-def write_approval(repo: Path, registry: MandateRegistry, *, revoke: bool = False) -> None:
+def write_approval(
+    repo: Path,
+    registry: MandateRegistry,
+    *,
+    revoke: bool = False,
+    digests: Mapping[str, str] | None = None,
+) -> None:
     store = store_path()
     if _store_inside_repo(repo, store):
         raise AcfInputError(reason(ApprovalState.STORE_IN_REPO, store))
@@ -165,7 +171,7 @@ def write_approval(repo: Path, registry: MandateRegistry, *, revoke: bool = Fals
     else:
         rows = approval_rows(registry)
         data.repos[key] = ApprovalEntry(
-            fingerprint=fingerprint(rows, file_digests(repo, rows)),
+            fingerprint=fingerprint(rows, file_digests(repo, rows) if digests is None else digests),
             approved=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         )
     tmp_name: str | None = None

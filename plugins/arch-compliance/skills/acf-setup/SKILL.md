@@ -20,7 +20,7 @@ Complete these steps in order. Create a todo per step and check each off.
 5. Copy or merge profile(s) into host `config/architecture/`
 6. Align ARCHITECTURE.md (prompt if host already has one)
 7. Write `.acf/enabled` marker
-   - When `mandates.yml` has host rows, show the user the detector files and ask them to run `acf-allow` themselves; never run `acf-allow` or add `--trusted-checkout` yourself
+   - When `mandates.yml` has host rows, show the user the detector files and ask them to run `acf-allow` themselves (one approval per checkout directory; the key is the resolved root, so each clone and each git worktree needs its own `acf-allow`); never run `acf-allow` or add `--trusted-checkout` yourself
 8. Print pre-commit / CI snippets
 9. Smoke-run `acf-check-diff --call-site precommit`
 10. Summarize what was written and next steps (`/acf-mandate`, `/architecture-review`)

@@ -94,6 +94,7 @@ def load_host_detector(
     if module_path is None:
         raise UnknownDetectorError(f"host detector {detector!r}: no file {rel_path!r} in the repository")
     name = "_acf_host_" + hashlib.sha256(rel_path.encode()).hexdigest()[:16]
+    # A cached module is reused without re-checking its digest; safe because each gate run is its own process (spec §4.4).
     cached = sys.modules.get(name)
     mod = cached
     try:

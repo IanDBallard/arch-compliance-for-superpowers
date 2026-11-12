@@ -63,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         for rel_path, digest in digests.items():
             print(f"  {rel_path}  {digest}")
         print(_HELPER_LIMIT)
-        write_approval(repo, registry)
+        write_approval(repo, registry, digests=digests)
         print(f"Approved {RepoTree(repo).root.as_posix()} in {store.as_posix()}.")
     except (AcfInputError, UnknownDetectorError) as exc:
         print(f"acf: {exc}", file=sys.stderr)

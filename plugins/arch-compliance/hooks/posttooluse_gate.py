@@ -153,7 +153,8 @@ def _gate(
             f"rows skipped: {ids}. Ask the user to review the detector files and run "
             "acf-allow in this repository; do not run it yourself."
         )
-    digests = None if approval.state is ApprovalState.NOT_NEEDED else approval.digests
+    # NOT_NEEDED selects no host row at these call sites, so the empty map is never indexed.
+    digests = approval.digests
 
     paths = _collect_paths(args.paths, stdin_payload, repo)
     try:
