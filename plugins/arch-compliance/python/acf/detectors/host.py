@@ -20,7 +20,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, model_validator
 from acf.engine import parse_python, validate_hit_fields, validate_posix_rel_path
 from acf.exceptions import AcfInputError, DetectorPackError, UnknownDetectorError
 from acf.finding import Finding, Severity
-from acf.registry import Mandate, MandateRegistry, is_host_detector_ref, parse_host_detector_ref
+from acf.registry import Mandate, MandateRegistry, parse_host_detector_ref
 from acf.repo import RepoTree
 
 _ACTIVE_ROOT: Path | None = None
@@ -161,8 +161,8 @@ def scan_host_ast_file(
 ) -> list[Finding]:
     mandates = [
         m
-        for m in registry.active(call_sites, detection="ast")
-        if is_host_detector_ref(m.detector) and m.languages in {language, "both"}
+        for m in registry.host_rows(call_sites, detection="ast")
+        if m.languages in {language, "both"}
     ]
     if not mandates:
         return []
@@ -189,9 +189,7 @@ def scan_host_guards(
     *,
     call_sites: frozenset[str],
 ) -> list[Finding]:
-    mandates = [
-        m for m in registry.active(call_sites, detection="guard") if is_host_detector_ref(m.detector)
-    ]
+    mandates = registry.host_rows(call_sites, detection="guard")
     tree = RepoTree(repo_root)
     findings: list[Finding] = []
     for mandate in mandates:
