@@ -8,8 +8,9 @@ under `plugins/arch-compliance/hooks/`, the skill prose under
 `plugins/arch-compliance/tests/`, and the repository-level `tests/`, `scripts/` and
 `config/`. The CI diff gate and the PostToolUse hook run the registry's detectors on
 changed `.py`, `.ts` and `.tsx` files anywhere in the repository, host guards see every
-changed file inside the repository, and rows run where their `call_sites` say; prose and
-configuration are held to this file by review. Where a
+changed file inside the repository, and rows run where their `call_sites` say; host rows
+run only with an approval or, for the diff gate, `--trusted-checkout` (`**Trust
+boundary.**`); prose and configuration are held to this file by review. Where a
 Superpowers default conflicts with a rule here, the rule here wins
 (`docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:51`, principle 5). The five governing
 principles at `docs/design/ARCH_COMPLIANCE_FOR_SUPERPOWERS.md:43-51` are not restated
@@ -172,14 +173,16 @@ every built-in mandate id is reserved: no other kind of active row may use one.
 `status: partial` gates like `enforced`, so it is held to the same rules; a row whose
 detector or prompt does not exist yet is `unenforced`.
 
-**Trust boundary.** The PostToolUse hook runs host code only when `.acf/enabled`
-exists; committing `.acf/` therefore opts every clone in. `acf-check-diff` runs host
-code only when the host's own pre-commit or CI configuration invokes it, and that
-invocation is the opt-in. The wrapping guarantees typed errors, not confinement: a host
-module runs in the gate's process with its privileges. `load_mandates` never imports
-host code.
+**Trust boundary.** Both gates run host code only when `~/.acf/approvals.json` holds an
+approval matching the fingerprint of the active host rows and their files (`acf-allow`,
+run by the user), or, for `acf-check-diff`, when the invocation passes
+`--trusted-checkout`. The PostToolUse hook also needs `.acf/enabled`; without an approval
+it runs the built-ins and reports the skipped host rows, and the diff gate refuses.
+Committing `.acf/` approves no host code. The wrapping guarantees typed errors, not
+confinement: a host module runs in the gate's process with its privileges.
+`load_mandates` never imports host code. In hook mode, gate failures exit `2`.
 
-No row: enforced by plugins/arch-compliance/tests/test_host_detectors.py, test_builtin_detectors.py, test_registry.py, test_hooks.py and test_diff_cli.py.
+No row: enforced by plugins/arch-compliance/tests/test_host_detectors.py, test_builtin_detectors.py, test_registry.py, test_hooks.py, test_diff_cli.py, test_approval.py and test_cli_allow.py.
 
 ## Declared, never defaulted
 

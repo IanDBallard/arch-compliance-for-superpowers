@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import importlib.util
+import py_compile
 import sys
 import textwrap
 from pathlib import Path
@@ -39,14 +42,14 @@ def registry(*rows):
 def run_ast(root, body, *, path="a.py", text="x = 1\n", detector="g.py:scan", language="python"):
     write(root, "g.py", IMPORT_HIT + textwrap.dedent(body))
     return scan_host_ast_file(
-        root, text, path, None, registry(row(detector, languages="both")), language=language, call_sites=CI
+        root, text, path, None, registry(row(detector, languages="both")), language=language, call_sites=CI, digests=None
     )
 
 
 def run_guard(root, body, *, files=("a.md",), file_lines=None, detector="g.py:scan"):
     write(root, "g.py", IMPORT_HIT + textwrap.dedent(body))
     lines = {} if file_lines is None else file_lines
-    found = scan_host_guards(root, files, registry(row(detector, "guard")), lines, call_sites=CI)
+    found = scan_host_guards(root, files, registry(row(detector, "guard")), lines, call_sites=CI, digests=None)
     return found, lines
 
 
@@ -75,7 +78,7 @@ def test_imports_sibling_package_and_frozen_dataclass_with_future_annotations(tm
         encoding="utf-8",
     )
     found = scan_host_ast_file(
-        tmp_path, "x\n", "a.py", None, registry(row("g.py:scan")), language="python", call_sites=CI
+        tmp_path, "x\n", "a.py", None, registry(row("g.py:scan")), language="python", call_sites=CI, digests=None
     )
     assert [(f.path, f.line, f.message) for f in found] == [("a.py", 1, "x")]
 
@@ -173,7 +176,7 @@ def test_two_ast_rows_parse_once(tmp_path, fresh_host_loader, monkeypatch):
     scan_host_ast_file(
         tmp_path, "x = 1\n", "a.py", None,
         registry(row("g.py:one", id="h.one"), row("g.py:two", id="h.two")),
-        language="python", call_sites=CI,
+        language="python", call_sites=CI, digests=None,
     )
     assert len(calls) == 1
 
@@ -181,17 +184,17 @@ def test_two_ast_rows_parse_once(tmp_path, fresh_host_loader, monkeypatch):
 def test_ast_runner_filters_by_language_and_call_site(tmp_path, fresh_host_loader):
     write(tmp_path, "g.py", IMPORT_HIT + AST_OK)
     ts_row = registry(row("g.py:scan", languages="typescript"))
-    assert scan_host_ast_file(tmp_path, "x\n", "a.py", None, ts_row, language="python", call_sites=CI) == []
+    assert scan_host_ast_file(tmp_path, "x\n", "a.py", None, ts_row, language="python", call_sites=CI, digests=None) == []
     hook_row = registry(row("g.py:scan", call_sites=("hook",)))
-    assert scan_host_ast_file(tmp_path, "x\n", "a.py", None, hook_row, language="python", call_sites=CI) == []
+    assert scan_host_ast_file(tmp_path, "x\n", "a.py", None, hook_row, language="python", call_sites=CI, digests=None) == []
     ok = registry(row("g.py:scan"))
-    assert len(scan_host_ast_file(tmp_path, "x\n", "a.py", None, ok, language="python", call_sites=CI)) == 1
+    assert len(scan_host_ast_file(tmp_path, "x\n", "a.py", None, ok, language="python", call_sites=CI, digests=None)) == 1
 
 
 def test_ast_runner_skips_unparsable_python(tmp_path, fresh_host_loader):
     write(tmp_path, "g.py", IMPORT_HIT + AST_OK)
     found = scan_host_ast_file(
-        tmp_path, "def (:\n", "a.py", None, registry(row("g.py:scan")), language="python", call_sites=CI
+        tmp_path, "def (:\n", "a.py", None, registry(row("g.py:scan")), language="python", call_sites=CI, digests=None
     )
     assert found == []
 
@@ -389,8 +392,8 @@ def test_module_shared_by_ast_and_guard_rows_executes_once(tmp_path, fresh_host_
           "def scan_ast(text, path, added_lines, *, tree, params):\n    return []\n"
           "def scan_guard(repo_root, changed_files, *, params):\n    return []\n")
     reg = registry(row("g.py:scan_ast", id="h.ast"), row("g.py:scan_guard", "guard", id="h.guard"))
-    scan_host_ast_file(tmp_path, "x\n", "a.py", None, reg, language="python", call_sites=CI)
-    scan_host_guards(tmp_path, ["a.py"], reg, {}, call_sites=CI)
+    scan_host_ast_file(tmp_path, "x\n", "a.py", None, reg, language="python", call_sites=CI, digests=None)
+    scan_host_guards(tmp_path, ["a.py"], reg, {}, call_sites=CI, digests=None)
     assert counter.read_text(encoding="utf-8") == "x"
 
 
@@ -412,3 +415,66 @@ def test_guard_flagging_one_file_twice_reads_it_once(tmp_path, fresh_host_loader
     assert len(found) == 2
     assert reads.count("notes.md") == 1
     assert lines["notes.md"] == ["a", "b"]
+
+
+# ---------------------------------------------------------------- source-only, digest-checked loading (spec 4.4)
+
+SOURCE_SCAN = (
+    IMPORT_HIT
+    + "def scan(text, path, added_lines, *, tree, params):\n"
+    + "    return [HostHit(path=path, line=1, message={msg!r})]\n"
+)
+
+
+def test_unchecked_hash_pyc_is_not_run(tmp_path, fresh_host_loader):
+    g = write(tmp_path, "g.py", SOURCE_SCAN.format(msg="source"))
+    other = write(tmp_path, "other.py", SOURCE_SCAN.format(msg="pyc"))
+    py_compile.compile(
+        str(other),
+        cfile=importlib.util.cache_from_source(str(g)),
+        invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
+    )
+    found = scan_host_ast_file(
+        tmp_path, "x\n", "a.py", None, registry(row("g.py:scan")), language="python", call_sites=CI, digests=None
+    )
+    assert [f.message for f in found] == ["source"]
+
+
+def test_changed_since_approval_refused_without_running(tmp_path, fresh_host_loader):
+    marker = tmp_path / "ran.txt"
+    write(tmp_path, "g.py", f"open({str(marker)!r}, 'w').close()\ndef scan(): return []\n")
+    before = {k for k in sys.modules if k.startswith("_acf_host_")}
+    with pytest.raises(UnknownDetectorError, match="changed since approval"):
+        load_host_detector(tmp_path, "g.py:scan", expected_sha256="0" * 64)
+    assert not marker.exists()
+    assert {k for k in sys.modules if k.startswith("_acf_host_")} == before
+
+
+def test_matching_digest_runs(tmp_path, fresh_host_loader):
+    g = write(tmp_path, "g.py", "def scan(): return []\n")
+    fn = load_host_detector(tmp_path, "g.py:scan", expected_sha256=hashlib.sha256(g.read_bytes()).hexdigest())
+    assert callable(fn)
+
+
+def test_runners_pass_digest_per_row(tmp_path, fresh_host_loader):
+    g = write(
+        tmp_path,
+        "g.py",
+        IMPORT_HIT
+        + "def scan_ast(text, path, added_lines, *, tree, params):\n"
+        "    return [HostHit(path=path, line=1, message='a')]\n"
+        "def scan_guard(repo_root, changed_files, *, params):\n"
+        "    return [HostHit(path='a.md', line=1, message='g')]\n",
+    )
+    ast_reg = registry(row("g.py:scan_ast"))
+    guard_reg = registry(row("g.py:scan_guard", "guard"))
+    bad = {"g.py": "0" * 64}
+    with pytest.raises(UnknownDetectorError, match="changed since approval"):
+        scan_host_ast_file(tmp_path, "x\n", "a.py", None, ast_reg, language="python", call_sites=CI, digests=bad)
+    with pytest.raises(UnknownDetectorError, match="changed since approval"):
+        scan_host_guards(tmp_path, ["a.md"], guard_reg, {}, call_sites=CI, digests=bad)
+    good = {"g.py": hashlib.sha256(g.read_bytes()).hexdigest()}
+    found = scan_host_ast_file(tmp_path, "x\n", "a.py", None, ast_reg, language="python", call_sites=CI, digests=good)
+    assert [f.message for f in found] == ["a"]
+    found = scan_host_guards(tmp_path, ["a.md"], guard_reg, {}, call_sites=CI, digests=good)
+    assert [f.message for f in found] == ["g"]

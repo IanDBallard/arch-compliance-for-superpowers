@@ -1,6 +1,6 @@
 [project]
 name = "acf"
-version = "0.2.4"
+version = "0.2.5"
 license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.11"
 dependencies = [
@@ -16,6 +16,7 @@ dependencies = [
 dev = ["pytest>=8.0", "setuptools>=68"]
 
 [project.scripts]
+acf-allow = "acf.cli_allow:main"
 acf-check-diff = "acf.cli_check_diff:main"
 acf-check-llm = "acf.cli_check_llm:main"
 

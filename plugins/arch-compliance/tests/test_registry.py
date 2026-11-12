@@ -204,3 +204,90 @@ def test_active_llm_row_with_unknown_prompt_id_refused_unenforced_loads(tmp_path
 def test_call_site_outside_vocabulary_refused_at_row_construction(tmp_path):
     with pytest.raises(AcfInputError):
         load_mandates(_write(tmp_path, call_sites=["ci", "hooks"]))
+
+
+def _host_row(**fields) -> dict:
+    row = {
+        "id": "fail-loud.bare-except",
+        "title": "t",
+        "severity": "BLOCK",
+        "detection": "ast",
+        "detector": "fail_loud_bare_except",
+        "languages": "python",
+        "call_sites": ["ci"],
+        "exemption_tokens": ["x"],
+        "status": "enforced",
+        "arch_anchor": "# X",
+    }
+    row.update(fields)
+    return row
+
+
+def _mandate(**fields):
+    from acf.registry import Mandate
+
+    return Mandate(**_host_row(**fields))
+
+
+def test_is_host_row():
+    assert _mandate(detector="x.py:f").is_host_row is True
+    assert _mandate(detector="no_shims_hasattr").is_host_row is False
+    assert _mandate(detection="llm", detector="llm_a:b", call_sites=["audit"]).is_host_row is False
+
+
+def test_host_rows_filters_active_host_rows():
+    from acf.registry import (
+        HOOK_CALL_SITES,
+        TIER1_CALL_SITES,
+        MandateRegistry,
+    )
+
+    rows = [
+        _mandate(id="h.ast", detector="d/a.py:f", call_sites=["hook"]),
+        _mandate(id="h.guard", detection="guard", detector="d/g.py:g", call_sites=["ci"]),
+        _mandate(id="h.off", detector="d/o.py:f", status="unenforced"),
+        _mandate(id="builtin"),
+    ]
+    reg = MandateRegistry(mandates=rows, source_path="m.yml")
+    assert [m.id for m in reg.host_rows(HOOK_CALL_SITES)] == ["h.ast"]
+    assert [m.id for m in reg.host_rows(TIER1_CALL_SITES)] == ["h.ast", "h.guard"]
+    assert [m.id for m in reg.host_rows(TIER1_CALL_SITES, detection="guard")] == ["h.guard"]
+
+
+def _params_file(tmp_path: Path, params_text: str) -> Path:
+    path = tmp_path / "mandates.yml"
+    path.write_text(
+        _ROW.format(id="p.row", anchor="## A") + f"  params:\n    {params_text}\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.mark.parametrize(
+    "params_text",
+    ["k: !!set {a: null}", "k: 2026-11-11", "k: !!binary aGk=", "k: {1: a}", "k: .nan"],
+)
+def test_non_json_params_refused(tmp_path, params_text):
+    with pytest.raises(AcfInputError, match="p.row"):
+        load_mandates(_params_file(tmp_path, params_text))
+
+
+def test_top_level_int_key_still_refused_by_pydantic(tmp_path):
+    path = tmp_path / "mandates.yml"
+    path.write_text(
+        _ROW.format(id="p.row", anchor="## A") + "  params:\n    1: a\n", encoding="utf-8"
+    )
+    with pytest.raises(AcfInputError):
+        load_mandates(path)
+
+
+def test_json_native_params_load(tmp_path):
+    text = "{s: x, n: 1, f: 1.5, b: true, z: null, l: [1, a], m: {k: [true]}}"
+    path = tmp_path / "mandates.yml"
+    path.write_text(
+        _ROW.format(id="p.row", anchor="## A") + f"  params: {text}\n", encoding="utf-8"
+    )
+    m = load_mandates(path).mandates[0]
+    assert m.params == {
+        "s": "x", "n": 1, "f": 1.5, "b": True, "z": None, "l": [1, "a"], "m": {"k": [True]},
+    }

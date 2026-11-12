@@ -1,0 +1,20 @@
+control NOT-JSON  k: !!set {a: null}
+control NOT-JSON  k: 2026-11-11
+control NOT-JSON  k: !!binary aGk=
+control NOT-JSON  k: {1: a}
+control NOT-JSON  k: {yes: a}
+control NOT-JSON  k: .nan
+control NOT-JSON  k: .inf
+ok               config/architecture/mandates.yml  ops.no-build-artifacts
+ok               config/architecture/mandates.yml  fail-loud.ratchet
+ok               config/architecture/mandates.yml  facade.forbid-sink
+ok               config/architecture/mandates.yml  fsm.transition-guard
+ok               plugins/arch-compliance/profiles/python-service/mandates.yml  ops.no-build-artifacts
+ok               plugins/arch-compliance/profiles/python-service/mandates.yml  fail-loud.ratchet
+ok               plugins/arch-compliance/profiles/python-service/mandates.yml  facade.forbid-sink
+ok               plugins/arch-compliance/profiles/python-service/mandates.yml  fsm.transition-guard
+ok               plugins/arch-compliance/profiles/react-app/mandates.yml  ops.no-build-artifacts
+NOT-STATIC       plugins/arch-compliance/tests/test_builtin_detectors.py:132  -
+NOT-STATIC       plugins/arch-compliance/tests/test_hooks.py:375  -
+NOT-STATIC       plugins/arch-compliance/tests/test_hooks.py:381  -
+checked 12 params values; NOT-JSON: 0

@@ -80,11 +80,11 @@ From the marketplace repo root:
 ```bash
 pip install -e ".[dev]"
 acf-check-diff --mode worktree --call-site precommit      # local working-tree diff
-acf-check-diff --base origin/main --call-site ci          # CI: diff vs merge-base
+acf-check-diff --base origin/main --call-site ci --trusted-checkout   # CI: diff vs merge-base
 pytest
 ```
 
-Plugin hooks live under `plugins/arch-compliance/hooks/hooks.json` and invoke `python` — ensure `python` on PATH is Python 3.11+ with the `acf` package installed. Hooks are a true no-op until the host has `.acf/enabled`; with that marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud. The PostToolUse gate exits 2 on `BLOCK` findings so Claude receives them as blocking feedback. Enforcement follows the host registry: `unenforced` rows never gate; `enforced` and `partial` both gate (`partial` means incomplete coverage, not advisory-only), and a row gates only at the call sites it declares (a `[ci]`-only row is not reported by the PostToolUse hook). Severity comes from the row. Detectors emit raw findings; only registry `exemption_tokens` suppress via inline `# token: reason` / `// token: reason` comments.
+Plugin hooks live under `plugins/arch-compliance/hooks/hooks.json` and invoke `python` — ensure `python` on PATH is Python 3.11+ with the `acf` package installed. Hooks are a true no-op until the host has `.acf/enabled`; with that marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud. The PostToolUse gate exits 2 on `BLOCK` findings and on gate failures so Claude receives them as blocking feedback. Host detectors run only with a per-user approval (`acf-allow`, which the user runs after reviewing the detector files); `acf-check-diff` also accepts `--trusted-checkout`, which CI passes because the workflow file is the opt-in. Without an approval the hook skips host rows with a notice and the diff gate refuses. Enforcement follows the host registry: `unenforced` rows never gate; `enforced` and `partial` both gate (`partial` means incomplete coverage, not advisory-only), and a row gates only at the call sites it declares (a `[ci]`-only row is not reported by the PostToolUse hook). Severity comes from the row. Detectors emit raw findings; only registry `exemption_tokens` suppress via inline `# token: reason` / `// token: reason` comments.
 
 ## Related docs
 

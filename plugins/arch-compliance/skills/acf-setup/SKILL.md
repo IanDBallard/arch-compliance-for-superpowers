@@ -20,6 +20,7 @@ Complete these steps in order. Create a todo per step and check each off.
 5. Copy or merge profile(s) into host `config/architecture/`
 6. Align ARCHITECTURE.md (prompt if host already has one)
 7. Write `.acf/enabled` marker
+   - When `mandates.yml` has host rows, show the user the detector files and ask them to run `acf-allow` themselves (one approval per checkout directory; the key is the resolved root, so each clone and each git worktree needs its own `acf-allow`); never run `acf-allow` or add `--trusted-checkout` yourself
 8. Print pre-commit / CI snippets
 9. Smoke-run `acf-check-diff --call-site precommit`
 10. Summarize what was written and next steps (`/acf-mandate`, `/architecture-review`)
@@ -145,9 +146,9 @@ Write an empty (or one-line) marker file:
 <host>/.acf/enabled
 ```
 
-Create `.acf/` if needed. `.acf/enabled` is the opt-in for the automatic hooks, host detectors included: plugin hooks (see below) no-op until this file exists, and once it exists the PostToolUse hook runs the host's own detector code (`detector: <path>.py:<callable>` rows) on edit; once present, missing `config/architecture/mandates.yml` is a hard failure. Do **not** write the marker before mandates are in place.
+Create `.acf/` if needed. `.acf/enabled` turns on the automatic hooks for the built-in detectors: plugin hooks (see below) no-op until this file exists; once present, missing `config/architecture/mandates.yml` is a hard failure. Host detectors (`detector: <path>.py:<callable>` rows) also need each person's `acf-allow`. Do **not** write the marker before mandates are in place.
 
-Suggest adding `.acf/` to git if the team wants hooks enabled for everyone; otherwise document that each clone needs the marker. Say plainly that committing `.acf/` opts every clone into running the host's detectors on edit.
+Suggest adding `.acf/` to git if the team wants hooks enabled for everyone; otherwise document that each clone needs the marker. Say plainly that committing `.acf/` approves no host code: each person runs `acf-allow` themselves.
 
 ### Hook registration (Claude Code)
 
@@ -156,7 +157,7 @@ The plugin ships `hooks/hooks.json` which registers:
 | Event | Script | Purpose |
 |-------|--------|---------|
 | `SubagentStart` | `hooks/inject_constraints.py --format hook` | Inject host mandates + ARCHITECTURE excerpt into subagent context |
-| `PostToolUse` (`Write\|Edit\|MultiEdit`) | `hooks/posttooluse_gate.py --format hook` | Run Tier-1 Python/TS detectors, host detectors and host guards on edited paths (rows declaring `hook` or `posttooluse`; edited files outside the repository are not scanned); feed findings back |
+| `PostToolUse` (`Write\|Edit\|MultiEdit`) | `hooks/posttooluse_gate.py --format hook` | Run Tier-1 Python/TS detectors, host detectors and host guards on edited paths (rows declaring `hook` or `posttooluse`; edited files outside the repository are not scanned; host detectors and host guards run only with an approval); feed findings back |
 
 No host-side hook copy is required when the plugin is installed — Claude Code loads plugin `hooks/hooks.json` automatically. Manual smoke:
 
@@ -165,6 +166,8 @@ No host-side hook copy is required when the plugin is installed — Claude Code 
 python "${CLAUDE_PLUGIN_ROOT}/hooks/inject_constraints.py" --repo .
 python "${CLAUDE_PLUGIN_ROOT}/hooks/posttooluse_gate.py" --repo . path/to/edited.py
 ```
+
+With host rows, the second command skips them (with a notice) until the user has run `acf-allow`.
 
 If `CLAUDE_PLUGIN_ROOT` is unset, use the absolute path to `plugins/arch-compliance` in this marketplace checkout.
 
@@ -187,11 +190,9 @@ repos:
         stages: [pre-commit]
 ```
 
-Fallback if console script is not on PATH:
+If the console script is not on PATH, install the plugin Python package so it is; do not substitute `python -m`.
 
-```bash
-python -m acf.cli_check_diff --mode staged --call-site precommit
-```
+With host rows, a pre-commit run needs each person's `acf-allow`; the snippet carries no `--trusted-checkout`.
 
 `--call-site {ci,precommit}` is required and selects the rows that run: only active rows that declare that site. A site that selects no active `ast`/`guard` row is refused (exit 1), not reported as a clean run.
 
@@ -205,9 +206,11 @@ diff and always pass. Use `--base` to diff the branch against its merge-base:
   with:
     fetch-depth: 0   # --base needs history for merge-base
 - name: Architecture compliance (diff vs base)
-  run: acf-check-diff --base "origin/${{ github.base_ref || 'main' }}" --repo . --call-site ci
-  # or: python -m acf.cli_check_diff --base origin/main --repo . --call-site ci
+  run: acf-check-diff --base "origin/${{ github.base_ref || 'main' }}" --repo . --call-site ci --trusted-checkout
+  # or: acf-check-diff --base origin/main --repo . --call-site ci --trusted-checkout
 ```
+
+`--trusted-checkout` runs host detectors without a local approval; in CI the workflow file is the opt-in. Only the CI sketch carries it. Never add it to the pre-commit snippet or to a command you run yourself.
 
 ### Upgrading a host installed before `--call-site` (v0.2.4)
 
@@ -224,9 +227,9 @@ From the **host** root, run one of:
 
 ```bash
 acf-check-diff --mode worktree --call-site precommit
-# or
-python -m acf.cli_check_diff --mode worktree --call-site precommit
 ```
+
+If `mandates.yml` has host rows, the user must run `acf-allow` first; a refusal that names `acf-allow` is not a pass. Do not run `acf-allow` or add `--trusted-checkout` yourself; ask the user to review the detector files and approve them.
 
 Success criteria:
 
@@ -257,4 +260,4 @@ Tell the user:
 | Writing `.acf/enabled` before mandates | Write marker last among config steps |
 | Leaving polyglot hosts with two active registries | Merge into one `mandates.yml` |
 | Changing ARCHITECTURE headings without updating `arch_anchor` | Keep literal heading strings or update registry |
-| Claiming success without CLI smoke | Run `acf-check-diff --call-site precommit` or `python -m acf.cli_check_diff --call-site precommit` |
+| Claiming success without CLI smoke | Run `acf-check-diff --call-site precommit` |

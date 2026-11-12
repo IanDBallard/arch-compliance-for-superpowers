@@ -118,3 +118,30 @@ def test_require_file_returns_the_path_when_present(tmp_path):
     present = tmp_path / "doc.md"
     present.write_text("x\n", encoding="utf-8")
     assert require_file(present, subject="doc") == present
+
+
+def test_non_utf8_file_refused(tmp_path):
+    """A file that is not UTF-8 text is a bad input file, not a UnicodeDecodeError."""
+    path = tmp_path / "rows.yml"
+    path.write_bytes(b"\xff\xfe\x00")
+    with pytest.raises(AcfInputError) as excinfo:
+        load_model_file(path, Row, subject="rows file", fmt="yaml", many=True)
+    assert path.as_posix() in str(excinfo.value)
+
+
+def test_overlong_json_integer_refused(tmp_path):
+    """An integer past Python's digit limit raises ValueError from json.loads."""
+    path = tmp_path / "row.json"
+    path.write_text("1" * 5000, encoding="utf-8")
+    with pytest.raises(AcfInputError) as excinfo:
+        load_model_file(path, Row, subject="row file", fmt="json")
+    assert path.as_posix() in str(excinfo.value)
+
+
+def test_overdeep_nesting_refused(tmp_path):
+    """Nesting past the recursion limit raises RecursionError from json.loads."""
+    path = tmp_path / "row.json"
+    path.write_text("[" * 100_000 + "]" * 100_000, encoding="utf-8")
+    with pytest.raises(AcfInputError) as excinfo:
+        load_model_file(path, Row, subject="row file", fmt="json")
+    assert path.as_posix() in str(excinfo.value)

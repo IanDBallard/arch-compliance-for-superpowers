@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -67,11 +68,30 @@ class Mandate(BaseModel):
     def runs_at(self, call_sites: frozenset[str]) -> bool:
         return self.is_active and bool(call_sites.intersection(self.call_sites))
 
+    @property
+    def is_host_row(self) -> bool:
+        return self.detection in {"ast", "guard"} and is_host_detector_ref(self.detector)
+
+    @model_validator(mode="after")
+    def _json_params(self) -> Mandate:
+        if self.params is None:
+            return self
+        try:
+            same = json.loads(json.dumps(self.params, allow_nan=False)) == self.params
+        except (TypeError, ValueError, RecursionError):
+            same = False
+        if not same:
+            raise AcfInputError(
+                f"mandate {self.id!r}: params must hold JSON values only "
+                "(no YAML sets, dates, binary values, non-string keys or NaN)"
+            )
+        return self
+
     @model_validator(mode="after")
     def _row_shape(self) -> Mandate:
         if self.detection not in {"ast", "guard"}:
             return self
-        host = is_host_detector_ref(self.detector)
+        host = self.is_host_row
         if host:
             parse_host_detector_ref(self.detector)
         if not self.is_active:
@@ -121,6 +141,11 @@ class MandateRegistry(BaseModel):
             and (detection is None or m.detection == detection)
         ]
 
+    def host_rows(
+        self, call_sites: frozenset[str], *, detection: str | None = None
+    ) -> list[Mandate]:
+        return [m for m in self.active(call_sites, detection=detection) if m.is_host_row]
+
 
 def load_mandates(
     path: Path,
@@ -141,7 +166,7 @@ def load_mandates(
         for m in mandates:
             if not m.is_active:
                 continue
-            builtin_row = m.detection in {"ast", "guard"} and not is_host_detector_ref(m.detector)
+            builtin_row = m.detection in {"ast", "guard"} and not m.is_host_row
             if m.id in reserved and not builtin_row:
                 raise AcfInputError(
                     f"active mandate {m.id!r} uses an id a built-in detector reports to; "
@@ -149,7 +174,7 @@ def load_mandates(
                 )
             if m.detection not in {"ast", "guard"}:
                 continue
-            if not is_host_detector_ref(m.detector):
+            if not m.is_host_row:
                 _check_builtin(m, known_detectors)
                 continue
             if repo_root is None:

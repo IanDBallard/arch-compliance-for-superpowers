@@ -9,9 +9,20 @@ Runnable as:
 Behavior:
   - If ``.acf/enabled`` is absent: exit 0 (no-op), optional stderr warning.
   - If enabled and ``config/architecture/mandates.yml`` is missing: non-zero exit.
-  - Otherwise run the active rows declaring ``hook`` or ``posttooluse``, host
-    detectors included, on the edited in-repo paths and print findings; host
-    guards receive every edited in-repo path.
+  - Otherwise run the active rows declaring ``hook`` or ``posttooluse`` on the
+    edited in-repo paths and print findings; host guards receive every edited
+    in-repo path.
+  - Host detector rows run repository code, so they run only under a local
+    approval (``acf-allow``) that still matches the rows and detector files.
+    Without one the hook skips them, runs the built-in rows, and prints one
+    notice naming the skipped rows (``additionalContext`` plus ``systemMessage``
+    in hook format; stderr otherwise). It never approves anything itself.
+
+Exit codes: 0 clean; 1 findings at BLOCK (text/json formats) or a gate-input
+failure in text/json formats; 2 in hook format for a BLOCK finding, any
+gate-input failure (missing mandates or dependencies, malformed registry or
+approval store, unreadable detector file, failing detector) and any other
+internal error, so the agent sees it on stderr.
 """
 
 from __future__ import annotations
@@ -19,6 +30,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
+from collections.abc import Mapping
 from pathlib import Path
 
 _HOOKS_DIR = Path(__file__).resolve().parent
@@ -71,6 +84,22 @@ def main(argv: list[str] | None = None) -> int:
         else "text"
     )
 
+    try:
+        return _gate(args, stdin_payload, repo, out_format)
+    except Exception as exc:  # fail-loud.bare-except-ok: hook mode reports any failure on the agent's channel (exit 2); other formats re-raise
+        if out_format != "hook":
+            raise
+        print(f"acf: internal error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
+        return 2
+
+
+def _gate(
+    args: argparse.Namespace, stdin_payload: dict | None, repo: Path, out_format: str
+) -> int:
+    # Hook mode exits 2 so the agent sees the failure; other formats exit 1.
+    failure = 2 if out_format == "hook" else 1
+
     enabled = repo / ENABLED_REL
     if not enabled.is_file():
         if not args.quiet_disabled:
@@ -88,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
             f"acf: .acf/enabled present but mandates missing: {mandates_path.as_posix()}",
             file=sys.stderr,
         )
-        return 1
+        return failure
 
     try:
         from acf.detectors import KNOWN_DETECTORS
@@ -96,6 +125,8 @@ def main(argv: list[str] | None = None) -> int:
         from acf.exceptions import AcfInputError, DetectorPackError, UnknownDetectorError
         from acf.finding import Severity
         from acf.registry import HOOK_CALL_SITES, load_mandates
+
+        from acf.approval import ApprovalState, approval_rows, check_approval, reason, store_path
     except ImportError as exc:
         print(
             "acf: ACF is enabled here but its Python dependencies are missing "
@@ -104,25 +135,43 @@ def main(argv: list[str] | None = None) -> int:
             "checkout (see plugin README).",
             file=sys.stderr,
         )
-        return 1
+        return failure
 
     try:
         registry = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS, repo_root=repo)
+        approval = check_approval(repo, registry, HOOK_CALL_SITES)
     except (AcfInputError, UnknownDetectorError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
-        return 1
+        return failure
+
+    run_host = approval.state in {ApprovalState.NOT_NEEDED, ApprovalState.APPROVED}
+    notice = ""
+    if not run_host:
+        ids = ", ".join(m.id for m in approval_rows(registry))
+        notice = (
+            f"acf: host detectors not run: {reason(approval.state, store_path())}; "
+            f"rows skipped: {ids}. Ask the user to review the detector files and run "
+            "acf-allow in this repository; do not run it yourself."
+        )
+    # NOT_NEEDED selects no host row at these call sites, so the empty map is never indexed.
+    digests = approval.digests
 
     paths = _collect_paths(args.paths, stdin_payload, repo)
     try:
-        raw_findings, file_lines = _scan_paths(repo, paths, registry)
+        raw_findings, file_lines = _scan_paths(
+            repo, paths, registry, run_host=run_host, digests=digests
+        )
     except (AcfInputError, DetectorPackError, UnknownDetectorError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
-        return 1
+        return failure
 
     findings = apply_registry(
         raw_findings, registry, make_line_lookup(file_lines), call_sites=HOOK_CALL_SITES
     )
     has_block = any(f.severity == Severity.BLOCK for f in findings)
+
+    if notice and (out_format != "hook" or has_block):
+        print(notice, file=sys.stderr)
 
     if out_format == "json":
         print(json.dumps([f.model_dump(mode="json") for f in findings], indent=2))
@@ -135,16 +184,15 @@ def main(argv: list[str] | None = None) -> int:
         if isinstance(stdin_payload, dict):
             event = str(stdin_payload.get("hook_event_name") or event)
         context = _format_findings(findings)
-        print(
-            json.dumps(
-                {
-                    "hookSpecificOutput": {
-                        "hookEventName": event,
-                        "additionalContext": context,
-                    }
-                }
-            )
-        )
+        output: dict = {}
+        if notice:
+            context = f"{notice}\n\n{context}"
+            output["systemMessage"] = notice
+        output["hookSpecificOutput"] = {
+            "hookEventName": event,
+            "additionalContext": context,
+        }
+        print(json.dumps(output))
     else:
         print(_format_findings(findings))
 
@@ -212,7 +260,12 @@ def _collect_paths(
 
 
 def _scan_paths(
-    repo: Path, paths: list[Path], registry
+    repo: Path,
+    paths: list[Path],
+    registry,
+    *,
+    run_host: bool,
+    digests: Mapping[str, str] | None,
 ) -> tuple[list[Finding], dict[str, list[str]]]:
     from acf.detectors.build_artifacts import (
         BUILD_ARTIFACT_DETECTOR_ID,
@@ -270,28 +323,52 @@ def _scan_paths(
                         **fsm_guard_args(params),
                     )
                 )
-            findings.extend(
-                scan_host_ast_file(
-                    repo, text, rel, None, registry, language="python", call_sites=HOOK_CALL_SITES
+            if run_host:
+                findings.extend(
+                    scan_host_ast_file(
+                        repo,
+                        text,
+                        rel,
+                        None,
+                        registry,
+                        language="python",
+                        call_sites=HOOK_CALL_SITES,
+                        digests=digests,
+                    )
                 )
-            )
         else:
             findings.extend(
                 f.model_copy(update={"path": rel})
                 for f in scan_typescript_file(abs_path, added_lines=None)
             )
-            findings.extend(
-                scan_host_ast_file(
-                    repo, text, rel, None, registry, language="typescript", call_sites=HOOK_CALL_SITES
+            if run_host:
+                findings.extend(
+                    scan_host_ast_file(
+                        repo,
+                        text,
+                        rel,
+                        None,
+                        registry,
+                        language="typescript",
+                        call_sites=HOOK_CALL_SITES,
+                        digests=digests,
+                    )
                 )
-            )
 
     for mandate in registry.active(HOOK_CALL_SITES, detector=BUILD_ARTIFACT_DETECTOR_ID):
         params = mandate.params or {}
         findings.extend(scan_build_artifact_paths(rel_paths, **build_artifact_args(params)))
-    findings.extend(
-        scan_host_guards(repo, rel_paths, registry, file_lines, call_sites=HOOK_CALL_SITES)
-    )
+    if run_host:
+        findings.extend(
+            scan_host_guards(
+                repo,
+                rel_paths,
+                registry,
+                file_lines,
+                call_sites=HOOK_CALL_SITES,
+                digests=digests,
+            )
+        )
     return findings, file_lines
 
 

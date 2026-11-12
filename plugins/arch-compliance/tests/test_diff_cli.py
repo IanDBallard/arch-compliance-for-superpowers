@@ -6,7 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from acf.approval import write_approval
 from acf.cli_check_diff import main
+from acf.detectors import load_gate_registry
+from acf.repo import MANDATES_REL
 
 FIXTURES = Path(__file__).parent / "fixtures"
 MANDATES_SRC = FIXTURES / "mandates_valid.yml"
@@ -340,6 +343,10 @@ def _host_repo(tmp_path: Path, rows: str) -> Path:
     return repo
 
 
+def _approve(repo: Path) -> None:
+    write_approval(repo, load_gate_registry(repo, repo / MANDATES_REL))
+
+
 def _json_ids(capsys: pytest.CaptureFixture[str]) -> list[tuple[str, str]]:
     import json
 
@@ -351,6 +358,7 @@ def test_host_ast_and_guard_rows_run_at_ci_and_block(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
 ) -> None:
     repo = _host_repo(tmp_path, _host_rows("[ci]"))
+    _approve(repo)
     (repo / "pkg").mkdir()
     (repo / "pkg" / "a.py").write_text("x = 1  # HOST_MARKER\n", encoding="utf-8")
     (repo / "notes.md").write_text("plain text\n", encoding="utf-8")
@@ -364,10 +372,105 @@ def test_host_ast_and_guard_rows_run_at_ci_and_block(
     ]
 
 
+def _stage_host_inputs(repo: Path) -> None:
+    (repo / "pkg").mkdir()
+    (repo / "pkg" / "a.py").write_text("x = 1  # HOST_MARKER\n", encoding="utf-8")
+    (repo / "notes.md").write_text("plain text\n", encoding="utf-8")
+    _git(repo, "add", "pkg/a.py", "notes.md")
+
+
+_CI_ARGS = ["--mode", "staged", "--call-site", "ci", "--json"]
+
+
+def test_host_rows_unapproved_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
+) -> None:
+    repo = _host_repo(tmp_path, _host_rows("[ci]"))
+    marker = tmp_path / "host-imported.marker"
+    (repo / "hostdet" / "rules.py").write_text(
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran', encoding='utf-8')\n"
+        + _HOST_MODULE,
+        encoding="utf-8",
+    )
+    _stage_host_inputs(repo)
+
+    code = main(["--repo", str(repo), *_CI_ARGS])
+    err = capsys.readouterr().err
+    assert code == 1
+    assert "acf-allow" in err
+    assert "--trusted-checkout" in err
+    assert not marker.exists()
+
+
+def test_host_rows_trusted_checkout_runs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
+) -> None:
+    repo = _host_repo(tmp_path, _host_rows("[ci]"))
+    _stage_host_inputs(repo)
+
+    code = main(["--repo", str(repo), *_CI_ARGS, "--trusted-checkout"])
+    assert code == 1
+    assert _json_ids(capsys) == [
+        ("host.ast-marker", "pkg/a.py"),
+        ("host.doc-guard", "notes.md"),
+    ]
+
+
+def test_host_rows_approved_runs_without_flag(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
+) -> None:
+    repo = _host_repo(tmp_path, _host_rows("[ci]"))
+    _approve(repo)
+    _stage_host_inputs(repo)
+
+    code = main(["--repo", str(repo), *_CI_ARGS])
+    assert code == 1
+    assert _json_ids(capsys) == [
+        ("host.ast-marker", "pkg/a.py"),
+        ("host.doc-guard", "notes.md"),
+    ]
+
+
+def test_no_host_rows_no_approval_unchanged(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _stage_bad_py(repo)
+    _git(repo, "add", "bad.py")
+
+    assert main(["--repo", str(repo), "--mode", "staged", "--call-site", "ci"]) == 1
+
+
+def test_hook_only_host_row_does_not_refuse_ci(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
+) -> None:
+    rows = _host_rows("[hook]")
+    rows = rows[: rows.index("- id: host.doc-guard")]
+    repo = _host_repo(tmp_path, rows + _BARE_EXCEPT_ROW.format(severity="BLOCK", status="enforced"))
+    _stage_bad_py(repo)
+    _git(repo, "add", "bad.py")
+
+    code = main(["--repo", str(repo), *_CI_ARGS])
+    assert code == 1
+    assert _json_ids(capsys) == [("fail-loud.bare-except", "bad.py")]
+
+
+def test_stale_approval_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
+) -> None:
+    repo = _host_repo(tmp_path, _host_rows("[ci]"))
+    _approve(repo)
+    (repo / "hostdet" / "rules.py").write_text(_HOST_MODULE + "\n# edited\n", encoding="utf-8")
+    _stage_host_inputs(repo)
+
+    code = main(["--repo", str(repo), *_CI_ARGS])
+    assert code == 1
+    assert "changed since approval" in capsys.readouterr().err
+
+
 def test_host_guard_exemption_token_on_a_non_code_file_is_honoured(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], fresh_host_loader
 ) -> None:
     repo = _host_repo(tmp_path, _host_rows("[ci]"))
+    _approve(repo)
     (repo / "notes.md").write_text("# host.doc-ok: generated changelog\n", encoding="utf-8")
     _git(repo, "add", "notes.md")
 
@@ -383,6 +486,7 @@ def test_host_guard_only_row_at_precommit_passes_selection_and_reports(
     rows = _host_rows("[precommit]")
     guard_only = rows[rows.index("- id: host.doc-guard") :]
     repo = _host_repo(tmp_path, guard_only)
+    _approve(repo)
     (repo / "notes.md").write_text("plain text\n", encoding="utf-8")
     _git(repo, "add", "notes.md")
 

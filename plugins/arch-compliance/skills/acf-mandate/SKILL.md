@@ -15,7 +15,7 @@ Edit the **host** mandate registry at `config/architecture/mandates.yml`. This s
 2. Clarify intent: add / edit / deprecate
 3. Apply schema-valid row changes
 4. Ensure `arch_anchor` exists in ARCHITECTURE.md
-5. Validate with `load_mandates` + the built-in contracts and LLM prompt ids
+5. Validate with `load_gate_registry` (it applies the built-in detector contracts and the LLM prompt ids)
 6. Remind about detector / prompt / auditor stubs when needed
 7. Summarize diff of mandate ids touched
 
@@ -87,13 +87,12 @@ From an environment where the `acf` package is importable, run:
 ```bash
 python -c "
 import sys
-from acf.detectors import KNOWN_DETECTORS
-from acf.judge import LLM_PROMPT_IDS
-from acf.registry import load_mandates, missing_anchors
+from acf.detectors import load_gate_registry
+from acf.registry import missing_anchors
 from acf.repo import ARCH_REL, MANDATES_REL, resolve_repo
 
 repo = resolve_repo(None)
-reg = load_mandates(repo / MANDATES_REL, known_detectors=KNOWN_DETECTORS, llm_prompt_ids=LLM_PROMPT_IDS, repo_root=repo)
+reg = load_gate_registry(repo, repo / MANDATES_REL)
 print(f'OK: {len(reg.mandates)} mandates from {reg.source_path}')
 for m in reg.mandates:
     print(f'  {m.id} status={m.status} detection={m.detection} detector={m.detector}')
@@ -111,7 +110,7 @@ prompt id is unknown, and a row whose `arch_anchor` is not a literal substring o
 `config/architecture/ARCHITECTURE.md` (the same check the profile drift test runs).
 
 If `UnknownDetectorError` or `AcfInputError` occurs, or an anchor is reported missing: fix
-the YAML or the heading; do not weaken validation by omitting `known_detectors` for
+the YAML or the heading; do not weaken validation by bypassing `load_gate_registry` for
 “convenience.” The valid built-in detectors are the contracts in
 `acf.detectors.KNOWN_DETECTORS`, and `acf.judge.LLM_PROMPT_IDS` for `llm` rows; print them
 with `python -c "from acf.detectors import KNOWN_DETECTORS; print(sorted(KNOWN_DETECTORS))"`.
@@ -133,7 +132,7 @@ Say explicitly: `/acf-mandate` updates registry rows only. Implementing detector
 - Action taken (add/edit/deprecate) and mandate `id`s
 - Validation command result
 - Any missing detector/prompt/auditor stubs
-- Reminder to re-run `acf-check-diff` (with `--call-site ci` or `--call-site precommit`, which selects the rows that run) after meaningful enforcement changes
+- Reminder to re-run `acf-check-diff` (with `--call-site ci` or `--call-site precommit`, which selects the rows that run) after meaningful enforcement changes; the re-run needs the user to run `acf-allow` again after a host row or detector file changes (never run it or add `--trusted-checkout` yourself)
 
 ## Common mistakes
 
@@ -143,4 +142,4 @@ Say explicitly: `/acf-mandate` updates registry rows only. Implementing detector
 | Active (`enforced` or `partial`) + unknown `detector` | Use `unenforced` or implement stub first |
 | `arch_anchor` not in ARCHITECTURE.md | Add heading or fix anchor string |
 | Full detector codegen in this skill | Refuse; list stub locations only |
-| Skipping `load_mandates(..., known_detectors=...)` | Always validate before claiming done |
+| Skipping `load_gate_registry(...)` | Always validate before claiming done |
