@@ -13,8 +13,8 @@ The refuted statement was the controller's claim summary, not spec text: it list
 
 ```
 $ grep -n "^| \`plugins/arch-compliance/python/acf/\(detectors/__init__\|loader\).py\`" docs/design/HOST_DETECTOR_LOCAL_APPROVAL.md
-198:| `plugins/arch-compliance/python/acf/detectors/__init__.py` | `load_gate_registry` (§4.3) |
-200:| `plugins/arch-compliance/python/acf/loader.py` | typed decode and parse failures (§4.7) |
+199:| `plugins/arch-compliance/python/acf/detectors/__init__.py` | `load_gate_registry` (§4.3) |
+201:| `plugins/arch-compliance/python/acf/loader.py` | typed decode and parse failures (§4.7) |
 ```
 
 ### S12 (sweep, REFUTED) and M7 (mandate, REFUTED) — recipe replaced by an executed census
