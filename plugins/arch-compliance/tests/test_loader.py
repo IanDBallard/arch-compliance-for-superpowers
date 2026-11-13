@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from acf.exceptions import AcfInputError
-from acf.loader import load_model_file
+from acf.exceptions import AcfInputError, ReportWriteError
+from acf.loader import load_model_file, write_text_record
 
 
 class Row(BaseModel):
@@ -145,3 +145,16 @@ def test_overdeep_nesting_refused(tmp_path):
     with pytest.raises(AcfInputError) as excinfo:
         load_model_file(path, Row, subject="row file", fmt="json")
     assert path.as_posix() in str(excinfo.value)
+
+
+def test_write_text_record_wraps_oserror(tmp_path):
+    blocker = tmp_path / "f"
+    blocker.write_text("x", encoding="utf-8")
+    with pytest.raises(ReportWriteError, match=r"f/out\.md.*rerun") as ei:
+        write_text_record(blocker / "out.md", "t", error=ReportWriteError, hint="rerun")
+    assert isinstance(ei.value.__cause__, OSError)
+
+
+def test_write_text_record_makes_parents(tmp_path):
+    p = write_text_record(tmp_path / "a" / "b.md", "\u00e9\n", error=ReportWriteError)
+    assert p.read_text(encoding="utf-8") == "\u00e9\n"

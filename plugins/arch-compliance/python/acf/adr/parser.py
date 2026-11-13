@@ -8,8 +8,6 @@ absorbing a malformed verdict is indistinguishable from a clean pass.
 from __future__ import annotations
 
 import difflib
-import json
-import re
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
@@ -21,9 +19,8 @@ from acf.adr.contract import (
     ReviewerPayload,
     SweeperPayload,
 )
+from acf.agent_payload import extract_json_block
 from acf.exceptions import ReviewerContractViolationError
-
-_JSON_FENCE_RE = re.compile(r"```json\s*\n(?P<body>.*?)\n```", re.DOTALL)
 
 # Annotated as ``type[BaseModel]``: without it the inferred value type collapses
 # to Pydantic's ``ModelMetaclass``, on which ``.model_fields`` (read below to
@@ -50,24 +47,9 @@ def parse_reviewer_payload(payload: str, expected_reviewer: ReviewerName) -> Rev
     Raises ``ReviewerContractViolationError`` on: no fenced json block, more than
     one, JSON parse failure, schema violation, or reviewer-identity mismatch.
     """
-    matches = list(_JSON_FENCE_RE.finditer(payload))
-    if not matches:
-        raise ReviewerContractViolationError(
-            f"{expected_reviewer} payload contains no ```json fenced block.\n"
-            f"--- raw payload (first 500 chars) ---\n{payload[:500]}"
-        )
-    if len(matches) > 1:
-        raise ReviewerContractViolationError(
-            f"{expected_reviewer} payload contains multiple ({len(matches)}) "
-            "```json blocks; expected exactly one."
-        )
-    raw = matches[0].group("body")
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise ReviewerContractViolationError(
-            f"{expected_reviewer} JSON parse failed: {e}\n--- raw block ---\n{raw}"
-        ) from e
+    data = extract_json_block(
+        payload, subject=expected_reviewer, error=ReviewerContractViolationError
+    )
 
     if isinstance(data, dict) and data.get("reviewer") != expected_reviewer:
         raise ReviewerContractViolationError(

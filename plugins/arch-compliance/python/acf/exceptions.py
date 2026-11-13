@@ -62,5 +62,13 @@ class RunDetailWriteError(AcfError):
     """A run detail could not be written, so the run has no record."""
 
 
+class AuditorContractViolationError(AcfError):
+    """An auditor payload does not satisfy the contract it was dispatched under."""
+
+
+class ReportWriteError(AcfError):
+    """A report could not be written, so the run has no record."""
+
+
 class UnresolvableCitationError(AcfError):
     """A spec cites a path that is not current, historical, proposed, asserted absent or external."""
