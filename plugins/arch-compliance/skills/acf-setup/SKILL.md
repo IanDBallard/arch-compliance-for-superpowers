@@ -168,6 +168,10 @@ subsystems: []
 exclude: []
 ```
 
+A reviewed mandate row without a declared `params.surface` sees only its packs' files, so a
+`posix-paths` row meant to check committed data files (YAML, JSON, TOML) needs an explicit
+`surface` naming them.
+
 Paths use forward slashes; a backslash is refused.
 
 ## Step 7 — Enable hooks marker
@@ -280,7 +284,7 @@ Tell the user:
 - Paths written: `config/architecture/mandates.yml`, `config/architecture/ARCHITECTURE.md`, `config/architecture/review.yml`, `.acf/enabled`
 - That pre-commit/CI snippets were printed (not necessarily applied)
 - Smoke command result
-- Next: customize with `/acf-mandate`; full audit later with `/architecture-review` (when available)
+- Next: customize with `/acf-mandate`; full audit later with `/architecture-review`
 - Host config overrides plugin templates from now on
 
 ## Common mistakes

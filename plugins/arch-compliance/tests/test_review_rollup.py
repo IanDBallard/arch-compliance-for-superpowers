@@ -7,7 +7,8 @@ from pathlib import Path
 
 from acf.baseline import Baseline, BaselineCell, save_baseline
 from acf.review.aggregator import GroupResult
-from acf.review.contract import AuditorFinding
+from acf.review import rollup
+from acf.review.contract import AuditorFinding, AuditorPayload
 from acf.review.host import ReviewHostConfig
 from acf.review.rollup import exit_status, provenance, render_rollup, staleness
 
@@ -98,8 +99,26 @@ def test_provenance_classes(tmp_path):
     assert provenance(repo, _finding("new.py"), first) == ("post-baseline", None)
     (repo / "new.py").write_text("y = 2\n", encoding="utf-8")
     assert provenance(repo, _finding("new.py"), first) == ("uncommitted", None)
-    cls, err = provenance(repo, _finding("missing.py"), first)
+    cls, err = provenance(repo, _finding("old.py", line=9), first)  # tracked, blame fails
     assert cls == "unresolved" and err
+
+
+def test_provenance_untracked_file_is_uncommitted(tmp_path):
+    repo, first, _ = _repo(tmp_path)
+    (repo / "fresh.py").write_text("z = 1\n", encoding="utf-8")
+    assert provenance(repo, _finding("fresh.py"), first) == ("uncommitted", None)
+
+
+def test_provenance_all_zero_commit_of_any_length_is_uncommitted(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_run_git(repo, *args):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, "0" * 64 + " 1 1 1\n", "")
+
+    monkeypatch.setattr(rollup, "run_git", fake_run_git)
+    assert provenance(tmp_path, _finding("a.py"), "abc") == ("uncommitted", None)
+    assert [a[0] for a in calls] == ["blame"]
 
 
 def test_provenance_unresolved_when_baseline_commit_unknown(tmp_path):
@@ -130,13 +149,32 @@ def test_rollup_with_baseline(tmp_path):
         GroupResult(group="g", status="OK", payload=None, raw="", error=None),
         GroupResult(group="h", status="FAILED", payload=None, raw="", error="boom"),
     ]
-    findings = [_finding("old.py"), _finding("new.py"), _finding("missing.py")]
+    findings = [_finding("old.py"), _finding("new.py"), _finding("old.py", line=9)]
     text = render_rollup(repo=repo, cfg=_cfg(), findings=findings, results=results, now=NOW)
     for heading in ("## Roll-up", "## Drift", "## Staleness", "## Provenance"):
         assert heading in text
     assert "no baseline" not in text
-    assert "missing.py" in text
+    assert "old.py:9" in text
     assert "fresh" in text  # 1 commit behind is within baseline_max_commits=1
     assert "pre-baseline: 1" in text and "post-baseline: 1" in text and "unresolved: 1" in text
     assert "FAILED: 1" in text and "OK: 1" in text
     assert exit_status(results) == 1
+
+
+def test_rollup_counts_auditor_error_notes(tmp_path):
+    repo, _, _ = _repo(tmp_path)
+    results = [
+        GroupResult(
+            group="g", status="OK",
+            payload=AuditorPayload(group="g", files_examined=2, findings=[], errors=["a", "b"]),
+            raw="", error=None,
+        ),
+        GroupResult(
+            group="h", status="OK",
+            payload=AuditorPayload(group="h", files_examined=1, findings=[], errors=["c"]),
+            raw="", error=None,
+        ),
+        GroupResult(group="k", status="FAILED", payload=None, raw="", error="boom"),
+    ]
+    text = render_rollup(repo=repo, cfg=_cfg(), findings=[], results=results, now=NOW)
+    assert "- Auditor error notes: 3" in text

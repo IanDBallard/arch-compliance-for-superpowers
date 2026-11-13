@@ -67,7 +67,15 @@ def row_surface(
     target: list[str],
     *,
     include_tests: bool,
+    paths_given: bool,
 ) -> list[str]:
+    """The files ``row``'s auditor reviews.
+
+    A declared ``surface`` that matches nothing raises. A default surface (the
+    row's packs' files within ``target``) that is empty raises too, unless
+    ``paths_given``: under ``--paths`` it returns ``[]`` and the caller drops the
+    row as not in scope.
+    """
     settings = row.settings
     declared = settings.surface if settings is not None else None
     surface_exclude = settings.surface_exclude if settings is not None else []
@@ -80,12 +88,19 @@ def row_surface(
             )
         return keys
     globs = [g for pack in packs_for_row(row.mandate, packs) for g in pack.files]
-    return [
+    keys = [
         key
         for key in target
         if any(path_matches(key, g) for g in globs)
         and not any(path_matches(key, e) for e in surface_exclude)
     ]
+    if not keys and not paths_given:
+        raise AcfInputError(
+            f"mandate {row.mandate.id!r}: its default surface is empty: no target file "
+            f"belongs to a declared pack for languages {row.mandate.languages!r} "
+            f"(declared packs {list(packs)}); declare a `surface` for the row"
+        )
+    return keys
 
 
 @dataclass(frozen=True)

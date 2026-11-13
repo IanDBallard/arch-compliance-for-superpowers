@@ -102,9 +102,9 @@ def test_default_surface_follows_row_languages(tmp_path):
     tree, cfg, packs = _ctx(tmp_path)
     target = target_tree(tree, cfg, packs, paths=None, include_tests=False)
     py = _row(tmp_path, languages="python")
-    assert row_surface(tree, cfg, packs, py, target, include_tests=False) == ["a.py"]
+    assert row_surface(tree, cfg, packs, py, target, include_tests=False, paths_given=False) == ["a.py"]
     both = _row(tmp_path, languages="both")
-    assert row_surface(tree, cfg, packs, both, target, include_tests=False) == ["a.py", "b.ts"]
+    assert row_surface(tree, cfg, packs, both, target, include_tests=False, paths_given=False) == ["a.py", "b.ts"]
 
 
 def test_surface_exclude_applies_with_and_without_declared_surface(tmp_path):
@@ -113,9 +113,9 @@ def test_surface_exclude_applies_with_and_without_declared_surface(tmp_path):
     tree, cfg, packs = _ctx(tmp_path)
     target = target_tree(tree, cfg, packs, paths=None, include_tests=False)
     undeclared = _row(tmp_path, params={"surface_exclude": ["src/skip/**"]})
-    assert row_surface(tree, cfg, packs, undeclared, target, include_tests=False) == ["src/a.py"]
+    assert row_surface(tree, cfg, packs, undeclared, target, include_tests=False, paths_given=False) == ["src/a.py"]
     declared = _row(tmp_path, params={"surface": ["src/**"], "surface_exclude": ["src/skip/**"]})
-    assert row_surface(tree, cfg, packs, declared, target, include_tests=False) == ["src/a.py"]
+    assert row_surface(tree, cfg, packs, declared, target, include_tests=False, paths_given=False) == ["src/a.py"]
 
 
 def test_declared_surface_ignores_paths_and_tests(tmp_path):
@@ -125,8 +125,8 @@ def test_declared_surface_ignores_paths_and_tests(tmp_path):
     tree, cfg, packs = _ctx(tmp_path)
     target = target_tree(tree, cfg, packs, paths=["src/**"], include_tests=False)
     row = _row(tmp_path, params={"surface": ["docs/**", "tests/**"]})
-    assert row_surface(tree, cfg, packs, row, target, include_tests=False) == ["docs/x.md"]
-    assert row_surface(tree, cfg, packs, row, target, include_tests=True) == [
+    assert row_surface(tree, cfg, packs, row, target, include_tests=False, paths_given=True) == ["docs/x.md"]
+    assert row_surface(tree, cfg, packs, row, target, include_tests=True, paths_given=True) == [
         "docs/x.md",
         "tests/t.py",
     ]
@@ -138,7 +138,7 @@ def test_declared_surface_matching_nothing_names_mandate(tmp_path):
     target = target_tree(tree, cfg, packs, paths=None, include_tests=False)
     row = _row(tmp_path, params={"surface": ["nowhere/**"]})
     with pytest.raises(AcfInputError, match="'r1'"):
-        row_surface(tree, cfg, packs, row, target, include_tests=False)
+        row_surface(tree, cfg, packs, row, target, include_tests=False, paths_given=False)
 
 
 def test_hatch_row_uses_languages(tmp_path):
@@ -149,7 +149,28 @@ def test_hatch_row_uses_languages(tmp_path):
     target = target_tree(tree, cfg, packs, paths=None, include_tests=False)
     row = _row(tmp_path, auditor="p.md", languages="typescript")
     assert row.settings is None
-    assert row_surface(tree, cfg, packs, row, target, include_tests=False) == ["b.ts"]
+    assert row_surface(tree, cfg, packs, row, target, include_tests=False, paths_given=False) == ["b.ts"]
+
+
+def test_empty_default_surface_names_mandate_languages_and_packs(tmp_path):
+    _write(tmp_path, "a.py")
+    tree, cfg, packs = _ctx(tmp_path)
+    target = target_tree(tree, cfg, packs, paths=None, include_tests=False)
+    row = _row(tmp_path, languages="typescript")
+    with pytest.raises(AcfInputError) as caught:
+        row_surface(tree, cfg, packs, row, target, include_tests=False, paths_given=False)
+    message = str(caught.value)
+    assert "'r1'" in message and "typescript" in message
+    assert "python" in message and "ts-js" in message
+
+
+def test_empty_default_surface_under_paths_is_out_of_scope(tmp_path):
+    _write(tmp_path, "a.py")
+    _write(tmp_path, "b.ts")
+    tree, cfg, packs = _ctx(tmp_path)
+    target = target_tree(tree, cfg, packs, paths=["*.py"], include_tests=False)
+    row = _row(tmp_path, languages="typescript")
+    assert row_surface(tree, cfg, packs, row, target, include_tests=False, paths_given=True) == []
 
 
 def test_scan_candidates_per_pack_and_language(tmp_path):

@@ -113,6 +113,7 @@ Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exi
 
 - `/architecture-review` now runs a port of the origin repository's review and requires `config/architecture/review.yml`. Create it with `/acf-setup`, or write it by hand; every field is required, and a missing file fails loud and names `/acf-setup`.
 - A mandate row's `auditor` is a rule id or a repository prompt path ending in `.md`. Rows that named `react-boundaries` now name `ui-logic-isolation`.
+- A 0.2.x host's baseline lived at `docs/architecture/compliance_baseline.json`. To keep drift against it, set `baseline_path: docs/architecture/compliance_baseline.json` in `review.yml`; any other path starts with `no baseline`.
 
 ### Upgrading a host with host detectors (v0.2.5)
 

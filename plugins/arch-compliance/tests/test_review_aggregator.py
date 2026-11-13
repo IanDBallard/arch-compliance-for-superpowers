@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -157,6 +158,7 @@ def test_render_report_shows_failed_and_ok():
         findings=[finding],
         exempted=2,
         rollup_md="ROLLUP-BODY",
+        rows=[],
     )
     assert "abc123" in text and "/architecture-review" in text
     assert "g1" in text and "g2" in text and "FAILED" in text
@@ -176,7 +178,8 @@ def test_render_report_without_failures_has_no_failed_section():
         error=None,
     )
     text = render_report(
-        commit="c", invocation="i", results=[ok], findings=[], exempted=0, rollup_md="R"
+        commit="c", invocation="i", results=[ok], findings=[], exempted=0, rollup_md="R",
+        rows=[],
     )
     assert "## Failed groups" not in text
 
@@ -205,7 +208,73 @@ def test_failed_group_fence_encloses_raw_payload_with_inner_fence():
     raw = "intro\n```json\n{}\n```\ntail"
     failed = GroupResult(group="g2", status="FAILED", payload=None, raw=raw, error="bad")
     text = render_report(
-        commit="c", invocation="i", results=[failed], findings=[], exempted=0, rollup_md="R"
+        commit="c", invocation="i", results=[failed], findings=[], exempted=0, rollup_md="R",
+        rows=[],
     )
     fence = "````"
     assert f"\n{fence}\n{raw}\n{fence}\n" in text
+
+
+def _ok(findings, errors=(), files_examined=1, group="g1"):
+    return GroupResult(
+        group=group,
+        status="OK",
+        payload=AuditorPayload(
+            group=group, files_examined=files_examined, findings=findings, errors=list(errors)
+        ),
+        raw="",
+        error=None,
+    )
+
+
+def _report(results, findings, **over):
+    args = dict(
+        commit="c", invocation="i", results=results, findings=findings, exempted=0,
+        rollup_md="R", rows=[],
+    )
+    args.update(over)
+    return render_report(**args)
+
+
+def test_render_report_shows_files_examined_and_auditor_errors():
+    result = _ok([], errors=["could not open src/x.py", "skipped generated file"], files_examined=7)
+    text = _report([result], [])
+    groups = text[text.index("## Groups"):text.index("## Findings")]
+    assert "| g1 | OK | 7 |" in groups
+    assert "could not open src/x.py" in groups and "skipped generated file" in groups
+
+
+def test_render_report_lists_undeclared_keys_per_row(tmp_path):
+    row = _rows(tmp_path)[0]
+    loose = replace(row, undeclared=["extra_a", "extra_b"])
+    clean = replace(row, mandate=row.mandate.model_copy(update={"id": "r2"}), undeclared=[])
+    text = _report([], [], rows=[loose, clean])
+    section = text[text.index("## Undeclared settings keys"):]
+    assert "r1: extra_a, extra_b" in section
+    assert "r2" not in section.split("\n## ")[0]
+
+
+def test_render_report_has_no_undeclared_section_when_none():
+    assert "## Undeclared settings keys" not in _report([], [])
+
+
+def test_render_report_lists_rows_not_in_scope_under_paths():
+    text = _report([], [], out_of_scope=["r7", "r8"])
+    section = text[text.index("## Not in scope under --paths"):]
+    assert "- r7" in section and "- r8" in section
+    assert "## Not in scope under --paths" not in _report([], [])
+
+
+def test_snippet_fence_outruns_backticks_in_it():
+    finding = AuditorFinding(**_finding(snippet="x = `a` + ```b```"))
+    text = _report([_ok([finding])], [finding])
+    assert "    ````\n    x = `a` + ```b```\n    ````\n" in text
+    assert "`x = `a`" not in text
+
+
+def test_group_count_is_after_exemptions():
+    kept = AuditorFinding(**_finding(line=1, snippet="x = 1"))
+    exempt = AuditorFinding(**_finding(line=2))
+    text = _report([_ok([kept, exempt])], [kept], exempted=1)
+    assert "Findings (after exemptions)" in text
+    assert "| g1 | OK | 1 | 1 |" in text

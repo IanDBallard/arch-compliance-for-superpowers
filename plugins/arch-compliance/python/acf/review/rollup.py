@@ -30,7 +30,6 @@ _PROVENANCE_ORDER: tuple[Provenance, ...] = (
     "pre-baseline", "post-baseline", "uncommitted", "unresolved",
 )
 _SEVERITIES = ("blocking", "important", "nit", "suggestion")
-_ZERO_SHA = "0" * 40
 
 
 @dataclass
@@ -71,15 +70,22 @@ def staleness(
 def provenance(
     repo: Path, finding: AuditorFinding, baseline_commit: str
 ) -> tuple[Provenance, str | None]:
-    """Classify a finding's line against the baseline commit by blame and ancestry."""
+    """Classify a finding's line against the baseline commit by blame and ancestry.
+
+    A line git attributes to no commit (all-zero id), or a path git does not track,
+    is ``uncommitted``.
+    """
     blame = run_git(
         repo, "blame", "--porcelain", "-L", f"{finding.line},{finding.line}", "--", finding.path
     )
     if blame.returncode != 0:
+        tracked = run_git(repo, "ls-files", "--error-unmatch", "--", finding.path)
+        if tracked.returncode != 0:
+            return "uncommitted", None
         return "unresolved", blame.stderr.strip()
     tokens = blame.stdout.split()
     commit = tokens[0] if tokens else ""
-    if commit == _ZERO_SHA:
+    if commit and set(commit) == {"0"}:  # git's all-zero id for a not-yet-committed line, any hash length
         return "uncommitted", None
     ancestry = run_git(repo, "merge-base", "--is-ancestor", commit, baseline_commit)
     if ancestry.returncode == 0:
@@ -105,12 +111,14 @@ def render_rollup(
     """The roll-up Markdown; drift, staleness and provenance only with a baseline."""
     groups = Counter(r.status for r in results)
     severities = Counter(f.severity for f in findings)
+    error_notes = sum(len(r.payload.errors) for r in results if r.payload is not None)
     lines = [
         "## Roll-up",
         "",
         f"- Groups: OK: {groups['OK']}, FAILED: {groups['FAILED']}",
         "- Findings by severity: "
         + ", ".join(f"{s}: {severities[s]}" for s in _SEVERITIES),
+        f"- Auditor error notes: {error_notes}",
         "",
     ]
     baseline_file = RepoTree(repo).file(cfg.baseline_path)

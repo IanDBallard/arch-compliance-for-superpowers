@@ -112,6 +112,31 @@ def test_host_values_are_passed_explicitly():
             assert not (isinstance(repo_root, ast.Call) and getattr(repo_root.func, "id", "") == "Path")
 
 
+def test_review_brief_carries_its_group():
+    briefs = []
+    for _, body in _python_bodies():
+        for node in ast.walk(ast.parse(body)):
+            if (
+                isinstance(node, ast.Assign)
+                and isinstance(node.targets[0], ast.Subscript)
+                and getattr(node.targets[0].value, "id", None) == "briefs"
+                and isinstance(node.value, ast.Dict)
+            ):
+                briefs.append(node.value)
+    assert len(briefs) == 1, "expected one briefs[group] = {...} assignment in the review skill"
+    keys = {k.value for k in briefs[0].keys if isinstance(k, ast.Constant)}
+    assert "group" in keys
+
+
+def test_review_calls_pass_the_scope_arguments():
+    surface_calls = list(_calls("row_surface"))
+    assert surface_calls and all("paths_given" in {k.arg for k in c.keywords} for c in surface_calls)
+    report_calls = list(_calls("render_report"))
+    assert report_calls
+    for call in report_calls:
+        assert {"rows", "out_of_scope"} <= {k.arg for k in call.keywords}
+
+
 def test_no_python_c_body_opens_a_literal_ledger_path():
     for where, body in _python_bodies():
         if not where.endswith("python -c"):

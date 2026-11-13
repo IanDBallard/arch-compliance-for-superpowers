@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -122,6 +123,12 @@ def _longest_backtick_run(text: str) -> int:
     return max((len(run) for run in re.findall(r"`+", text)), default=0)
 
 
+def _fenced(text: str, indent: str = "") -> list[str]:
+    """``text`` in a code fence longer than any backtick run inside it."""
+    fence = "`" * max(3, _longest_backtick_run(text) + 1)
+    return [f"{indent}{fence}", *(f"{indent}{line}" for line in text.split("\n")), f"{indent}{fence}"]
+
+
 def render_report(
     *,
     commit: str,
@@ -130,7 +137,12 @@ def render_report(
     findings: list[AuditorFinding],
     exempted: int,
     rollup_md: str,
+    rows: Sequence[ReviewRow],
+    out_of_scope: Sequence[str] = (),
 ) -> str:
+    """The review report. ``findings`` are the findings left after inline exemptions;
+    each group's count is taken from them. ``out_of_scope`` names the rows dropped
+    because their default surface is empty under ``--paths``."""
     out = [
         "# Architecture review",
         "",
@@ -139,12 +151,22 @@ def render_report(
         "",
         "## Groups",
         "",
-        "| Group | Status | Findings |",
-        "| --- | --- | --- |",
+        "| Group | Status | Files examined | Findings (after exemptions) |",
+        "| --- | --- | --- | --- |",
     ]
+    notes: list[str] = []
     for result in results:
-        count = len(result.payload.findings) if result.payload is not None else 0
-        out.append(f"| {result.group} | {result.status} | {count} |")
+        if result.payload is None:
+            out.append(f"| {result.group} | {result.status} | — | — |")
+            continue
+        mandates = {f.mandate_id for f in result.payload.findings}
+        count = sum(1 for f in findings if f.mandate_id in mandates)
+        out.append(
+            f"| {result.group} | {result.status} | {result.payload.files_examined} | {count} |"
+        )
+        notes += [f"- {result.group}: {error}" for error in result.payload.errors]
+    if notes:
+        out += ["", "### Auditor error notes", "", *notes]
     out += ["", "## Findings", ""]
     if not findings:
         out += ["No findings.", ""]
@@ -157,17 +179,27 @@ def render_report(
             out += [
                 f"- `{f.path}:{f.line}` — {f.rule} — {f.mandate_id}",
                 f"  - Why: {f.why}",
-                f"  - Snippet: `{f.snippet}`",
+                "  - Snippet:",
+                *_fenced(f.snippet, indent="    "),
                 f"  - Suggested fix: {f.suggested_fix}",
             ]
         out.append("")
-    out += [f"{exempted} findings exempted by inline tokens.", "", rollup_md, ""]
+    out += [f"{exempted} findings exempted by inline tokens.", ""]
+    loose = [row for row in rows if row.undeclared]
+    if loose:
+        out += ["## Undeclared settings keys", ""]
+        out += [f"- {row.mandate.id}: {', '.join(row.undeclared)}" for row in loose]
+        out.append("")
+    if out_of_scope:
+        out += ["## Not in scope under --paths", ""]
+        out += [f"- {mandate_id}" for mandate_id in out_of_scope]
+        out.append("")
+    out += [rollup_md, ""]
     failed = [r for r in results if r.status == "FAILED"]
     if failed:
         out += ["## Failed groups", ""]
         for r in failed:
-            fence = "`" * max(3, _longest_backtick_run(r.raw) + 1)
-            out += [f"### {r.group}", "", f"Error: {r.error}", "", fence, r.raw, fence, ""]
+            out += [f"### {r.group}", "", f"Error: {r.error}", "", *_fenced(r.raw), ""]
     return "\n".join(out)
 
 

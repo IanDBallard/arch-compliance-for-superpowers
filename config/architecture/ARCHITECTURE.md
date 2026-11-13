@@ -115,7 +115,8 @@ Every ACF exception subclasses `AcfError` and nothing else; no stdlib mixin such
 ## One owner for host paths
 
 `acf.repo` is the one declaration of where ACF looks inside a host repository, and it
-imports only the standard library (`plugins/arch-compliance/python/acf/repo.py:1-6`).
+imports only the standard library and `acf.exceptions` (itself stdlib-only)
+(`plugins/arch-compliance/python/acf/repo.py:1-7`).
 Row: `plugin.one-owner-host-paths`; its test scans `plugins/arch-compliance/python/` and
 `plugins/arch-compliance/hooks/`. The repository-level `tests/` and `scripts/` follow
 the rule by importing the `acf.repo` constants, which review checks. Executable skill snippets
@@ -220,9 +221,11 @@ Skill prose and runtime messages name no host repository, path or section; a hos
 reaches the gate only through its declaration and its doctrine. Rows:
 `plugin.adr-code-names-no-host` (the gate's package and runtime messages) and
 `plugin.gate-prose-names-no-host` (`plugins/arch-compliance/tests/test_adr_skill_prose.py`
-checks the two gate skills and `post-merge-housekeeping` against the enumerated
-`FORBIDDEN` list of known origin-host (`HistoricMansions`) vocabulary; the other three
-skills in `plugins/arch-compliance/skills/` have no row yet).
+checks the two gate skills, `post-merge-housekeeping`, and `architecture-review` with its
+rule prompts and technology packs, plus the string constants of
+`plugins/arch-compliance/python/acf/review/`, against the enumerated `FORBIDDEN` list of
+known origin-host (`HistoricMansions`) vocabulary; the other two skills in
+`plugins/arch-compliance/skills/`, `acf-mandate` and `acf-setup`, have no row yet).
 
 ## Frozen ledger format
 

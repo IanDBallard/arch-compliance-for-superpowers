@@ -1,6 +1,7 @@
 """Host repository layout: the one declaration of where ACF looks in a host.
 
-Stdlib-only on purpose. Both hooks import this at module scope, before the
+It imports only the standard library and ``acf.exceptions`` (itself stdlib-only), on
+purpose. Both hooks import this at module scope, before the
 ``.acf/enabled`` gate decides whether ACF is active at all, so this module must
 never pull in a third-party package.
 """
@@ -79,6 +80,10 @@ def _glob_regex(pattern: str) -> str:
 def _check_pattern(pattern: str) -> None:
     if "\\" in pattern:
         raise AcfInputError(f"glob pattern {pattern!r} contains a backslash; write host paths with '/'")
+    if pattern.startswith("/"):
+        raise AcfInputError(
+            f"glob pattern {pattern!r} has a leading /; write it relative to the repository root"
+        )
 
 
 def path_matches(key: str, pattern: str) -> bool:

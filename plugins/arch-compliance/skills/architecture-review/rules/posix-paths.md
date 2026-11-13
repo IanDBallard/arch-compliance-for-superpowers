@@ -8,7 +8,9 @@ configuration, metadata or records holds a host-native path.
 
 - `surface`, `surface_exclude`: already applied by the controller; you audit the
   row's surface as given. It may hold source files and committed data files
-  (YAML, JSON, TOML) alike.
+  (YAML, JSON, TOML) alike. A row without a declared `surface` sees only its
+  technology packs' files, so committed data files reach you only when the row
+  declares a `surface` that names them; checks 2 and 3 need that.
 - `docs`: documents to read in full before auditing.
 - `path_types`: the names of the repository's declared path types (for example a
   string alias that refuses backslashes). When set, a persisted path field must be

@@ -151,13 +151,3 @@ def render_drift_section(report: DriftReport, baseline: Baseline) -> str:
     if not report.rows:
         lines.append("| _no overlapping cells_ | | | | |")
     return "\n".join(lines) + "\n"
-
-
-def format_drift_line(report: DriftReport, baseline_commit: str) -> str:
-    """One-line rollup summary."""
-    worse = sum(1 for r in report.rows if r.delta > 0)
-    better = sum(1 for r in report.rows if r.delta < 0)
-    return (
-        f"Drift vs baseline ({baseline_commit}): "
-        f"{worse} worse, {better} better across {len(report.rows)} cells"
-    )

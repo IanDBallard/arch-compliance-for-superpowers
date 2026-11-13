@@ -83,6 +83,13 @@ def test_backslash_pattern_refused():
         path_matches("admin/js/a.js", "admin\\js\\**")
 
 
+def test_leading_slash_pattern_refused(tmp_path):
+    with pytest.raises(AcfInputError, match="leading /"):
+        path_matches("src/a.py", "/src/**")
+    with pytest.raises(AcfInputError, match="leading /"):
+        RepoTree(tmp_path).files(["/src/**"], [])
+
+
 def test_review_rel():
     assert REVIEW_REL.as_posix() == "config/architecture/review.yml"
 

@@ -15,10 +15,10 @@ Codebase-wide architectural-conformance audit of the **host** repository. Audito
 
 | Flag | Meaning |
 |------|---------|
-| `--paths <glob>` | Replace the default include set (the declared packs' `files`). Built-in and declared exclusions still apply. A row that declares its own `surface` ignores it. |
+| `--paths <glob>` | Replace the default include set (the declared packs' `files`). Built-in and declared exclusions still apply. A row that declares its own `surface` ignores it. A row without a declared `surface` whose default surface is then empty is dropped from the run and listed in the report under "Not in scope under --paths". |
 | `--include-tests` | Drop the test-path exclusions. |
 | `--mandates <id,...>` | Comma-separated mandate ids. Run only those reviewed rows. An id that matches no reviewed row raises `UnknownMandateError`. Omit to review every reviewed row. |
-| `--update-baseline` | After the run, write the aggregated counts to the host's `baseline_path`. Without it the baseline is read-only input for drift. |
+| `--update-baseline` | After the run, write the aggregated counts to the host's `baseline_path`. Without it the baseline is read-only input for drift. Only a full run saves a baseline: with any FAILED group, or with `--mandates`, `--paths` or `--include-tests`, the run is partial and raises `BaselineError` after the report is written. |
 
 A *reviewed row* is an active mandate row with an `auditor` set, whatever its `call_sites`. Every location below comes from `review.yml` (`cfg.report_dir`, `cfg.baseline_path`) or from the registry; this skill declares none.
 
@@ -76,12 +76,19 @@ if doctrine_file is None:
     raise AcfInputError(f"the doctrine file {ARCH_REL.as_posix()} is missing; run /acf-setup")
 doctrine_text = doctrine_file.read_text(encoding="utf-8")
 
-surfaces = {
-    row.mandate.id: row_surface(
-        tree, cfg, packs, row, target, include_tests=include_tests
+surfaces = {}
+out_of_scope = []  # rows whose default surface is empty under --paths
+for row in rows:
+    surface = row_surface(
+        tree, cfg, packs, row, target, include_tests=include_tests, paths_given=bool(paths)
     )
-    for row in rows
-}
+    if surface:
+        surfaces[row.mandate.id] = surface
+    else:
+        out_of_scope.append(row.mandate.id)
+rows = [row for row in rows if row.mandate.id in surfaces]
+groups = group_rows(rows)
+
 sections = {
     row.mandate.id: doctrine_section(
         doctrine_text, row.mandate.arch_anchor, mandate_id=row.mandate.id
@@ -90,7 +97,7 @@ sections = {
 }
 ```
 
-A declared `surface` that matches no file, and an `arch_anchor` that matches no doctrine line, each fail loud naming the mandate id.
+A declared `surface` that matches no file, and an `arch_anchor` that matches no doctrine line, each fail loud naming the mandate id. A row without a declared `surface` whose default surface (its packs' files in the target tree) is empty fails loud too, naming the mandate id, its `languages` and the declared packs; under `--paths` that row is instead dropped, `rows` and `groups` are recomputed without it, and the report lists it under "Not in scope under --paths". If every row is dropped, there is nothing to review under `--paths`: say so and stop.
 
 ## Step 4 — Pre-pass candidates
 
@@ -129,6 +136,7 @@ for group, group_members in groups.items():
     first = group_members[0]
     prompt_file = first.prompt if first.prompt is not None else rules_dir / f"{group}.md"
     briefs[group] = {
+        "group": group,
         "prompt": read_prompt(prompt_file),
         "contract": contract,
         "rows": [
@@ -156,11 +164,12 @@ for group, group_members in groups.items():
 
 Each agent receives exactly its `briefs[group]`:
 
-1. the rule prompt (`rules/<id>.md` under the skill's base directory, or the host's own prompt file for a `.md` auditor);
-2. `_contract.md`, the finding contract;
-3. its rows, each with id, title and settings (the validated settings for a rule, the raw `params` for a host prompt);
-4. each row's surface, doctrine section, `docs` and candidates;
-5. the instruction: *Read `config/architecture/ARCHITECTURE.md` in full, then every document it points to.*
+1. its group id (`group`), which the payload's `group` field must echo exactly;
+2. the rule prompt (`rules/<id>.md` under the skill's base directory, or the host's own prompt file for a `.md` auditor);
+3. `_contract.md`, the finding contract;
+4. its rows, each with id, title and settings (the validated settings for a rule, the raw `params` for a host prompt);
+5. each row's surface, doctrine section, `docs` and candidates;
+6. the instruction: *Read `config/architecture/ARCHITECTURE.md` in full, then every document it points to.*
 
 Tool allowlist: `Read`, `Grep`, `Glob` only. No `Edit`, `Write` or mutating shell. The tree is not mutated during the audit; the controller writes only the report and baseline after the agents return. When each agent returns, store its final message in `payloads[group]`.
 
@@ -229,10 +238,31 @@ report_md = render_report(
     findings=findings,
     exempted=exempted,
     rollup_md=rollup_md,
+    rows=rows,
+    out_of_scope=out_of_scope,
 )
-report_path = write_report(tree, cfg, report_md, now.date())
+# The report is named by the local date; `now` stays UTC for the baseline timestamp.
+report_path = write_report(tree, cfg, report_md, now.astimezone().date())
+print(rollup_md)
+print(f"report: {tree.key(report_path)}")
+status = exit_status(results)
 
 if update_baseline:
+    partial = []
+    if status != 0:
+        partial.append("a group FAILED")
+    if mandate_ids:
+        partial.append("--mandates selects a subset of the rows")
+    if paths:
+        partial.append("--paths narrows the target tree")
+    if include_tests:
+        partial.append("--include-tests widens the target tree")
+    if partial:
+        raise BaselineError(
+            "--update-baseline refused: the run is partial ("
+            + "; ".join(partial)
+            + "); the report was written, the baseline was not"
+        )
     baseline_file = tree.contained(cfg.baseline_path)
     if baseline_file is None:
         raise BaselineError(f"baseline path {cfg.baseline_path!r} escapes the repository root")
@@ -250,13 +280,10 @@ if update_baseline:
         ),
     )
 
-print(rollup_md)
-print(f"report: {report_path}")
-status = exit_status(results)
 raise SystemExit(status)
 ```
 
-Print the roll-up and the report path, then exit with `status` (the block ends in `raise SystemExit(status)`): `1` when any group FAILED, else `0`. Drift, staleness and provenance are informational and never change it. A report or baseline that cannot be written fails the run loudly; the report is never streamed to the terminal as a fallback.
+Write the report, print the roll-up and the report's repository-relative POSIX path, then exit with `status` (the block ends in `raise SystemExit(status)`): `1` when any group FAILED, else `0`. With `--update-baseline`, a partial run (any FAILED group, `--mandates`, `--paths` or `--include-tests`) raises `BaselineError` naming why, after the report is written; only a full, clean run saves the baseline. Drift, staleness and provenance are informational and never change it. A report or baseline that cannot be written fails the run loudly; the report is never streamed to the terminal as a fallback.
 
 ## Constraints
 
@@ -264,7 +291,7 @@ Print the roll-up and the report path, then exit with `status` (the block ends i
 2. The host's `mandates.yml` is the only mandate list; `call_sites` never select review rows.
 3. Every rule is opt-in through an active mandate row with an `auditor`.
 4. An unknown `--mandates` id raises `UnknownMandateError`.
-5. A malformed or unreadable baseline fails loud; baseline writes happen only with `--update-baseline`.
+5. A malformed or unreadable baseline fails loud; baseline writes happen only with `--update-baseline`, on a full run with no FAILED group.
 
 ## Failure modes
 
@@ -274,8 +301,10 @@ Print the roll-up and the report path, then exit with `status` (the block ends i
 | Unknown `--mandates` id | `UnknownMandateError` |
 | Empty target tree | `EmptyTargetTreeError` |
 | Declared surface matches nothing, or anchor matches nothing | `AcfInputError` naming the mandate id |
+| Default surface empty (no declared `surface`) | `AcfInputError` naming the mandate id, its `languages` and the declared packs; under `--paths` the row is dropped and listed under "Not in scope under --paths" |
 | Auditor payload violates the contract | Group FAILED, raw payload kept, run continues, exit status 1 |
 | Report path unwritable | `ReportWriteError` |
+| `--update-baseline` on a partial run (any FAILED group, `--mandates`, `--paths`, `--include-tests`) | Report written, then `BaselineError` naming why; the baseline is not saved |
 | Baseline unwritable | `BaselineError` |
 
 ## Common mistakes
