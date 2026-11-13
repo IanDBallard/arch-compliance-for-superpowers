@@ -1,6 +1,7 @@
 # Architecture Review Port: Generic Rules, Technology Packs and Repository Settings
 
 **Status:** Draft (v4)
+**Adversarial review:** v4 — 2026-11-12, verification pass over the v3 full run (BLOCKED; all blocking findings precision-class, absorbed and re-measured), user-approved (repo @ a6ff195)
 **Date:** 2026-11-12
 **Spec kinds:** `feature`
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `50d727f` (branch `feat/architecture-review-port`).
