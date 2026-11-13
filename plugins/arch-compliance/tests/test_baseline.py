@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -50,14 +51,14 @@ def _baseline(cells: dict[tuple[str, str], int]) -> Baseline:
 
 
 def test_subsystem_of_first_segment() -> None:
-    assert subsystem_of("src/components/App.tsx") == "src/"
-    assert subsystem_of("plugins/arch-compliance/foo.py") == "plugins/"
-    assert subsystem_of("admin/js/app.js") == "admin/"
-    assert subsystem_of("README.md") == "other"
+    assert subsystem_of("src/components/App.tsx", prefixes=[]) == "src/"
+    assert subsystem_of("plugins/arch-compliance/foo.py", prefixes=[]) == "plugins/"
+    assert subsystem_of("admin/js/app.js", prefixes=[]) == "admin/"
+    assert subsystem_of("README.md", prefixes=[]) == "other"
 
 
 def test_subsystem_of_normalizes_backslashes() -> None:
-    assert subsystem_of("src\\lib\\x.py") == "src/"
+    assert subsystem_of("src\\lib\\x.py", prefixes=[]) == "src/"
 
 
 def test_aggregate_counts_by_mandate_and_subsystem() -> None:
@@ -67,10 +68,26 @@ def test_aggregate_counts_by_mandate_and_subsystem() -> None:
         _finding("fail-loud.empty-catch", "lib/c.ts"),
         _finding("no-shims.explicit-any", "src/d.ts"),
     ]
-    counts = aggregate(findings)
+    counts = aggregate(findings, prefixes=[])
     assert counts[("fail-loud.empty-catch", "src/")] == 2
     assert counts[("fail-loud.empty-catch", "lib/")] == 1
     assert counts[("no-shims.explicit-any", "src/")] == 1
+
+
+def test_prefix_longest_wins_and_other() -> None:
+    pre = ["scripts/", "scripts/core/"]
+    assert subsystem_of("scripts/core/x.py", prefixes=pre) == "scripts/core/"
+    assert subsystem_of("scripts/y.py", prefixes=pre) == "scripts/"
+    assert subsystem_of("admin/a.js", prefixes=pre) == "other"
+
+
+def test_aggregate_accepts_a_second_model() -> None:
+    @dataclass
+    class F:
+        mandate_id: str
+        path: str
+
+    assert aggregate([F("m", "scripts/a.py")], prefixes=["scripts/"]) == {("m", "scripts/"): 1}
 
 
 def test_save_then_load_round_trip(tmp_path: Path) -> None:
