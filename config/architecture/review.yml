@@ -1,0 +1,7 @@
+report_dir: docs/reviews
+baseline_path: docs/reviews/compliance_baseline.json
+baseline_max_age_days: 30
+baseline_max_commits: 250
+packs: [python, ts-js]
+subsystems: []
+exclude: []

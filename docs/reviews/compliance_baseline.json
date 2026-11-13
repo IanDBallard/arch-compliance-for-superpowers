@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-11-13T02:44:30.824152+00:00",
+  "commit": "e38bd7e064ceb31a02d44f59acae0ad7465f4645",
+  "invocation": "/architecture-review --update-baseline",
+  "counts": [
+    {
+      "mandate_id": "soft.fail-loud",
+      "subsystem": "docs/",
+      "count": 1
+    },
+    {
+      "mandate_id": "soft.fail-loud",
+      "subsystem": "plugins/",
+      "count": 5
+    }
+  ]
+}

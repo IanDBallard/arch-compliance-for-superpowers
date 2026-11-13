@@ -102,7 +102,8 @@ may be reviewed via the LLM judge (`llm_fail_loud`).
 
 Views render and wire UI; data fetching, domain aggregation, and business rules live
 outside view components (hooks, services, or loaders). Soft smells that need judgment
-are reviewed via the LLM judge (`llm_react_boundaries`). Unenforced here: there is no
+are reviewed via the LLM judge (`llm_react_boundaries`) and, in `/architecture-review`,
+by the `ui-logic-isolation` rule (the row's `auditor`). Unenforced here: there is no
 React app; the TypeScript in this repository is a detector bridge.
 
 ## One base exception
@@ -114,15 +115,12 @@ Every ACF exception subclasses `AcfError` and nothing else; no stdlib mixin such
 ## One owner for host paths
 
 `acf.repo` is the one declaration of where ACF looks inside a host repository, and it
-imports only the standard library (`plugins/arch-compliance/python/acf/repo.py:1-6`).
+imports only the standard library and `acf.exceptions` (itself stdlib-only)
+(`plugins/arch-compliance/python/acf/repo.py:1-7`).
 Row: `plugin.one-owner-host-paths`; its test scans `plugins/arch-compliance/python/` and
 `plugins/arch-compliance/hooks/`. The repository-level `tests/` and `scripts/` follow
-the rule by importing the `acf.repo` constants, which review checks. Current breach in an
-executable skill snippet, recorded not hidden:
-`plugins/arch-compliance/skills/architecture-review/SKILL.md:62` spells
-`Path("config/architecture/mandates.yml")` instead of importing `acf.repo.MANDATES_REL`;
-reconciling the skill snippet is spec `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md`
-§9 follow-up 4.
+the rule by importing the `acf.repo` constants, which review checks. Executable skill snippets
+follow the rule too, which review checks.
 
 `acf.repo.RepoTree` is the one place runtime code turns a path string into a location in
 the host repository: containment (`contained`), an existing file or directory (`file`,
@@ -162,7 +160,11 @@ only rows that are active (not `unenforced`) and declare that site; a site that 
 no active `ast` or `guard` row is refused, not reported as a clean run. The PostToolUse
 hook runs rows declaring `hook` or `posttooluse`. A row declaring only `[ci]` is not
 reported by the hook or by a `precommit` run. An active `ast` or `guard` row declares at
-least one Tier-1 site.
+least one Tier-1 site. `call_sites` select the Tier-1 gate sites and nothing else: the
+`auditor` field, not `call_sites`, selects the rows `/architecture-review` reviews, so an
+active row with `auditor` set joins the review whatever sites it declares. `audit` keeps
+its present meaning, an annotation that a row is held by review rather than by a Tier-1
+gate; no package code reads it, and the review neither requires nor reads it.
 
 **Built-in contracts.** `acf.detectors.KNOWN_DETECTORS` maps each built-in `ast` and
 `guard` detector id to its mandate id and the sites at which a gate runs it
@@ -188,7 +190,19 @@ No row: enforced by plugins/arch-compliance/tests/test_host_detectors.py, test_b
 
 The adversarial-design-review gate's host values are declared by the host in
 `config/architecture/adr.yml`; no default stands in for a missing declaration, and a
-missing declaration fails loud. Source: phase 1c decision 4,
+missing declaration fails loud. The `/architecture-review` host values are declared in
+`config/architecture/review.yml` (`report_dir`, `baseline_path`, `baseline_max_age_days`,
+`baseline_max_commits`, `packs`, `subsystems`, `exclude`; every field required, and a
+missing file fails loud naming `/acf-setup`). The review gives some absent or empty values
+a built-in meaning, recorded here: the built-in exclusion list and the built-in test-path
+list, both added to by `exclude`, the test-path list alone dropped by `--include-tests`;
+an absent `surface`; an empty `subsystems` list, which keeps the first-segment bucketing
+rule; no file at `baseline_path`, which omits the drift, staleness and provenance sections
+and makes the roll-up say `no baseline (run --update-baseline to set one)`; and an absent
+rule setting: every rule settings key is optional, an absent scalar (for example
+`exception_base`, `inventory`, `style_schema`, `classifier`) turns off the check that uses
+it, and an absent list (for example `surface_exclude`, `docs`, `bindings`) is empty.
+Source: phase 1c decision 4,
 `plugins/arch-compliance/python/acf/adr/host.py:19-33`. Row:
 `plugin.declared-never-defaulted`. Three defaults elsewhere in the package are outside
 this rule and recorded here: the fail-loud ratchet's baseline path when a row omits
@@ -207,9 +221,11 @@ Skill prose and runtime messages name no host repository, path or section; a hos
 reaches the gate only through its declaration and its doctrine. Rows:
 `plugin.adr-code-names-no-host` (the gate's package and runtime messages) and
 `plugin.gate-prose-names-no-host` (`plugins/arch-compliance/tests/test_adr_skill_prose.py`
-checks the two gate skills and `post-merge-housekeeping` against the enumerated
-`FORBIDDEN` list of known origin-host (`HistoricMansions`) vocabulary; the other three
-skills in `plugins/arch-compliance/skills/` have no row yet).
+checks the two gate skills, `post-merge-housekeeping`, and `architecture-review` with its
+rule prompts and technology packs, plus the string constants of
+`plugins/arch-compliance/python/acf/review/`, against the enumerated `FORBIDDEN` list of
+known origin-host (`HistoricMansions`) vocabulary; the other two skills in
+`plugins/arch-compliance/skills/`, `acf-mandate` and `acf-setup`, have no row yet).
 
 ## Frozen ledger format
 
@@ -254,10 +270,10 @@ follow-up 1. No row: no test enforces this yet.
 
 A change to a skill's prose bumps the plugin version in
 `plugins/arch-compliance/.claude-plugin/plugin.json` and `pyproject.toml`. Before a gate
-or `post-merge-housekeeping` run, the installed copy of the two gate skills and
-`post-merge-housekeeping` is byte-checked against the clone
+or `post-merge-housekeeping` run, the installed copy of the two gate skills,
+`post-merge-housekeeping` and `architecture-review` is byte-checked against the clone
 (`scripts/check_installed_skills.py`); on a mismatch the plugin is reinstalled from the
-clone and the session restarted. The check covers those three skill trees only: the hooks
+clone and the session restarted. The check covers those four skill trees only: the hooks
 run the installed copy's `hooks/` and `python/` (`plugins/arch-compliance/hooks/posttooluse_gate.py:22-26`),
 which it does not compare. Source: phase 1d spec risk table (cache drift) and 1d plan
 Task 8 step 1. No row: no test enforces this yet.
@@ -270,11 +286,15 @@ consumes" (HistoricMansions `GEMINI.md` §7, `hm:GEMINI.md:136`). Current breach
 recorded not hidden: two git runners, `plugins/arch-compliance/python/acf/diff.py:17`
 (`run_git`) and `plugins/arch-compliance/python/acf/adr/citations.py:54` (`_git`),
 consolidated in spec `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` §9 follow-up 1;
-and two skill snippets that re-spell or by-eye a package helper,
-`plugins/arch-compliance/skills/architecture-review/SKILL.md:62` (`Path("config/architecture/mandates.yml")` instead of `acf.repo.MANDATES_REL`) and
+a skill snippet that by-eyes a package helper,
 `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` (by-eye anchor check instead of
 `acf.registry.missing_anchors`), tracked in spec
-`docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` §9 follow-up 4. No row: no test
+`docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` §9 follow-up 4; and two path-glob
+dialects, `acf.repo.path_matches` (the review's target tree) and `fnmatch`
+(`plugins/arch-compliance/python/acf/detectors/facade_sinks.py:59`,
+`plugins/arch-compliance/python/acf/detectors/fail_loud_ratchet.py:68`), kept apart
+because moving the ratchet onto `path_matches` would change what a host's existing
+`exclude_globs` means (spec `docs/design/ARCHITECTURE_REVIEW_PORT.md` §10). No row: no test
 enforces this yet.
 
 ## Scoped refactor

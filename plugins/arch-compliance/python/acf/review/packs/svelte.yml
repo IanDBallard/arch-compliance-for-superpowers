@@ -1,0 +1,9 @@
+id: svelte
+language: typescript
+extends: ts-js
+files: ["**/*.svelte"]
+hints:
+  ui-logic-isolation:
+    - {pattern: '\$derived(\.by)?\(', tell: derived value; check it is not a domain decision}
+    - {pattern: '\$state\(', tell: component state; check it is not domain state}
+    - {pattern: '\$effect(\.pre)?\(', tell: effect; check it is not computing domain values}

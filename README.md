@@ -109,6 +109,12 @@ Plugin `hooks/hooks.json` registers:
 
 Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message. Committing `.acf/` approves no host code; each person runs `acf-allow` themselves.
 
+### Upgrading a host to the architecture review port (v0.3.0)
+
+- `/architecture-review` now runs a port of the origin repository's review and requires `config/architecture/review.yml`. Create it with `/acf-setup`, or write it by hand; every field is required, and a missing file fails loud and names `/acf-setup`.
+- A mandate row's `auditor` is a rule id or a repository prompt path ending in `.md`. Rows that named `react-boundaries` now name `ui-logic-isolation`.
+- A 0.2.x host's baseline lived at `docs/architecture/compliance_baseline.json`. To keep drift against it, set `baseline_path: docs/architecture/compliance_baseline.json` in `review.yml`; any other path starts with `no baseline`.
+
 ### Upgrading a host with host detectors (v0.2.5)
 
 - Host detector rows (`detector: <path>.py:<callable>`) now run only with a per-user approval. Review the detector files, then run `acf-allow` in the repository; the approval is bound to the active host rows and their files, so run it again after any of them changes. One approval per checkout directory: the key is the resolved root, so each clone and each git worktree needs its own `acf-allow`.

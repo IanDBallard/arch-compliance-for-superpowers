@@ -1,0 +1,15 @@
+id: sql
+language: none
+extends: null
+files: ["**/*.sql"]
+hints:
+  data-access-boundary:
+    - {pattern: '(?i)\bcreate\s+table\b', tell: table created; confirm row-level security is enabled for it}
+    - {pattern: '(?i)\bdisable\s+row\s+level\s+security', tell: row-level security disabled}
+    - {pattern: '(?i)\bsecurity\s+definer\b', tell: runs with the rights of its owner}
+    - {pattern: '(?i)\bgrant\s+[^;]*\bto\s+public\b', tell: grant to every role}
+  single-owner:
+    - {pattern: '(?i)\bcreate\s+(or\s+replace\s+)?(materialized\s+)?view\b', tell: view definition; check it has one owner}
+  no-shims:
+    - {pattern: '(?i)\bcreate\s+(or\s+replace\s+)?view\s+\w*(legacy|compat|old|deprecated)\w*', tell: legacy or compatibility view}
+    - {pattern: '(?i)--\s*(TODO|FIXME)\W+.*(remove after|legacy|back-?compat|shim)', tell: explicit shim comment}

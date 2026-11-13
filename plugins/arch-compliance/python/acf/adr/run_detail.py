@@ -29,6 +29,7 @@ from acf.adr.contract import (
     SweeperPayload,
 )
 from acf.exceptions import RunDetailWriteError
+from acf.loader import write_text_record
 
 def run_detail_path(
     spec_path: str, *, version: int, date: str, runs_dir: Path | str
@@ -180,12 +181,12 @@ def write_run_detail(run: DesignReviewRun, result: GateResult, path: Path) -> No
 
     Raises ``RunDetailWriteError`` on any OS failure — never skip the write.
     """
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(render_run_detail(run, result), encoding="utf-8")
-    except OSError as exc:
-        raise RunDetailWriteError(
-            f"could not write the run detail to {path.as_posix()}: {exc}. "
+    write_text_record(
+        path,
+        render_run_detail(run, result),
+        error=RunDetailWriteError,
+        hint=(
             "The ledger row alone cannot support a later absorbed/rejected "
             "amendment — do not proceed without the detail."
-        ) from exc
+        ),
+    )

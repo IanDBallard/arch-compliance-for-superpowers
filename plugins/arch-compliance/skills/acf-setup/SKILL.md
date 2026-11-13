@@ -19,6 +19,7 @@ Complete these steps in order. Create a todo per step and check each off.
 4. Install runtime dependencies (Python package; TS detector `npm ci` when TypeScript detected)
 5. Copy or merge profile(s) into host `config/architecture/`
 6. Align ARCHITECTURE.md (prompt if host already has one)
+6b. Write `config/architecture/review.yml` (ask the user for every value)
 7. Write `.acf/enabled` marker
    - When `mandates.yml` has host rows, show the user the detector files and ask them to run `acf-allow` themselves (one approval per checkout directory; the key is the resolved root, so each clone and each git worktree needs its own `acf-allow`); never run `acf-allow` or add `--trusted-checkout` yourself
 8. Print pre-commit / CI snippets
@@ -112,7 +113,7 @@ Prefer **one** `mandates.yml` and **one** `ARCHITECTURE.md`:
    - Preserve all schema fields per row.
    - Order: TypeScript/React mandates first, then Python (or keep profile order within each group).
 2. **ARCHITECTURE.md** — merge prose under shared heading anchors.
-   - Stock anchors that must survive (mandates `arch_anchor` must remain literal substrings of the file): `## Fail loud`, `## No shims`, plus language-specific sections (`## React boundaries`, `## Soft fail-loud smells`, etc.).
+   - Stock anchors that must survive (each mandate `arch_anchor` must remain a whole line of the file, equal after stripping): `## Fail loud`, `## No shims`, plus language-specific sections (`## React boundaries`, `## Soft fail-loud smells`, etc.).
    - If both profiles define the same `##` heading, merge body bullets under one heading; do not duplicate the heading.
    - Keep a short intro noting the host is polyglot.
 
@@ -135,8 +136,43 @@ After copy/merge:
 
 1. If the host already has architecture docs elsewhere (`docs/architecture/`, `ARCHITECTURE.md` at root, etc.), **ask** whether to:
    - keep the new stub at `config/architecture/ARCHITECTURE.md`, or
-   - replace the stub with a copy/symlink/pointer note to their real doc, ensuring every `arch_anchor` from `mandates.yml` still appears as an exact heading substring in the file ACF will use.
-2. Remind: mandate `arch_anchor` values are matched as literal substrings of ARCHITECTURE.md — renaming headings without updating mandates breaks drift checks.
+   - replace the stub with a copy/symlink/pointer note to their real doc, ensuring every `arch_anchor` from `mandates.yml` still appears as a whole line, equal after stripping, in the file ACF will use.
+2. Remind: mandate `arch_anchor` values are matched by line equality (the stripped line must equal the anchor) against ARCHITECTURE.md — renaming headings without updating mandates breaks drift checks.
+
+## Step 6b — Write `review.yml`
+
+`/architecture-review` reads its host values from `<host>/config/architecture/review.yml`.
+There is no default for a missing file or a missing field: every field is required, and
+the review refuses to run without the file and names `/acf-setup`. Ask the user for each
+value; do not invent them. If the file already exists, ask before replacing it.
+
+| Field | Meaning |
+|-------|---------|
+| `report_dir` | repository-relative POSIX directory where `ARCHITECTURE_REVIEW_<date>.md` is written |
+| `baseline_path` | repository-relative POSIX path of the drift baseline file (it need not exist yet; without it the review reports `no baseline`) |
+| `baseline_max_age_days` | integer above 0: warn when the baseline is older than this many days |
+| `baseline_max_commits` | integer above 0: warn when the baseline is more than this many commits behind `HEAD` |
+| `packs` | list of technology pack ids the repository uses, from the six shipped ids `python`, `ts-js`, `react`, `svelte`, `html-templates`, `sql`; their file globs form the default target tree |
+| `subsystems` | list of repository-relative POSIX directory prefixes used as drift buckets (longest prefix wins, an unmatched path is `other`); `[]` buckets by first path segment |
+| `exclude` | list of globs added to the review's built-in exclusions; `[]` adds none |
+
+Write all seven keys, for example:
+
+```yaml
+report_dir: <where reports go>
+baseline_path: <where the baseline lives>
+baseline_max_age_days: <integer above 0>
+baseline_max_commits: <integer above 0>
+packs: [<ids from the six above>]
+subsystems: []
+exclude: []
+```
+
+A reviewed mandate row without a declared `params.surface` sees only its packs' files, so a
+`posix-paths` row meant to check committed data files (YAML, JSON, TOML) needs an explicit
+`surface` naming them.
+
+Paths use forward slashes; a backslash is refused.
 
 ## Step 7 — Enable hooks marker
 
@@ -245,10 +281,10 @@ Optional friend-bar tip: plant a temporary empty `catch {}` (TS) or bare `except
 Tell the user:
 
 - Languages detected and which profile(s) were applied
-- Paths written: `config/architecture/mandates.yml`, `config/architecture/ARCHITECTURE.md`, `.acf/enabled`
+- Paths written: `config/architecture/mandates.yml`, `config/architecture/ARCHITECTURE.md`, `config/architecture/review.yml`, `.acf/enabled`
 - That pre-commit/CI snippets were printed (not necessarily applied)
 - Smoke command result
-- Next: customize with `/acf-mandate`; full audit later with `/architecture-review` (when available)
+- Next: customize with `/acf-mandate`; full audit later with `/architecture-review`
 - Host config overrides plugin templates from now on
 
 ## Common mistakes
