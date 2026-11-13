@@ -30,6 +30,7 @@ include_tests = False   # --include-tests
 mandate_ids = None      # --mandates a,b as ["a", "b"]; None when absent
 update_baseline = False # --update-baseline
 invocation = "/architecture-review"  # the exact command line, flags included
+skill_dir = "<base directory>"  # this skill's base directory, as the harness announces it when the skill loads
 ```
 
 ## Step 1 — Load the host and select the rows
@@ -109,19 +110,26 @@ Candidates are hints, not findings; precision is the auditor's job. A rule with 
 Assemble each group's brief, then dispatch every group in parallel with Superpowers **`dispatching-parallel-agents`**.
 
 ```python
-import os
 from pathlib import Path
 
-plugin_root = Path(os.environ["CLAUDE_PLUGIN_ROOT"])
-rules_dir = plugin_root / "skills" / "architecture-review" / "rules"
-contract = (rules_dir / "_contract.md").read_text(encoding="utf-8")
+rules_dir = Path(skill_dir) / "rules"
+
+
+def read_prompt(path: Path) -> str:
+    if not path.is_file():
+        raise AcfInputError(f"auditor prompt file not found: {path.as_posix()}")
+    return path.read_text(encoding="utf-8")
+
+
+contract = read_prompt(rules_dir / "_contract.md")
+payloads: dict[str, str] = {}  # filled below: each agent's final message, under its group
 
 briefs = {}
 for group, group_members in groups.items():
     first = group_members[0]
     prompt_file = first.prompt if first.prompt is not None else rules_dir / f"{group}.md"
     briefs[group] = {
-        "prompt": prompt_file.read_text(encoding="utf-8"),
+        "prompt": read_prompt(prompt_file),
         "contract": contract,
         "rows": [
             {
@@ -140,7 +148,7 @@ for group, group_members in groups.items():
             for row in group_members
         ],
         "instruction": (
-            "Read `config/architecture/ARCHITECTURE.md` in full, "
+            f"Read `{ARCH_REL.as_posix()}` in full, "
             "then every document it points to"
         ),
     }
@@ -148,13 +156,13 @@ for group, group_members in groups.items():
 
 Each agent receives exactly its `briefs[group]`:
 
-1. the rule prompt (`rules/<id>.md` under `${CLAUDE_PLUGIN_ROOT}`, or the host's own prompt file for a `.md` auditor);
+1. the rule prompt (`rules/<id>.md` under the skill's base directory, or the host's own prompt file for a `.md` auditor);
 2. `_contract.md`, the finding contract;
 3. its rows, each with id, title and settings (the validated settings for a rule, the raw `params` for a host prompt);
 4. each row's surface, doctrine section, `docs` and candidates;
 5. the instruction: *Read `config/architecture/ARCHITECTURE.md` in full, then every document it points to.*
 
-Tool allowlist: `Read`, `Grep`, `Glob` only. No `Edit`, `Write` or mutating shell. The tree is not mutated during the audit; the controller writes only the report and baseline after the agents return. Each agent's final message is its payload, kept as `payloads[group]`.
+Tool allowlist: `Read`, `Grep`, `Glob` only. No `Edit`, `Write` or mutating shell. The tree is not mutated during the audit; the controller writes only the report and baseline after the agents return. When each agent returns, store its final message in `payloads[group]`.
 
 ## Step 6 — Parse the payloads
 
@@ -164,7 +172,7 @@ from acf.review.aggregator import GroupResult, parse_auditor_payload
 
 results = []
 for group, group_members in groups.items():
-    raw = payloads[group]
+    raw = payloads.get(group, "")
     try:
         parsed = parse_auditor_payload(
             raw,
@@ -245,9 +253,10 @@ if update_baseline:
 print(rollup_md)
 print(f"report: {report_path}")
 status = exit_status(results)
+raise SystemExit(status)
 ```
 
-Print the roll-up and the report path, then finish with exit status `status`: `1` when any group FAILED, else `0`. Drift, staleness and provenance are informational and never change it. A report or baseline that cannot be written fails the run loudly; the report is never streamed to the terminal as a fallback.
+Print the roll-up and the report path, then exit with `status` (the block ends in `raise SystemExit(status)`): `1` when any group FAILED, else `0`. Drift, staleness and provenance are informational and never change it. A report or baseline that cannot be written fails the run loudly; the report is never streamed to the terminal as a fallback.
 
 ## Constraints
 
