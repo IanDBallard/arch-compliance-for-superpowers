@@ -74,7 +74,7 @@ def test_host_config_dir_has_one_code_owner() -> None:
 def test_repo_module_imports_only_stdlib() -> None:
     source = (PYTHON_ROOT / "acf" / "repo.py").read_text(encoding="utf-8")
     imports = re.findall(r"^\s*(?:from|import)\s+([A-Za-z_][\w.]*)", source, re.M)
-    allowed = {"__future__", "pathlib"}
+    allowed = {"__future__", "collections.abc", "os", "pathlib", "re", "acf.exceptions"}  # acf.exceptions imports nothing
     assert set(imports) <= allowed, f"acf.repo must stay stdlib-only, got {imports}"
 
 

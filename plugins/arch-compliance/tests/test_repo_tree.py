@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from acf.repo import RepoTree
+from acf.exceptions import AcfInputError
+from acf.repo import REVIEW_REL, RepoTree, path_matches
 
 
 def test_contained_refuses_escape(tmp_path):
@@ -52,3 +53,54 @@ def test_file_and_directory(tmp_path):
 def test_key(tmp_path):
     t = RepoTree(tmp_path)
     assert t.key(t.root / "a" / "b.py") == "a/b.py"
+
+
+@pytest.mark.parametrize("key,pattern,hit", [
+    ("tests/a.py", "tests/", True),
+    ("plugins/arch-compliance/tests/x.py", "tests/", True),
+    ("docs/reviews/r.md", "docs/reviews/", True),
+    ("x/docs/reviews/r.md", "docs/reviews/", False),
+    ("a/b/test_x.py", "test_*.py", True),
+    ("templates/families/f.tex", "templates/families/**/*.tex", True),
+    ("templates/families/a/b/f.tex", "templates/families/**/*.tex", True),
+    ("admin/js/vendor/x/y.js", "admin/js/vendor/**", True),
+    ("templates/families/a/style.yml", "templates/families/*/style.yml", True),
+    ("templates/families/a/b/style.yml", "templates/families/*/style.yml", False),
+    ("src/a.test.ts", "**/*.test.*", True),
+    ("archive/x.py", "archive/", True),
+    ("a.test.ts", "**/*.test.*", True),
+    ("tests", "tests/", False),
+    ("a/b.py", "a/?.py", True),
+    ("a/bc.py", "a/?.py", False),
+])
+def test_path_matches_forms(key, pattern, hit):
+    assert path_matches(key, pattern) is hit
+
+
+def test_backslash_pattern_refused():
+    with pytest.raises(AcfInputError, match="backslash"):
+        path_matches("admin/js/a.js", "admin\js\**")
+
+
+def test_review_rel():
+    assert REVIEW_REL.as_posix() == "config/architecture/review.yml"
+
+
+def test_files_includes_excludes_and_stays_in_root(tmp_path):
+    root = tmp_path / "root"
+    for rel in ("a/x.py", "a/tests/y.py", "b/z.ts"):
+        f = root / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("", encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "o.py").write_text("", encoding="utf-8")
+    try:
+        (root / "link.py").symlink_to(outside / "o.py")
+        (root / "linkdir").symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    t = RepoTree(root)
+    assert t.files(["**/*.py"], ["tests/"]) == [t.root / "a" / "x.py"]
+    assert t.files(["**/*.py", "**/*.ts"], []) == [
+        t.root / "a" / "tests" / "y.py", t.root / "a" / "x.py", t.root / "b" / "z.ts"]
