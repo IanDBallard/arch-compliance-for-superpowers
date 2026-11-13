@@ -108,10 +108,14 @@ def scan(
             if location is None:
                 raise AcfInputError(f"{key}: not a file inside the repository")
             try:
-                cache[key] = location.read_text(encoding="utf-8").splitlines()
+                text = location.read_text(encoding="utf-8")
             except UnicodeDecodeError as exc:
                 raise AcfInputError(f"{key}: not UTF-8 ({exc})") from exc
+            cache[key] = [line.removesuffix("\r") for line in text.split("\n")]
         return cache[key]
+
+    for key in surface:
+        lines_of(key)  # every surface file must decode, hint or no hint
 
     for pack in packs_for_row(row.mandate, packs):
         hints = pack.hints.get(row.mandate.auditor or "", [])

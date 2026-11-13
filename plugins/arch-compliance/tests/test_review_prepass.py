@@ -189,3 +189,38 @@ def test_non_utf8_file_raises_with_posix_key(tmp_path):
     row = _row(tmp_path, languages="python")
     with pytest.raises(AcfInputError, match="pkg/bad.py"):
         scan(tree, row, ["pkg/bad.py"], packs)
+
+
+def test_python_hint_does_not_scan_files_outside_pack_globs(tmp_path):
+    _write(tmp_path, "b.ts", "except:\n")
+    tree, cfg, packs = _ctx(tmp_path)
+    row = _row(tmp_path, languages="python")
+    assert scan(tree, row, ["b.ts"], packs) == []
+
+
+def test_extends_addon_files_scanned_by_base_pack(tmp_path):
+    _write(tmp_path, "c.svelte", "const xs = items.filter(f);\n")
+    row = _row(tmp_path, auditor="ui-logic-isolation", languages="typescript")
+    tree, cfg, packs = _ctx(tmp_path, packs=["ts-js", "svelte"])
+    cands = scan(tree, row, ["c.svelte"], packs)
+    assert [(c.path, c.line, c.tell) for c in cands] == [
+        ("c.svelte", 1, "client-side aggregation")
+    ]
+    tree, cfg, packs = _ctx(tmp_path, packs=["ts-js"])
+    assert scan(tree, row, ["c.svelte"], packs) == []
+
+
+def test_hintless_row_still_decodes_surface(tmp_path):
+    (tmp_path / "bad.py").write_bytes(b"\xff\xfe")
+    tree, cfg, packs = _ctx(tmp_path, packs=["python"])
+    row = _row(tmp_path, auditor="ui-logic-isolation", languages="python")
+    with pytest.raises(AcfInputError, match="bad.py"):
+        scan(tree, row, ["bad.py"], packs)
+
+
+def test_line_numbers_split_on_newline_only(tmp_path):
+    _write(tmp_path, "a.py", "x = 1\x0c\x1c\u2028\nexcept:\r\n")
+    tree, cfg, packs = _ctx(tmp_path)
+    row = _row(tmp_path, languages="python")
+    (cand,) = scan(tree, row, ["a.py"], packs)
+    assert (cand.line, cand.snippet) == (2, "except:")
