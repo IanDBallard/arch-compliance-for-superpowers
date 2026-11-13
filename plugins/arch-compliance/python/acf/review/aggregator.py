@@ -1,6 +1,7 @@
 """Auditor payload parsing, inline exemptions and the review report."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -117,6 +118,10 @@ def apply_exemptions(
     return kept, exempted
 
 
+def _longest_backtick_run(text: str) -> int:
+    return max((len(run) for run in re.findall(r"`+", text)), default=0)
+
+
 def render_report(
     *,
     commit: str,
@@ -161,7 +166,8 @@ def render_report(
     if failed:
         out += ["## Failed groups", ""]
         for r in failed:
-            out += [f"### {r.group}", "", f"Error: {r.error}", "", "```", r.raw, "```", ""]
+            fence = "`" * max(3, _longest_backtick_run(r.raw) + 1)
+            out += [f"### {r.group}", "", f"Error: {r.error}", "", fence, r.raw, fence, ""]
     return "\n".join(out)
 
 

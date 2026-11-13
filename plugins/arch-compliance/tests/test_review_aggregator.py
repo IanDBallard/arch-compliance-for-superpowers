@@ -199,3 +199,13 @@ def test_report_dir_outside_root_is_write_error(tmp_path):
     root.mkdir()
     with pytest.raises(ReportWriteError, match="escape"):
         write_report(RepoTree(root), _cfg(report_dir="../escape"), "x", date(2026, 11, 12))
+
+
+def test_failed_group_fence_encloses_raw_payload_with_inner_fence():
+    raw = "intro\n```json\n{}\n```\ntail"
+    failed = GroupResult(group="g2", status="FAILED", payload=None, raw=raw, error="bad")
+    text = render_report(
+        commit="c", invocation="i", results=[failed], findings=[], exempted=0, rollup_md="R"
+    )
+    fence = "````"
+    assert f"\n{fence}\n{raw}\n{fence}\n" in text
