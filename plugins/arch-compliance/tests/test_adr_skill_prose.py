@@ -1,4 +1,4 @@
-"""The moved gate prose: its Python resolves here, and it names no origin host."""
+"""The moved gate prose and the review prose: Python resolves here, and nothing names an origin host."""
 from __future__ import annotations
 
 import ast
@@ -17,12 +17,40 @@ FILES = [
     RESPOND / "SKILL.md",
     HOUSEKEEPING / "SKILL.md",
 ]
+RULES_DIR = SKILLS / "architecture-review" / "rules"
+REVIEW_PY = Path(__file__).resolve().parents[1] / "python" / "acf" / "review"
+RULE_IDS = [
+    "fail-loud", "no-shims", "posix-paths", "class-cohesion", "ui-logic-isolation",
+    "single-owner", "pipeline-isolation", "presentation-as-data", "layer-boundaries",
+    "state-machine-discipline", "path-provenance", "data-access-boundary",
+]
+PACK_IDS = ["python", "ts-js", "react", "svelte", "html-templates", "sql"]
+REVIEW_FILES = (
+    [RULES_DIR / f"{rule}.md" for rule in RULE_IDS]
+    + [RULES_DIR / "_contract.md"]
+    + [REVIEW_PY / "packs" / f"{pack}.yml" for pack in PACK_IDS]
+)
 FORBIDDEN = [
     "GEMINI", "CLAUDE.md", "SKILL_PROVENANCE", "scripts.core",
     "docs/design", "docs/reviews", "docs/architecture", ".cursor",
     "run_cms_e2e", "expected_branch.txt", "CMS_SKIP_BRANCH_GUARD",
     "ARCHITECTURE_REVIEW_2026",
+    "ContentMetadataService", "index.yml", "DeclaredFSM", "HistoricMansions",
+    "PosixPathStr", "structural_realizations", "IMAGES_YAML", "scripts/core",
+    "templates/families",
 ]
+
+
+def test_review_string_constants_name_no_origin_host():
+    modules = sorted(REVIEW_PY.glob("*.py"))
+    assert modules
+    hits = []
+    for module in modules:
+        tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                hits += [f"{module.name}:{node.lineno}: {lit}" for lit in FORBIDDEN if lit in node.value]
+    assert hits == [], "\n".join(hits)
 
 
 def _python_bodies() -> list[tuple[str, str]]:
@@ -39,9 +67,15 @@ def test_the_seven_files_moved():
     assert missing == []
 
 
+def test_the_review_files_exist():
+    missing = [p.as_posix() for p in REVIEW_FILES if not p.is_file()]
+    assert missing == []
+
+
 def test_the_prose_names_no_origin_host():
-    hits = [f"{p.relative_to(SKILLS).as_posix()}:{n}: {lit}"
-            for p in FILES
+    root = SKILLS.parent
+    hits = [f"{p.relative_to(root).as_posix()}:{n}: {lit}"
+            for p in FILES + REVIEW_FILES
             for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
             for lit in FORBIDDEN if lit in line]
     assert hits == [], "\n".join(hits)

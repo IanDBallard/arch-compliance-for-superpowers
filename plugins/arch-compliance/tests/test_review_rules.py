@@ -1,6 +1,8 @@
 """Rule settings, RULES, check_auditors and row selection."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from acf.exceptions import AcfInputError, UnknownMandateError
@@ -13,6 +15,8 @@ from acf.review.rules import (
     group_rows,
     select_rows,
 )
+
+RULES_DIR = Path(__file__).resolve().parents[1] / "skills" / "architecture-review" / "rules"
 
 
 def _row(**over):
@@ -130,3 +134,16 @@ def test_group_rows_keeps_first_seen_order(tmp_path):
     groups = group_rows(check_auditors(reg, tmp_path))
     assert list(groups) == ["no-shims", "fail-loud"]
     assert [r.mandate.id for r in groups["no-shims"]] == ["a", "c"]
+
+
+def test_every_rule_has_a_prompt_and_back():
+    stems = {p.stem for p in RULES_DIR.glob("*.md")} - {"_contract"}
+    assert stems == set(RULES)
+    assert (RULES_DIR / "_contract.md").is_file()
+
+
+@pytest.mark.parametrize("rule", sorted(RULES))
+def test_every_prompt_names_each_of_its_settings_keys(rule):
+    text = (RULES_DIR / f"{rule}.md").read_text(encoding="utf-8")
+    missing = [key for key in RULES[rule].model_fields if f"`{key}`" not in text]
+    assert missing == []
