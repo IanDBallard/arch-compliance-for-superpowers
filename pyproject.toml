@@ -37,4 +37,4 @@ where = ["plugins/arch-compliance/python"]
 # plugins/arch-compliance/tests/test_packaging.py builds a real wheel and asserts every tracked non-.py
 # file under acf/ is present, so a template added later cannot be forgotten.
 [tool.setuptools.package-data]
-acf = ["judge_prompt.md"]
+acf = ["judge_prompt.md", "review/packs/*.yml"]

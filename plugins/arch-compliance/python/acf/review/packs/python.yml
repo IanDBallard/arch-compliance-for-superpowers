@@ -1,0 +1,42 @@
+id: python
+language: python
+extends: null
+files: ["**/*.py"]
+hints:
+  fail-loud:
+    - {pattern: '^\s*except\s*:', tell: bare except}
+    - {pattern: '\bexcept\s+(Base)?Exception\b', tell: broad except; check it re-raises or converts}
+    - {pattern: '\bhasattr\s*\(', tell: interface probing instead of typed dispatch}
+    - {pattern: '^\s*class\s+\w+(Error|Exception)\s*\(', tell: exception class; check its bases}
+    - {pattern: 'def\s+(load|fetch|find|get)\w*\(.*->.*(Optional\[|\|\s*None)', tell: optional result on a lookup path}
+  no-shims:
+    - {pattern: 'for\s+\w+\s+in\s+range\(\d+\)\s*:', tell: possible retry loop}
+    - {pattern: 'isinstance\([^,]+,\s*\w*(Legacy|Old)\w*\)', tell: compatibility branch on an old type}
+    - {pattern: '#\s*(TODO|FIXME)\W+.*(remove after|legacy|back-?compat|shim)', tell: explicit shim comment}
+    - {pattern: 'sys\.version_info', tell: version sniffing}
+    - {pattern: 'hasattr\(\s*\w+\s*,\s*[''"]\w*legacy', tell: compatibility probe for a legacy attribute}
+  posix-paths:
+    - {pattern: '(yaml\.(safe_)?dump|json\.dumps?)\(', tell: serialisation call; check path values use as_posix}
+    - {pattern: '\bstr\(\s*\w*[pP]ath\w*\s*\)', tell: path converted with str}
+    - {pattern: '\.write_text\(\s*str\(', tell: str value written to a file}
+  single-owner:
+    - {pattern: 'yaml\.(safe_)?(load|dump)\(', tell: direct yaml access}
+    - {pattern: 'open\([^)]*\.ya?ml', tell: direct yaml file open}
+    - {pattern: 'Path\([^)]*\)\s*/\s*[''"][^''"]+\.ya?ml[''"]', tell: yaml path built inline}
+  pipeline-isolation:
+    - {pattern: '[''"](pdf|epub|html|docx)[''"]', tell: string literal naming an output format}
+    - {pattern: '\b(output|build|target)_format\b', tell: format variable}
+    - {pattern: '\b(if|elif)\b.*\bformat\b', tell: branch on format}
+    - {pattern: '^\s*(import\s+docx|from\s+docx\s+import)', tell: document-format library import}
+    - {pattern: '\bif\s+len\(.*\)\s*(==|!=|>|<)', tell: cardinality-gated branch}
+    - {pattern: '\.(r?glob)\(\s*[''"][^''"]*\.md[''"]', tell: raw source files enumerated}
+  layer-boundaries:
+    - {pattern: '\b\w*[Rr]oot\w*\s*/\s*[''"]', tell: path joined onto a root}
+    - {pattern: 'os\.path\.join\(\s*\w*[Rr]oot', tell: path joined onto a root}
+    - {pattern: 'Path\(\s*[''"][\w.-]+/[\w./-]+[''"]\s*\)', tell: hard-coded relative path}
+  state-machine-discipline:
+    - {pattern: '\bself\.\w*state\w*\s*=[^=]', tell: state assignment; check it runs inside the transition}
+    - {pattern: 'def\s+transition\w*\(', tell: transition definition}
+  path-provenance:
+    - {pattern: '\.is_absolute\(\)', tell: absolute-path classification}
+    - {pattern: 'request\.(json|get_json|form|args)\b', tell: externally sourced value}
