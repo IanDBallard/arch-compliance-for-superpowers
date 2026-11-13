@@ -48,7 +48,7 @@
   exemption_tokens: [soft.react-boundaries-ok]
   status: unenforced
   arch_anchor: "## React boundaries"
-  auditor: react-boundaries
+  auditor: ui-logic-isolation
 
 - id: fail-loud.bare-except
   title: Bare except and broad Exception handlers

@@ -7,6 +7,7 @@ from pathlib import Path
 from acf.detectors import KNOWN_DETECTORS
 from acf.judge import LLM_PROMPT_IDS
 from acf.registry import load_mandates, missing_anchors
+from acf.review.rules import check_auditors
 
 PROFILES = Path(__file__).resolve().parents[1] / "profiles"
 
@@ -26,6 +27,8 @@ def test_profile_arch_anchors_match_architecture_md() -> None:
             mandates_path, known_detectors=KNOWN_DETECTORS, llm_prompt_ids=LLM_PROMPT_IDS
         )
         assert regs.mandates, f"{profile_dir.name}: empty mandates.yml"
+
+        check_auditors(regs, profile_dir)
 
         missing = missing_anchors(regs, arch_text)
         assert missing == [], (
