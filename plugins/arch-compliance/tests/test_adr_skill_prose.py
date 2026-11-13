@@ -12,6 +12,7 @@ SKILLS = Path(__file__).resolve().parents[1] / "skills"
 GATE = SKILLS / "adversarial-design-review"
 RESPOND = SKILLS / "responding-to-adversarial-review"
 HOUSEKEEPING = SKILLS / "post-merge-housekeeping"
+REVIEW_SKILL = SKILLS / "architecture-review" / "SKILL.md"
 FILES = [
     GATE / "SKILL.md", GATE / "claims" / "extraction.md",
     GATE / "reviewers" / "compliance.md", GATE / "reviewers" / "hardening.md",
@@ -24,7 +25,7 @@ REVIEW_PY = Path(__file__).resolve().parents[1] / "python" / "acf" / "review"
 PACK_IDS = ["python", "ts-js", "react", "svelte", "html-templates", "sql"]
 REVIEW_FILES = (
     [RULES_DIR / f"{rule}.md" for rule in sorted(RULES)]
-    + [RULES_DIR / "_contract.md"]
+    + [RULES_DIR / "_contract.md", REVIEW_SKILL]
     + [REVIEW_PY / "packs" / f"{pack}.yml" for pack in PACK_IDS]
 )
 FORBIDDEN = [
@@ -52,7 +53,7 @@ def test_review_string_constants_name_no_origin_host():
 
 def _python_bodies() -> list[tuple[str, str]]:
     bodies = []
-    for skill in (GATE / "SKILL.md", RESPOND / "SKILL.md", HOUSEKEEPING / "SKILL.md"):
+    for skill in (GATE / "SKILL.md", RESPOND / "SKILL.md", HOUSEKEEPING / "SKILL.md", REVIEW_SKILL):
         text = skill.read_text(encoding="utf-8")
         bodies += [(f"{skill.parent.name}:python", b) for b in re.findall(r"```python\n(.*?)```", text, re.S)]
         bodies += [(f"{skill.parent.name}:python -c", b) for b in re.findall(r'python -c "\n(.*?)"\n', text, re.S)]
