@@ -79,7 +79,7 @@ def test_path_matches_forms(key, pattern, hit):
 
 def test_backslash_pattern_refused():
     with pytest.raises(AcfInputError, match="backslash"):
-        path_matches("admin/js/a.js", "admin\js\**")
+        path_matches("admin/js/a.js", "admin\\js\\**")
 
 
 def test_review_rel():
