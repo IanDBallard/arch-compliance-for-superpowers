@@ -76,6 +76,11 @@ def _glob_regex(pattern: str) -> str:
     return "".join(out)
 
 
+def _check_pattern(pattern: str) -> None:
+    if "\\" in pattern:
+        raise AcfInputError(f"glob pattern {pattern!r} contains a backslash; write host paths with '/'")
+
+
 def path_matches(key: str, pattern: str) -> bool:
     """Whether the repository-relative POSIX ``key`` matches ``pattern``.
 
@@ -84,8 +89,7 @@ def path_matches(key: str, pattern: str) -> bool:
     everything below it. A pattern with no ``/`` matches a basename at any
     depth. Any other pattern matches the whole key.
     """
-    if "\\" in pattern:
-        raise AcfInputError(f"glob pattern {pattern!r} contains a backslash; write host paths with '/'")
+    _check_pattern(pattern)
     if pattern.endswith("/"):
         body = pattern[:-1]
         if "/" not in body:
@@ -128,10 +132,16 @@ class RepoTree:
     def files(self, include: Sequence[str], exclude: Sequence[str]) -> list[Path]:
         """Regular files under the root matching any ``include`` and no ``exclude``, sorted by key.
 
-        Symlinked directories are not descended into; a symlinked file that resolves outside the root is skipped.
+        An unreadable directory raises AcfInputError. Symlinked directories are not descended into; a symlinked file that resolves outside the root is skipped.
         """
+        for pattern in (*include, *exclude):
+            _check_pattern(pattern)
+
+        def refuse(error: OSError) -> None:
+            raise AcfInputError(f"cannot read directory {error.filename!r} under the repository root: {error}") from error
+
         found: dict[str, Path] = {}
-        for directory, _dirs, names in os.walk(self.root, followlinks=False):
+        for directory, _dirs, names in os.walk(self.root, onerror=refuse, followlinks=False):
             for name in names:
                 location = Path(directory) / name
                 key = self.key(location)

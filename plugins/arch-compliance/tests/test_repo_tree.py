@@ -1,6 +1,7 @@
 """RepoTree is the one owner of repository path resolution."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -104,3 +105,23 @@ def test_files_includes_excludes_and_stays_in_root(tmp_path):
     assert t.files(["**/*.py"], ["tests/"]) == [t.root / "a" / "x.py"]
     assert t.files(["**/*.py", "**/*.ts"], []) == [
         t.root / "a" / "tests" / "y.py", t.root / "a" / "x.py", t.root / "b" / "z.ts"]
+
+
+@pytest.mark.parametrize("include,exclude", [(["a\\b"], []), (["**/*.py"], ["x\\y"]), (["*.zzz"], ["q\\"])])
+def test_files_validates_every_pattern_up_front(tmp_path, include, exclude):
+    with pytest.raises(AcfInputError, match="backslash"):
+        RepoTree(tmp_path).files(include, exclude)   # empty tree, nothing evaluated
+
+
+def test_files_unreadable_directory_fails_loud(tmp_path, monkeypatch):
+    (tmp_path / "d").mkdir()
+    real = os.walk
+
+    def walk(top, onerror=None, followlinks=False):
+        if onerror:
+            onerror(PermissionError(13, "denied", str(tmp_path / "d")))
+        return real(top, onerror=onerror, followlinks=followlinks)
+
+    monkeypatch.setattr(os, "walk", walk)
+    with pytest.raises(AcfInputError, match="cannot read directory"):
+        RepoTree(tmp_path).files(["**"], [])
