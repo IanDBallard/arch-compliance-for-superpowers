@@ -217,7 +217,17 @@ def _check_builtin(m: Mandate, known: Mapping[str, BuiltinDetector]) -> None:
         )
 
 
+def anchor_line(doctrine_text: str, anchor: str) -> int | None:
+    """0-based index of the first doctrine line whose stripped text equals the anchor."""
+    wanted = anchor.strip()
+    for index, line in enumerate(doctrine_text.splitlines()):
+        if line.strip() == wanted:
+            return index
+    return None
+
+
 def missing_anchors(registry: MandateRegistry, doctrine_text: str) -> list[str]:
     """Ids of rows whose ``arch_anchor`` is not a stripped line of the doctrine."""
-    lines = {line.strip() for line in doctrine_text.splitlines()}
-    return [m.id for m in registry.mandates if m.arch_anchor.strip() not in lines]
+    return [
+        m.id for m in registry.mandates if anchor_line(doctrine_text, m.arch_anchor) is None
+    ]
