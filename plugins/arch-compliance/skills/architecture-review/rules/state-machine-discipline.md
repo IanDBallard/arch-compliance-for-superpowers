@@ -21,7 +21,9 @@ failure types on its failure path.
   through which a transition may be applied). A state change made through it is
   compliant. When absent, only the base classes' transition methods sanction a change.
 
-An absent scalar turns its check off; an absent list is empty.
+An absent scalar turns its check off; an absent list is empty. When `state_field` is
+absent and `base_classes` is empty, every check is off: report no findings for the
+row and add one `errors` string, `"check off: state_field and base_classes absent"`.
 
 ## Flag
 

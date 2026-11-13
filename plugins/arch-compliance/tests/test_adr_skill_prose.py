@@ -6,6 +6,8 @@ import importlib
 import re
 from pathlib import Path
 
+from acf.review.rules import RULES
+
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 GATE = SKILLS / "adversarial-design-review"
 RESPOND = SKILLS / "responding-to-adversarial-review"
@@ -19,14 +21,9 @@ FILES = [
 ]
 RULES_DIR = SKILLS / "architecture-review" / "rules"
 REVIEW_PY = Path(__file__).resolve().parents[1] / "python" / "acf" / "review"
-RULE_IDS = [
-    "fail-loud", "no-shims", "posix-paths", "class-cohesion", "ui-logic-isolation",
-    "single-owner", "pipeline-isolation", "presentation-as-data", "layer-boundaries",
-    "state-machine-discipline", "path-provenance", "data-access-boundary",
-]
 PACK_IDS = ["python", "ts-js", "react", "svelte", "html-templates", "sql"]
 REVIEW_FILES = (
-    [RULES_DIR / f"{rule}.md" for rule in RULE_IDS]
+    [RULES_DIR / f"{rule}.md" for rule in sorted(RULES)]
     + [RULES_DIR / "_contract.md"]
     + [REVIEW_PY / "packs" / f"{pack}.yml" for pack in PACK_IDS]
 )

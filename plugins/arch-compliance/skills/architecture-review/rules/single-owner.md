@@ -13,15 +13,16 @@ being migrated or has been, and no new one appears unnoticed.
 - `target_literal_re`: a regular expression matching how the artifact is named in
   code (its file name or path literal). A line that reads, writes, opens, parses or
   builds a path to a literal matching `{target_literal_re}` is a **direct access**.
-  When absent, the direct-access check is off and this row reports nothing.
+  When absent, the direct-access check is off: report no findings for the row and
+  add one `errors` string, `"check off: target_literal_re absent"`.
 - `allowlist_globs`: path patterns of the owner (the modules allowed direct access).
   They match as `fnmatch` patterns over the repository-relative path, where `*` also
   crosses `/`. Direct access in a file matching one of `{allowlist_globs}` is the
   owner doing its job: never flag it. When empty, no file is the owner.
 - `inventory`: the path of a document listing files known to access the artifact
   directly, each marked compliant, non-compliant or in migration. When set, read it in
-  full first and reconcile every file against it (table below). When absent, the
-  reconciliation is off and every direct access outside the owner counts as untracked.
+  full first and reconcile every file against it (table below). When absent, every
+  file is treated as "not listed" in the table below.
 
 An absent scalar turns its check off; an absent list is empty.
 
@@ -40,6 +41,10 @@ inventory:
 | not listed, or no inventory | `blocking`: new untracked direct access | no finding |
 
 A `suggestion` for a file with no direct access cites the file's first line.
+
+One grade overrides the table: a direct access that only builds or prints the
+artifact's location, and never reads or writes its content, is `nit` whatever the
+table says.
 
 ## Do not flag
 

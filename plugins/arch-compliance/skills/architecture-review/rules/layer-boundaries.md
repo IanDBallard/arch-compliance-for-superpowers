@@ -11,7 +11,7 @@ other file uses it.
 - `docs`: documents to read in full before auditing (for example the tier
   architecture's design notes).
 - `tiers`: a list of `{name, paths}`. A file belongs to the tier whose `paths` patterns
-  match it. A file in no tier is not judged. When empty, this rule is off.
+  match it. A file in no tier is not judged.
 - `crossings`: a list of `{from_tier, to_tier, root_names, via}`, one per sanctioned
   crossing:
   - `from_tier`, `to_tier`: tier names from `tiers`;
@@ -20,9 +20,11 @@ other file uses it.
   - `via`: the boundary: the modules, classes or functions through which code in
     `from_tier` must reach `to_tier` resources.
 
-  Only declared crossings are checked. When empty, checks 1 and 2 are off.
+  Only declared crossings are checked.
 
-An absent scalar turns its check off; an absent list is empty.
+An absent scalar turns its check off; an absent list is empty. When `tiers` or
+`crossings` is empty, every check is off: report no findings for the row and add one
+`errors` string naming the empty setting, for example `"check off: tiers absent"`.
 
 ## Flag
 

@@ -19,7 +19,15 @@ Where a rule prompt and this contract disagree, this contract wins.
   violations no pattern matched. A rule with no candidates is still audited.
 
 The controller has already resolved each surface (globs, exclusions and test paths
-applied). Do not widen it and do not narrow it.
+applied). The surface bounds where findings may be reported: audit all of it, and cite
+nothing outside it. Files a row's settings name as evidence (an inventory, a base
+class's module, policy files, a style document) may be read wherever they are in the
+repository; only the line a finding cites must be in the surface.
+
+When a rule prompt says its whole check is off for a row because a setting is absent
+or empty, report no findings for that row and add one `errors` string naming the
+setting, for example `"check off: classifier absent"`. A rule that returns nothing
+without saying why looks like a clean pass.
 
 ## Read-only
 

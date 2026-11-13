@@ -13,7 +13,8 @@ relative (`C:/x` on a POSIX host), and the classification silently fails.
   classification design note).
 - `classifier`: the name of the repository's cross-platform classification helper
   (with its module, if the setting gives one). Read its definition first. When absent,
-  this rule's check is off and the row reports nothing.
+  this rule's check is off: report no findings for the row and add one `errors`
+  string, `"check off: classifier absent"`.
 
 An absent scalar turns its check off; an absent list is empty.
 

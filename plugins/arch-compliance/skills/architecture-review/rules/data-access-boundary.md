@@ -9,17 +9,16 @@ logic is correct, and it is not a general security review.
 
 ## Settings
 
-- `surface`, `surface_exclude`: already applied by the controller; you audit the
-  row's surface as given. Findings must cite a line in it.
+- `surface`, `surface_exclude`: already applied by the controller. The surface bounds
+  where a finding may be cited: every finding's line is in it.
 - `docs`: documents to read in full before auditing (for example the data access
   design note).
 - `client_paths`: path patterns of client code (code that runs in a browser, a mobile
   app or any other place the end user controls). When empty, no table is reachable
   through client code and check 2 is off.
 - `policy_files`: path patterns of the files that define the database's access
-  policies (migrations, schema files, policy declarations). Read every matching file
-  in the surface. When empty, no table has row-level security enabled as far as this
-  rule can see.
+  policies (migrations, schema files, policy declarations). Read every matching file.
+  When empty, no table has row-level security enabled as far as this rule can see.
 - `privileged_credentials`: the names of credentials that bypass access policies
   (service-role keys, admin tokens, the environment variable names that hold them).
   When empty, check 2 is off.
@@ -27,7 +26,13 @@ logic is correct, and it is not a general security review.
   clients (sync rules, replication publications, subscription definitions). When
   empty, no table is reachable through replication and check 3 is off.
 
-An absent scalar turns its check off; an absent list is empty.
+Files matching `{client_paths}`, `{policy_files}` and `{replication_rules}` are
+evidence: read them wherever they are in the repository, inside the surface or not.
+Only the line a finding cites must be in the surface.
+
+An absent scalar turns its check off; an absent list is empty. When `client_paths`
+and `replication_rules` are both empty, every check is off: report no findings and
+add one `errors` string, `"check off: client_paths and replication_rules absent"`.
 
 ## Client-reachable tables
 
@@ -39,8 +44,9 @@ in a file under `{replication_rules}` selects it. Build this set first.
 
 1. **No row-level security.** A client-reachable table on which no file under
    `{policy_files}` enables row-level security. Cite the table's create statement if it
-   is in the surface; otherwise the first line under `{client_paths}` or
-   `{replication_rules}` that names the table.
+   is in the surface; otherwise the first line in the surface, under `{client_paths}`
+   or `{replication_rules}`, that names the table. When no such line is in the
+   surface, name the table in `errors` instead.
 2. **Privileged credential in client code.** A name from `{privileged_credentials}`
    appearing in a file under `{client_paths}`: read, imported, passed to a client
    constructor, or embedded.

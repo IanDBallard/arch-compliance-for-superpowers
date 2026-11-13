@@ -25,7 +25,9 @@ from.
   the variant stages consume. When absent, check D is off.
 
 A file matching both stage lists is judged as both. An absent scalar turns its check
-off; an absent list is empty.
+off; an absent list is empty. When `shared_stages` and `variant_stages` are both
+empty, every check is off: report no findings for the row and add one `errors`
+string, `"check off: shared_stages and variant_stages absent"`.
 
 ## Flag
 
