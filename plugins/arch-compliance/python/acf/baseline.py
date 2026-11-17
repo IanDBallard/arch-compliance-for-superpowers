@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from acf.exceptions import BaselineError
-from acf.loader import load_model_file
-from acf.finding import Finding
+from acf.loader import load_model_file, write_text_record
 
 
 class BaselineCell(BaseModel):
@@ -47,32 +47,44 @@ class DriftReport(BaseModel):
     rows: list[DriftRow]
 
 
-def subsystem_of(posix_path: str) -> str:
-    """Map a finding path to a portable subsystem (first path segment)."""
+class Locatable(Protocol):
+    """Anything with a mandate and a POSIX path (e.g. ``AuditorFinding``)."""
+
+    mandate_id: str
+    path: str
+
+
+def subsystem_of(posix_path: str, *, prefixes: Sequence[str]) -> str:
+    """Map a finding path to a subsystem.
+
+    With declared ``prefixes`` the longest prefix the normalised path starts with
+    wins; an unmatched path is ``other``. With no prefixes, the first path segment
+    is the subsystem (``other`` for a bare file name).
+    """
     normalized = posix_path.replace("\\", "/")
+    if prefixes:
+        matches = [prefix for prefix in prefixes if normalized.startswith(prefix)]
+        return max(matches, key=len) if matches else "other"
     parts = [p for p in normalized.split("/") if p]
     if len(parts) >= 2:
         return f"{parts[0]}/"
     return "other"
 
 
-def aggregate(findings: Sequence[Finding] | Iterable[Finding]) -> dict[tuple[str, str], int]:
+def aggregate(
+    findings: Iterable[Locatable], *, prefixes: Sequence[str]
+) -> dict[tuple[str, str], int]:
     """Fold findings into counts keyed by (mandate_id, subsystem)."""
     counts: dict[tuple[str, str], int] = {}
     for finding in findings:
-        key = (finding.mandate_id, subsystem_of(finding.path))
+        key = (finding.mandate_id, subsystem_of(finding.path, prefixes=prefixes))
         counts[key] = counts.get(key, 0) + 1
     return counts
 
 
 def save_baseline(path: Path, data: Baseline) -> Path:
     """Write baseline JSON. Paths in error messages use POSIX form."""
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(data.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    except OSError as exc:
-        raise BaselineError(f"Cannot write baseline {path.as_posix()}: {exc}") from exc
-    return path
+    return write_text_record(path, data.model_dump_json(indent=2) + "\n", error=BaselineError)
 
 
 def load_baseline(path: Path) -> Baseline:
@@ -139,13 +151,3 @@ def render_drift_section(report: DriftReport, baseline: Baseline) -> str:
     if not report.rows:
         lines.append("| _no overlapping cells_ | | | | |")
     return "\n".join(lines) + "\n"
-
-
-def format_drift_line(report: DriftReport, baseline_commit: str) -> str:
-    """One-line rollup summary."""
-    worse = sum(1 for r in report.rows if r.delta > 0)
-    better = sum(1 for r in report.rows if r.delta < 0)
-    return (
-        f"Drift vs baseline ({baseline_commit}): "
-        f"{worse} worse, {better} better across {len(report.rows)} cells"
-    )

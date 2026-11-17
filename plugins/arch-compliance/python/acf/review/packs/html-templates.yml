@@ -1,0 +1,13 @@
+id: html-templates
+language: none
+extends: null
+files: ["**/*.html", "**/*.htm"]
+hints:
+  ui-logic-isolation:
+    - {pattern: '\bon(click|change|input|submit)\s*=\s*["''][^"'']*(\?|&&|\|\||===|!==)', tell: inline handler deciding behaviour}
+    - {pattern: '\{%\s*if\s+[^%]*(==|!=|>|<|\band\b|\bor\b)', tell: template conditional on a comparison}
+    - {pattern: '\bdisabled\s*=\s*["'']?\{\{', tell: enablement computed in the template}
+  presentation-as-data:
+    - {pattern: '\bstyle\s*=\s*["''][^"'']*(color|font|margin|padding|width|height)\s*:', tell: inline style value}
+    - {pattern: '<style\b', tell: embedded stylesheet}
+    - {pattern: '#[0-9a-fA-F]{3,8}\b', tell: literal colour}

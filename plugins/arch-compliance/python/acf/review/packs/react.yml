@@ -1,0 +1,10 @@
+id: react
+language: typescript
+extends: ts-js
+files: ["**/*.tsx", "**/*.jsx"]
+hints:
+  ui-logic-isolation:
+    - {pattern: 'useMemo\(.*\.(reduce|filter|sort)\(', tell: aggregation inside a component}
+    - {pattern: '\b(fetch|axios\.\w+)\(', tell: data fetching in a view; check for business rules beside it}
+    - {pattern: 'disabled=\{[^}]*(&&|\|\||===|!==|\?)', tell: enablement re-decided in the view}
+    - {pattern: '\b(role|permission|isAdmin|canEdit|price|total|discount)\w*\s*(===|!==|[<>]=?|&&|\|\|)', tell: policy or pricing rule in a component}

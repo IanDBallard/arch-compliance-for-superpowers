@@ -3,7 +3,7 @@ import pytest
 import yaml
 from acf.detectors import KNOWN_DETECTORS
 from acf.judge import LLM_PROMPT_IDS
-from acf.registry import load_mandates, missing_anchors
+from acf.registry import anchor_line, load_mandates, missing_anchors
 from acf.exceptions import AcfInputError, UnknownDetectorError
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -291,3 +291,8 @@ def test_json_native_params_load(tmp_path):
     assert m.params == {
         "s": "x", "n": 1, "f": 1.5, "b": True, "z": None, "l": [1, "a"], "m": {"k": [True]},
     }
+
+
+def test_anchor_line_first_match():
+    assert anchor_line("x\n## A\n## A\n", "## A") == 1
+    assert anchor_line("x\n", "## A") is None

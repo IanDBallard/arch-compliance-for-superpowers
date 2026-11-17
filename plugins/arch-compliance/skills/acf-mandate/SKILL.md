@@ -14,7 +14,7 @@ Edit the **host** mandate registry at `config/architecture/mandates.yml`. This s
 1. Confirm host registry path and existing ARCHITECTURE.md
 2. Clarify intent: add / edit / deprecate
 3. Apply schema-valid row changes
-4. Ensure `arch_anchor` exists in ARCHITECTURE.md
+4. Ensure `arch_anchor` equals a whole line of ARCHITECTURE.md
 5. Validate with `load_gate_registry` (it applies the built-in detector contracts and the LLM prompt ids)
 6. Remind about detector / prompt / auditor stubs when needed
 7. Summarize diff of mandate ids touched
@@ -43,8 +43,8 @@ Root YAML type: **list** of mandate objects. Required fields:
 | `call_sites` | list of strings | Closed vocabulary: `ci`, `precommit`, `hook`, `posttooluse`, `audit`; any other spelling is refused. `ci` and `precommit` are the sites `acf-check-diff --call-site` runs; `hook` and `posttooluse` are two spellings of the PostToolUse hook; `audit` is not a Tier-1 gate. A row runs only at the sites it declares: a `[ci]`-only row is not reported by the hook or by `--call-site precommit` |
 | `exemption_tokens` | list of strings | Inline exemption markers |
 | `status` | `enforced` \| `partial` \| `unenforced` | Enforcement maturity (`unenforced` never gates; `partial` still gates) |
-| `arch_anchor` | string | Literal substring of ARCHITECTURE.md (usually a `##` heading) |
-| `auditor` | string \| omit | Optional; Tier-3 auditor name for soft/llm facets |
+| `arch_anchor` | string | Must equal, after stripping, one whole line of ARCHITECTURE.md (usually a `##` heading); a fragment of a line does not match |
+| `auditor` | string \| omit | Optional; a rule id from `acf.review.rules.RULES`, or a repository prompt path ending in `.md`. An active row with `auditor` set joins `/architecture-review` whatever its `call_sites` |
 
 Match the Pydantic model in `acf.registry.Mandate`. Unknown extra fields should be avoided.
 
@@ -64,7 +64,7 @@ Match the Pydantic model in `acf.registry.Mandate`. Unknown extra fields should 
 
 1. Choose a new unique `id` (fail if collision).
 2. Fill all required fields; set `status` honestly.
-3. Add or reuse an `arch_anchor` heading in `ARCHITECTURE.md` — the exact `arch_anchor` string must appear in that file.
+3. Add or reuse an `arch_anchor` heading in `ARCHITECTURE.md` — the exact `arch_anchor` string must be a whole line of that file (stripped line equality).
 4. If `detection` is `ast`, `guard` or `llm`, list the stub the user still needs (see below) and use `unenforced` until the stub exists. For a built-in detector the row's `id` is the detector's mandate id and its `call_sites` stay within the sites that detector runs at.
 
 ### Edit
@@ -90,15 +90,17 @@ import sys
 from acf.detectors import load_gate_registry
 from acf.registry import missing_anchors
 from acf.repo import ARCH_REL, MANDATES_REL, resolve_repo
+from acf.review.rules import check_auditors
 
 repo = resolve_repo(None)
 reg = load_gate_registry(repo, repo / MANDATES_REL)
+check_auditors(reg, repo)
 print(f'OK: {len(reg.mandates)} mandates from {reg.source_path}')
 for m in reg.mandates:
     print(f'  {m.id} status={m.status} detection={m.detection} detector={m.detector}')
 missing = missing_anchors(reg, (repo / ARCH_REL).read_text(encoding='utf-8'))
 if missing:
-    sys.exit(f'arch_anchor not found in {ARCH_REL.as_posix()} for: {missing}')
+    sys.exit(f'arch_anchor not a line of {ARCH_REL.as_posix()} for: {missing}')
 "
 ```
 
@@ -106,10 +108,12 @@ The snippet refuses a repeated mandate id, an active `ast`/`guard` row that brea
 detector's contract (unknown built-in detector, a row `id` that is not the detector's mandate
 id, a Tier-1 call site at which no gate runs it, or no Tier-1 call site), a host reference
 that does not resolve to an existing file inside the repository, an active `llm` row whose
-prompt id is unknown, and a row whose `arch_anchor` is not a literal substring of
+prompt id is unknown, an active row whose `auditor` is neither a rule id nor a `.md`
+prompt path (`UnknownMandateError`), an active row whose `auditor` prompt file is missing,
+and a row whose `arch_anchor` is not, after stripping, a whole line of
 `config/architecture/ARCHITECTURE.md` (the same check the profile drift test runs).
 
-If `UnknownDetectorError` or `AcfInputError` occurs, or an anchor is reported missing: fix
+If `UnknownDetectorError`, `UnknownMandateError` or `AcfInputError` occurs, or an anchor is reported missing: fix
 the YAML or the heading; do not weaken validation by bypassing `load_gate_registry` for
 “convenience.” The valid built-in detectors are the contracts in
 `acf.detectors.KNOWN_DETECTORS`, and `acf.judge.LLM_PROMPT_IDS` for `llm` rows; print them
@@ -140,6 +144,6 @@ Say explicitly: `/acf-mandate` updates registry rows only. Implementing detector
 |---------|-----|
 | Editing plugin `profiles/*` instead of host config | Only change host `config/architecture/` |
 | Active (`enforced` or `partial`) + unknown `detector` | Use `unenforced` or implement stub first |
-| `arch_anchor` not in ARCHITECTURE.md | Add heading or fix anchor string |
+| `arch_anchor` not a whole line of ARCHITECTURE.md | Add the heading or fix the anchor string |
 | Full detector codegen in this skill | Refuse; list stub locations only |
 | Skipping `load_gate_registry(...)` | Always validate before claiming done |

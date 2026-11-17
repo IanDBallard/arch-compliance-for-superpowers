@@ -15,7 +15,7 @@ from typing import Any, Literal, TypeVar, overload
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from acf.exceptions import AcfInputError
+from acf.exceptions import AcfError, AcfInputError
 
 Fmt = Literal["yaml", "json"]
 M = TypeVar("M", bound=BaseModel)
@@ -75,3 +75,15 @@ def load_model_file(
         return model.model_validate(raw)
     except ValidationError as exc:
         raise AcfInputError(f"invalid {subject} {path.as_posix()}: {exc}") from exc
+
+
+def write_text_record(path: Path, text: str, *, error: type[AcfError], hint: str = "") -> Path:
+    """Write ``text`` to ``path`` as UTF-8, creating parents; wrap any ``OSError`` in ``error``."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        raise error(
+            f"cannot write {path.as_posix()}: {exc}" + (f". {hint}" if hint else "")
+        ) from exc
+    return path

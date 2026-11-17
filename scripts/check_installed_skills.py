@@ -4,7 +4,7 @@ Usage: python scripts/check_installed_skills.py <INSTALL_PATH>
 
 INSTALL_PATH is the installed plugin's directory (the `installPath` that
 `~/.claude/plugins/installed_plugins.json` records). Every file under this clone's
-`plugins/arch-compliance/skills/{adversarial-design-review,responding-to-adversarial-review,post-merge-housekeeping}`
+`plugins/arch-compliance/skills/{adversarial-design-review,responding-to-adversarial-review,post-merge-housekeeping,architecture-review}`
 must exist at the same relative path under `<INSTALL_PATH>/skills/` with identical bytes.
 Prints `installed gate skills identical to the clone` and exits 0, or prints each differing
 or missing relative path and exits 1 (spec docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md §5.3).
@@ -19,6 +19,7 @@ GATE_SKILLS = (
     "adversarial-design-review",
     "responding-to-adversarial-review",
     "post-merge-housekeeping",
+    "architecture-review",
 )
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

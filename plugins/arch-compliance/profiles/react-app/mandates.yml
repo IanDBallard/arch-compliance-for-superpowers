@@ -43,4 +43,4 @@
   exemption_tokens: [soft.react-boundaries-ok]
   status: partial
   arch_anchor: "## React boundaries"
-  auditor: react-boundaries
+  auditor: ui-logic-isolation

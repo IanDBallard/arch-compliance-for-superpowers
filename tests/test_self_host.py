@@ -15,6 +15,7 @@ from acf.detectors import KNOWN_DETECTORS
 from acf.judge import LLM_PROMPT_IDS
 from acf.registry import load_mandates, missing_anchors
 from acf.repo import ARCH_REL, MANDATES_REL, RepoTree
+from acf.review.rules import check_auditors
 
 ROOT = Path(__file__).resolve().parents[1]
 MANUAL_DETECTOR_PREFIX = "plugins/arch-compliance/tests/"
@@ -38,6 +39,10 @@ def test_declaration_names_the_reviews_tree():
 def test_every_anchor_is_in_the_doctrine():
     doctrine = (ROOT / ARCH_REL).read_text(encoding="utf-8")
     assert missing_anchors(_registry(), doctrine) == []
+
+
+def test_every_auditor_resolves():
+    check_auditors(_registry(), ROOT)
 
 
 def test_every_manual_row_names_an_existing_test_module():

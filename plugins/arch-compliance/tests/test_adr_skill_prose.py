@@ -1,4 +1,4 @@
-"""The moved gate prose: its Python resolves here, and it names no origin host."""
+"""The moved gate prose and the review prose: Python resolves here, and nothing names an origin host."""
 from __future__ import annotations
 
 import ast
@@ -6,10 +6,13 @@ import importlib
 import re
 from pathlib import Path
 
+from acf.review.rules import RULES
+
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 GATE = SKILLS / "adversarial-design-review"
 RESPOND = SKILLS / "responding-to-adversarial-review"
 HOUSEKEEPING = SKILLS / "post-merge-housekeeping"
+REVIEW_SKILL = SKILLS / "architecture-review" / "SKILL.md"
 FILES = [
     GATE / "SKILL.md", GATE / "claims" / "extraction.md",
     GATE / "reviewers" / "compliance.md", GATE / "reviewers" / "hardening.md",
@@ -17,17 +20,40 @@ FILES = [
     RESPOND / "SKILL.md",
     HOUSEKEEPING / "SKILL.md",
 ]
+RULES_DIR = SKILLS / "architecture-review" / "rules"
+REVIEW_PY = Path(__file__).resolve().parents[1] / "python" / "acf" / "review"
+PACK_IDS = ["python", "ts-js", "react", "svelte", "html-templates", "sql"]
+REVIEW_FILES = (
+    [RULES_DIR / f"{rule}.md" for rule in sorted(RULES)]
+    + [RULES_DIR / "_contract.md", REVIEW_SKILL]
+    + [REVIEW_PY / "packs" / f"{pack}.yml" for pack in PACK_IDS]
+)
 FORBIDDEN = [
     "GEMINI", "CLAUDE.md", "SKILL_PROVENANCE", "scripts.core",
     "docs/design", "docs/reviews", "docs/architecture", ".cursor",
     "run_cms_e2e", "expected_branch.txt", "CMS_SKIP_BRANCH_GUARD",
     "ARCHITECTURE_REVIEW_2026",
+    "ContentMetadataService", "index.yml", "DeclaredFSM", "HistoricMansions",
+    "PosixPathStr", "structural_realizations", "IMAGES_YAML", "scripts/core",
+    "templates/families",
 ]
+
+
+def test_review_string_constants_name_no_origin_host():
+    modules = sorted(REVIEW_PY.glob("*.py"))
+    assert modules
+    hits = []
+    for module in modules:
+        tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                hits += [f"{module.name}:{node.lineno}: {lit}" for lit in FORBIDDEN if lit in node.value]
+    assert hits == [], "\n".join(hits)
 
 
 def _python_bodies() -> list[tuple[str, str]]:
     bodies = []
-    for skill in (GATE / "SKILL.md", RESPOND / "SKILL.md", HOUSEKEEPING / "SKILL.md"):
+    for skill in (GATE / "SKILL.md", RESPOND / "SKILL.md", HOUSEKEEPING / "SKILL.md", REVIEW_SKILL):
         text = skill.read_text(encoding="utf-8")
         bodies += [(f"{skill.parent.name}:python", b) for b in re.findall(r"```python\n(.*?)```", text, re.S)]
         bodies += [(f"{skill.parent.name}:python -c", b) for b in re.findall(r'python -c "\n(.*?)"\n', text, re.S)]
@@ -39,9 +65,15 @@ def test_the_seven_files_moved():
     assert missing == []
 
 
+def test_the_review_files_exist():
+    missing = [p.as_posix() for p in REVIEW_FILES if not p.is_file()]
+    assert missing == []
+
+
 def test_the_prose_names_no_origin_host():
-    hits = [f"{p.relative_to(SKILLS).as_posix()}:{n}: {lit}"
-            for p in FILES
+    root = SKILLS.parent
+    hits = [f"{p.relative_to(root).as_posix()}:{n}: {lit}"
+            for p in FILES + REVIEW_FILES
             for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
             for lit in FORBIDDEN if lit in line]
     assert hits == [], "\n".join(hits)
@@ -78,6 +110,31 @@ def test_host_values_are_passed_explicitly():
             repo_root = {k.arg: k.value for k in call.keywords}.get("repo_root")
             assert repo_root is not None
             assert not (isinstance(repo_root, ast.Call) and getattr(repo_root.func, "id", "") == "Path")
+
+
+def test_review_brief_carries_its_group():
+    briefs = []
+    for _, body in _python_bodies():
+        for node in ast.walk(ast.parse(body)):
+            if (
+                isinstance(node, ast.Assign)
+                and isinstance(node.targets[0], ast.Subscript)
+                and getattr(node.targets[0].value, "id", None) == "briefs"
+                and isinstance(node.value, ast.Dict)
+            ):
+                briefs.append(node.value)
+    assert len(briefs) == 1, "expected one briefs[group] = {...} assignment in the review skill"
+    keys = {k.value for k in briefs[0].keys if isinstance(k, ast.Constant)}
+    assert "group" in keys
+
+
+def test_review_calls_pass_the_scope_arguments():
+    surface_calls = list(_calls("row_surface"))
+    assert surface_calls and all("paths_given" in {k.arg for k in c.keywords} for c in surface_calls)
+    report_calls = list(_calls("render_report"))
+    assert report_calls
+    for call in report_calls:
+        assert {"rows", "out_of_scope"} <= {k.arg for k in call.keywords}
 
 
 def test_no_python_c_body_opens_a_literal_ledger_path():

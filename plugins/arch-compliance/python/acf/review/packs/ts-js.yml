@@ -1,0 +1,26 @@
+id: ts-js
+language: typescript
+extends: null
+files: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs"]
+hints:
+  fail-loud:
+    - {pattern: 'catch\s*(\(\s*\w*\s*\))?\s*\{\s*\}', tell: empty catch}
+    - {pattern: '\.catch\(\s*\(?\s*\w*\s*\)?\s*=>\s*(\{\s*\}|null|undefined)\s*\)', tell: rejection swallowed}
+    - {pattern: 'catch\s*(\(\s*\w*\s*\))?\s*\{\s*return\s+(null|undefined|\[\]|\{\})', tell: failure turned into an empty result}
+  no-shims:
+    - {pattern: '//\s*(TODO|FIXME)\W+.*(remove after|legacy|back-?compat|shim)', tell: explicit shim comment}
+    - {pattern: '\binstanceof\s+\w*(Legacy|Old)\w*', tell: compatibility branch on an old type}
+    - {pattern: '\b(retry|retries|attempts?)\w*\b', tell: possible retry around an internal call}
+  ui-logic-isolation:
+    - {pattern: '\.(disabled|checked|hidden)\s*=\s*[^;]*(\?|&&|\|\||===|!==)', tell: computed enablement}
+    - {pattern: '\.style\.display\s*=\s*[^;]*\?', tell: computed display}
+    - {pattern: '\b(?:let|const|var)\s+\w*(?:State|Draft)\b\s*=', tell: client state declaration}
+    - {pattern: '\.(disabled|checked|hidden)\s*=\s*!?\s*(?!true\b|false\b|null\b)[A-Za-z_$][\w$]*(?:\.[\w$]+|\([^()]*\))*\s*;', tell: simple enablement from a value}
+    - {pattern: '\.(filter|reduce)\(', tell: client-side aggregation}
+  single-owner:
+    - {pattern: 'JSON\.parse\(\s*(fs\.)?readFileSync', tell: data file parsed inline}
+    - {pattern: 'readFileSync\([^)]*\.ya?ml', tell: yaml file read inline}
+    - {pattern: 'localStorage\.(get|set)Item\(', tell: persisted state accessed directly}
+  data-access-boundary:
+    - {pattern: '\.from\(\s*[''"`]\w+[''"`]\s*\)', tell: table queried from client code}
+    - {pattern: '\bcreateClient\(', tell: client construction; check which credential it uses}

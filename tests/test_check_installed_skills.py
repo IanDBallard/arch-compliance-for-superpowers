@@ -25,6 +25,8 @@ def _skill_tree(base: Path) -> None:
         (d / "reviewers").mkdir(parents=True)
         (d / "SKILL.md").write_bytes(b"# " + skill.encode() + b"\n")
         (d / "reviewers" / "compliance.md").write_bytes(b"reviewer body\n")
+        (d / "rules").mkdir()
+        (d / "rules" / "fail-loud.md").write_bytes(b"rule body\n")
 
 
 @pytest.fixture
@@ -50,6 +52,15 @@ def test_a_changed_byte_is_reported(trees, capsys):
     main = _load_script().main
     assert main([str(inst)], clone=clone) == 1
     assert "adversarial-design-review/SKILL.md" in capsys.readouterr().out
+
+
+def test_a_changed_architecture_review_rule_is_reported(trees, capsys):
+    clone, inst = trees
+    target = inst / "skills" / "architecture-review" / "rules" / "fail-loud.md"
+    target.write_bytes(target.read_bytes() + b"x")
+    main = _load_script().main
+    assert main([str(inst)], clone=clone) == 1
+    assert "architecture-review/rules/fail-loud.md" in capsys.readouterr().out
 
 
 def test_a_missing_installed_file_is_reported(trees, capsys):
