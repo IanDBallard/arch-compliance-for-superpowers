@@ -140,6 +140,36 @@ def checked_auditor_model(value: str) -> str:
     return model
 
 
+def merge_slice_payloads(raws: list[str], *, group: str) -> str:
+    """One fenced ``json`` payload for ``group`` from the payloads of its slice agents.
+
+    Findings are concatenated in slice order, ``files_examined`` is summed and ``errors``
+    are joined, an entry repeated across slices (a "check off" note) kept once. Each
+    slice must carry exactly one ``json`` block matching the contract and name ``group``.
+    """
+    if not raws:
+        raise AuditorContractViolationError(f"group {group!r}: no slice payloads to merge")
+    findings: list[AuditorFinding] = []
+    errors: list[str] = []
+    examined = 0
+    for index, raw in enumerate(raws, 1):
+        subject = f"group {group!r} slice {index}"
+        data = extract_json_block(raw, subject=subject, error=AuditorContractViolationError)
+        try:
+            parsed = AuditorPayload.model_validate(data)
+        except ValidationError as exc:
+            raise AuditorContractViolationError(
+                f"{subject}: payload does not match the auditor contract: {exc}"
+            ) from exc
+        if parsed.group != group:
+            raise AuditorContractViolationError(f"{subject}: payload names group {parsed.group!r}")
+        findings += parsed.findings
+        errors += [error for error in parsed.errors if error not in errors]
+        examined += parsed.files_examined
+    merged = AuditorPayload(group=group, files_examined=examined, findings=findings, errors=errors)
+    return "```json\n" + merged.model_dump_json(indent=2) + "\n```\n"
+
+
 def render_report(
     *,
     commit: str,

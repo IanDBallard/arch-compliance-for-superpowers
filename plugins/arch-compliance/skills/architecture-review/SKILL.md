@@ -107,10 +107,8 @@ A declared `surface` that matches no file, and an `arch_anchor` that matches no 
 ```python
 from acf.review.prepass import render_candidates, scan
 
-candidates = {
-    row.mandate.id: render_candidates(scan(tree, row, surfaces[row.mandate.id], packs))
-    for row in rows
-}
+scanned = {row.mandate.id: scan(tree, row, surfaces[row.mandate.id], packs) for row in rows}
+candidates = {mandate_id: render_candidates(found) for mandate_id, found in scanned.items()}
 ```
 
 Candidates are hints, not findings; precision is the auditor's job. A rule with no hints is still reviewed, with an empty candidate list.
@@ -121,7 +119,9 @@ Assemble each group's brief, then dispatch every group in parallel with Superpow
 
 **One model.** Every group in a run is dispatched on that one model, `auditor_model`: the most capable model available to you. A smaller or cheaper tier is never used to save cost, for any group, because the report and the baseline compare runs, in this repository and across repositories, and a count from a weaker auditor is not comparable with one from a stronger auditor.
 
-**Whole surface.** A group's auditor must finish its whole surface: it classifies every candidate and examines every surface file, as `_contract.md` states under "Coverage". If a group is too large for one agent to finish, re-dispatch it (the same brief, on the same model) until it returns a payload that covers the surface; never accept a partial payload as the group's result. A payload whose `errors` name files or candidates left unexamined is partial: re-dispatch rather than store it. Only when a path cannot be examined at all (unreadable, not text) does a payload that names it in `errors` count as finished.
+**Whole surface.** A group's auditor must finish its whole surface: it classifies every candidate and examines every surface file, as `_contract.md` states under "Coverage". Never accept a partial payload as the group's result. A payload is partial when an `errors` entry names surface files or candidates left unexamined; a "check off: ..." note or an unreadable-path entry does not make it partial, since no agent could examine that path.
+
+**Retry, then split.** Re-dispatch a partial group once, on the same brief and model. If that payload is still partial, split the group's surface into disjoint slices with `slice_briefs` (surface order, at most `slice_files` files per row in each slice) and dispatch one agent per slice: the same brief, restricted to that slice's surfaces and candidates. A slice whose payload is partial is re-dispatched once. When every slice has returned a payload that is not partial, merge them with `merge_slice_payloads` into the group's payload. If a slice is still partial after one retry, record the group as FAILED in `incomplete[group]` with the reason (which slice, and what its `errors` left unexamined); its payload is not accepted.
 
 ```python
 from pathlib import Path
@@ -139,7 +139,8 @@ def read_prompt(path: Path) -> str:
 
 
 contract = read_prompt(rules_dir / "_contract.md")
-payloads: dict[str, str] = {}  # filled below: each agent's final message, under its group
+payloads: dict[str, str] = {}  # filled below: each group's accepted payload
+incomplete: dict[str, str] = {}  # filled below: why a group stayed partial after its slice retries
 
 briefs = {}
 for group, group_members in groups.items():
@@ -181,7 +182,53 @@ Each agent receives exactly its `briefs[group]`:
 5. each row's surface, doctrine section, `docs` and candidates;
 6. the instruction: *Read `config/architecture/ARCHITECTURE.md` in full, then every document it points to.*
 
-Dispatch each agent with its model set to `auditor_model`. Tool allowlist: `Read`, `Grep`, `Glob` only. No `Edit`, `Write` or mutating shell. The tree is not mutated during the audit; the controller writes only the report and baseline after the agents return. When each agent returns a payload that covers its surface, store its final message in `payloads[group]`.
+Dispatch each agent with its model set to `auditor_model`. Tool allowlist: `Read`, `Grep`, `Glob` only. No `Edit`, `Write` or mutating shell. The tree is not mutated during the audit; the controller writes only the report and baseline after the agents return. When a group's agent returns a payload that is not partial, store its final message in `payloads[group]`.
+
+For a group that is still partial after its one retry, build the slice briefs, dispatch one agent per slice, and merge:
+
+```python
+from acf.review.aggregator import merge_slice_payloads
+
+slice_files = 25  # surface files per row in one slice
+
+
+def slice_briefs(group: str) -> list[dict]:
+    """``briefs[group]`` cut into disjoint slices, in surface order; each row keeps its slice's candidates."""
+    rows_in = briefs[group]["rows"]
+    count = max(-(-len(row["surface"]) // slice_files) for row in rows_in)
+    sliced = []
+    for index in range(count):
+        part_rows = []
+        for row in rows_in:
+            part = row["surface"][index * slice_files:(index + 1) * slice_files]
+            if part:
+                keep = set(part)
+                part_rows.append({
+                    **row,
+                    "surface": part,
+                    "candidates": render_candidates([c for c in scanned[row["id"]] if c.path in keep]),
+                })
+        sliced.append({**briefs[group], "rows": part_rows})
+    return sliced
+
+
+partial_groups: list[str] = []  # filled by you: the groups still partial after their one retry
+slices = {group: slice_briefs(group) for group in partial_groups}
+slice_raws: dict[str, list[str]] = {}  # filled by you: each slice's accepted final message, in slice order
+# Dispatch one agent per slices[group] entry and re-dispatch a partial slice once. A slice
+# still partial after that sets incomplete[group] (which slice, what it left unexamined)
+# and the group gets no slice_raws entry.
+
+from acf.exceptions import AuditorContractViolationError
+
+for group, raws in slice_raws.items():
+    try:
+        payloads[group] = merge_slice_payloads(raws, group=group)
+    except AuditorContractViolationError as error:
+        incomplete[group] = str(error)
+```
+
+A slice payload with a different `group`, or without exactly one `json` block, makes `merge_slice_payloads` raise `AuditorContractViolationError`, and the group is recorded in `incomplete` with the error.
 
 ## Step 6 — Parse the payloads
 
@@ -192,6 +239,9 @@ from acf.review.aggregator import GroupResult, parse_auditor_payload
 results = []
 for group, group_members in groups.items():
     raw = payloads.get(group, "")
+    if group in incomplete:
+        results.append(GroupResult(group, "FAILED", None, raw, incomplete[group]))
+        continue
     try:
         parsed = parse_auditor_payload(
             raw,
@@ -206,7 +256,7 @@ for group, group_members in groups.items():
         results.append(GroupResult(group, "OK", parsed, raw, None))
 ```
 
-A contract violation marks that group FAILED, keeps its raw payload and the error, and the run continues with the other groups.
+A contract violation, or a group recorded in `incomplete`, marks that group FAILED, keeps its raw payload and the error or reason, and the run continues with the other groups.
 
 ## Step 7 — Exemptions and roll-up
 
@@ -312,7 +362,7 @@ Write the report, print the roll-up and the report's repository-relative POSIX p
 | Unknown `--mandates` id | `UnknownMandateError` |
 | Empty target tree | `EmptyTargetTreeError` |
 | Empty or placeholder `auditor_model` | `AcfInputError` before any dispatch |
-| Auditor payload names unexamined files or candidates | Partial: re-dispatch the group; never store it as the group's result |
+| Auditor payload names unexamined files or candidates | Partial: re-dispatch once, then split into slices; a slice still partial after one retry marks the group FAILED |
 | Declared surface matches nothing, or anchor matches nothing | `AcfInputError` naming the mandate id |
 | Default surface empty (no declared `surface`) | `AcfInputError` naming the mandate id, its `languages` and the declared packs; under `--paths` the row is dropped and listed under "Not in scope under --paths" |
 | Auditor payload violates the contract | Group FAILED, raw payload kept, run continues, exit status 1 |
@@ -326,7 +376,8 @@ Write the report, print the roll-up and the report's repository-relative POSIX p
 |---------|-----|
 | Letting auditors Edit or Write | Read-only; the controller writes the report and baseline |
 | Dispatching a group on a smaller or cheaper model | Every group runs on `auditor_model`, the most capable model available |
-| Accepting a payload that stopped early | Re-dispatch until the group covers its whole surface |
+| Accepting a payload that stopped early | Retry once, then split into slices and merge with `merge_slice_payloads` |
+| Re-dispatching the same brief again and again | One retry on the same brief; after that, slices |
 | Treating drift as a gate | Report only; it never changes the exit status |
 | Writing the baseline without `--update-baseline` | Only write when the flag is set |
 | Hand-parsing a payload | Use `parse_auditor_payload` |

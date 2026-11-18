@@ -180,8 +180,8 @@ def test_review_step_5_pins_one_most_capable_model():
 def test_review_step_5_requires_the_whole_surface():
     step = " ".join(_review_step("## Step 5").split())
     assert "must finish its whole surface" in step
-    assert "re-dispatch" in step
-    assert "never accept a partial payload" in step
+    assert "Re-dispatch a partial group once" in step
+    assert "Never accept a partial payload" in step
 
 
 def test_auditor_contract_pins_the_coverage_rule():
@@ -195,3 +195,16 @@ def test_auditor_contract_pins_the_coverage_rule():
     assert "A count or a summary" in text
     assert "does not claim a clean pass" in text
     assert "triage cutoff or any part of a surface you did not cover" not in text
+
+
+def test_review_step_5_caps_retries_and_splits_a_partial_group():
+    step = " ".join(_review_step("## Step 5").split())
+    assert "Re-dispatch a partial group once, on the same brief" in step
+    assert "disjoint slices" in step
+    assert "still partial after one retry" in step
+    assert "record the group as FAILED" in step
+    assert "until it returns a payload that covers the surface" not in step
+    assert "a \"check off: ...\" note or an unreadable-path entry does not" in step
+    assert list(_calls("slice_briefs")), "step 5 builds the slice briefs"
+    merge_calls = list(_calls("merge_slice_payloads"))
+    assert merge_calls and all("group" in {k.arg for k in c.keywords} for c in merge_calls)

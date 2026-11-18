@@ -112,7 +112,7 @@ Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exi
 ### Upgrading a host to comparable architecture reviews (v0.3.1)
 
 - `/architecture-review` now dispatches every auditor group on one model, the most capable one available to the controller, and never on a cheaper tier to save cost. The report's header records it as `Auditor model:`. A report from 0.3.0 has no such line; compare its counts with a 0.3.1 run only knowing which model produced them.
-- An auditor now finishes its whole surface: there is no triage cutoff, every pre-pass candidate is read at its line, and anything it could not examine is named in `errors` by path. The controller re-dispatches a group that returns a partial payload. Counts can rise against a 0.3.0 baseline that came from a run with a cutoff; take a fresh `--update-baseline` after the first full 0.3.1 run.
+- An auditor now finishes its whole surface: there is no triage cutoff, every pre-pass candidate is read at its line, and anything it could not examine is named in `errors` by path. The controller re-dispatches a partial group once, then splits its surface into slices and merges their payloads; a slice still partial after one retry marks the group FAILED. Counts can rise against a 0.3.0 baseline that came from a run with a cutoff; take a fresh `--update-baseline` after the first full 0.3.1 run.
 
 ### Upgrading a host to the architecture review port (v0.3.0)
 

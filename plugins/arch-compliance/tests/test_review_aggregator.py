@@ -14,6 +14,7 @@ from acf.review.aggregator import (
     GroupResult,
     apply_exemptions,
     checked_auditor_model,
+    merge_slice_payloads,
     parse_auditor_payload,
     render_report,
     write_report,
@@ -298,3 +299,45 @@ def test_empty_or_placeholder_auditor_model_fails_loud(value):
 
 def test_checked_auditor_model_strips_surrounding_space():
     assert checked_auditor_model("  model-a ") == "model-a"
+
+
+def _slice(findings=(), errors=(), files_examined=1, group="g1"):
+    return _raw_payload(
+        {"group": group, "files_examined": files_examined, "findings": list(findings), "errors": list(errors)}
+    )
+
+
+def _raw_payload(body):
+    return "slice text\n```json\n" + json.dumps(body) + "\n```\n"
+
+
+def test_merge_slice_payloads_concatenates_sums_and_joins(tmp_path, tree):
+    first = _slice([_finding(line=1, snippet="x = 1")], errors=["check off: classifier absent"], files_examined=3)
+    second = _slice([_finding(line=2)], errors=["check off: classifier absent", "not examined (unreadable): src/b.py"], files_examined=4)
+    merged = merge_slice_payloads([first, second], group="g1")
+    parsed = _parse(tmp_path, tree, merged)
+    assert parsed.group == "g1"
+    assert parsed.files_examined == 7
+    assert [(f.path, f.line) for f in parsed.findings] == [("src/a.py", 1), ("src/a.py", 2)]
+    assert parsed.errors == ["check off: classifier absent", "not examined (unreadable): src/b.py"]
+
+
+def test_merge_slice_payloads_refuses_a_foreign_group():
+    with pytest.raises(AuditorContractViolationError, match="slice 2"):
+        merge_slice_payloads([_slice(), _slice(group="g2")], group="g1")
+
+
+@pytest.mark.parametrize("raw", ["no block here", _raw_payload({}) * 2])
+def test_merge_slice_payloads_refuses_a_slice_without_one_json_block(raw):
+    with pytest.raises(AuditorContractViolationError):
+        merge_slice_payloads([_slice(), raw], group="g1")
+
+
+def test_merge_slice_payloads_refuses_a_misshapen_slice():
+    with pytest.raises(AuditorContractViolationError, match="slice 1"):
+        merge_slice_payloads([_raw_payload({"group": "g1"})], group="g1")
+
+
+def test_merge_slice_payloads_refuses_no_slices():
+    with pytest.raises(AuditorContractViolationError, match="no slice"):
+        merge_slice_payloads([], group="g1")
