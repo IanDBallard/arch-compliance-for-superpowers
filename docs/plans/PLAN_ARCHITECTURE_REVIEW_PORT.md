@@ -1,6 +1,6 @@
 # Architecture Review Port Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the plugin's four-auditor `/architecture-review` with a port of the origin repository's review. The port has twelve technology-independent rules, six plugin-shipped technology packs, a repository declaration (`review.yml`) and a hatch for repository prompts. It releases as `0.3.0`, and then the origin repository cuts over to it.
 
@@ -21,6 +21,8 @@ The skill prose drives the package step by step, as the ADR gate skill does. The
 **Tech Stack:** Python ≥3.11, Pydantic v2, PyYAML, pytest. No new dependency.
 
 **Spec:** `docs/design/ARCHITECTURE_REVIEW_PORT.md`. It is v4, cleared by a verification pass at `a6ff195`. Read it in full before any task: its section numbers are cited throughout, and its §5 tables are the origin stage's requirements, which this plan does not copy.
+
+**Merged (plugin stage, Tasks 1–15):** PR #38 (`b10fd24`, 2026-11-17), released and installed as 0.3.0. The final review's fix wave (`7778231`) added work beyond these tasks: briefs carry the group name, auditor errors and coverage notes reach the report, undeclared settings keys are listed, `--update-baseline` refuses a failed or narrowed run, and a row whose default surface is empty under `--paths` is dropped and listed as not in scope. Follow-ups filed: #39 (judge reads a reply missing `violation` as no violation, found by the self-host run), #40 (pack id validation and noisy hints), #41 (`--paths` residuals and report I/O), #42 (`check_installed_skills` passes on a missing skill dir), #43 (test-coverage and wording minors). Tasks 16–17 (origin stage) are not started.
 
 ## Global Constraints
 
@@ -103,7 +105,7 @@ These are the five inputs most likely to bite a user that the spec implies but n
   - `AuditorContractViolationError(AcfError)`;
   - `ReportWriteError(AcfError)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # test_agent_payload.py
@@ -144,23 +146,23 @@ def test_write_text_record_makes_parents(tmp_path):
 
 In `test_adr_exceptions.py`, add both new classes to the derive-from-`AcfError`-alone parametrisation.
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `PYTHONUTF8=1 python -m pytest -q plugins/arch-compliance/tests/test_agent_payload.py plugins/arch-compliance/tests/test_loader.py plugins/arch-compliance/tests/test_adr_exceptions.py`
 Expected: FAIL with ImportError.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 - Move the fence regex, the count checks and the decode out of `parser.py:53-63` into `extract_json_block`. Keep the three message texts verbatim, with `{subject}` where they now have `{expected_reviewer}`. `parse_reviewer_payload` calls it with `subject=expected_reviewer, error=ReviewerContractViolationError` and keeps its identity check and schema step.
 - `write_text_record` makes the parent directory and writes UTF-8. On `OSError` it raises `error(f"cannot write {path.as_posix()}: {exc}" + (f". {hint}" if hint else ""))` from the original exception.
 - `write_run_detail` calls it with `error=RunDetailWriteError` and passes its current advice sentence as `hint`.
 
-- [ ] **Step 4: Run the full suite**
+- [x] **Step 4: Run the full suite**
 
 Run: `PYTHONUTF8=1 python -m pytest -q`
 Expected: PASS. The existing `test_adr_parser.py` and `test_adr_run_detail.py` pass unchanged.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(acf): shared JSON-block extractor and record writer"`
 
@@ -177,7 +179,7 @@ Expected: PASS. The existing `test_adr_parser.py` and `test_adr_run_detail.py` p
   - `path_matches(key: str, pattern: str) -> bool`;
   - `RepoTree.files(self, include: Sequence[str], exclude: Sequence[str]) -> list[Path]`, sorted by key, regular files only, never outside the root.
 
-- [ ] **Step 1: Write the failing tests.** The cases are §4.7 step 2's pattern forms, verbatim.
+- [x] **Step 1: Write the failing tests.** The cases are §4.7 step 2's pattern forms, verbatim.
 
 ```python
 @pytest.mark.parametrize("key,pattern,hit", [
@@ -205,20 +207,20 @@ def test_files_includes_excludes_and_stays_in_root(tmp_path): ...
     # build a/x.py, a/tests/y.py, b/z.ts; files(["**/*.py"], ["tests/"]) == [root/"a/x.py"]
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `PYTHONUTF8=1 python -m pytest -q plugins/arch-compliance/tests/test_repo_tree.py`
 Expected: FAIL with ImportError.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 - `path_matches` translates the pattern to a regex: `**/` matches zero or more `segment/`, a trailing `/**` matches everything below, `*` matches `[^/]*`, `?` matches `[^/]`. The trailing-`/` and no-`/` forms are handled before translation, exactly as §4.7 step 2 says.
 - A pattern containing `\` raises `AcfInputError` whose message says `backslash` and names the pattern.
 - `files` walks `self.root` with `os.walk` and does not follow symlinked directories. It keys each file through `self.key` and keeps a file that matches any `include` and no `exclude`.
 
-- [ ] **Step 4: Run the tests and see them pass.** Same command. Expected: PASS.
+- [x] **Step 4: Run the tests and see them pass.** Same command. Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(acf): one repository glob matcher and RepoTree.files"`
 
@@ -235,7 +237,7 @@ Expected: FAIL with ImportError.
   - `anchor_line(doctrine_text: str, anchor: str) -> int | None` (0-based index of the first line whose stripped text equals `anchor.strip()`);
   - `doctrine_section(doctrine_text: str, anchor: str, *, mandate_id: str) -> str`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_anchor_line_first_match():
@@ -254,13 +256,13 @@ def test_unresolved_anchor_names_mandate():
 
 Leave the existing `missing_anchors` test unchanged.
 
-- [ ] **Step 2: Run them and see them fail.** `PYTHONUTF8=1 python -m pytest -q plugins/arch-compliance/tests/test_registry.py plugins/arch-compliance/tests/test_review_doctrine.py` → FAIL.
+- [x] **Step 2: Run them and see them fail.** `PYTHONUTF8=1 python -m pytest -q plugins/arch-compliance/tests/test_registry.py plugins/arch-compliance/tests/test_review_doctrine.py` → FAIL.
 
-- [ ] **Step 3: Implement.** Rewrite `missing_anchors` as `[m.id for m in registry.mandates if anchor_line(doctrine_text, m.arch_anchor) is None]`, with the same signature. `doctrine_section` returns the lines joined by `\n`, with trailing blank lines stripped.
+- [x] **Step 3: Implement.** Rewrite `missing_anchors` as `[m.id for m in registry.mandates if anchor_line(doctrine_text, m.arch_anchor) is None]`, with the same signature. `doctrine_section` returns the lines joined by `\n`, with trailing blank lines stripped.
 
-- [ ] **Step 4: Run the full suite** → PASS. This covers the self-host and profile-drift tests that call `missing_anchors`.
+- [x] **Step 4: Run the full suite** → PASS. This covers the self-host and profile-drift tests that call `missing_anchors`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(acf): one anchor resolver shared by missing_anchors and the review"`
 
@@ -278,7 +280,7 @@ Leave the existing `missing_anchors` test unchanged.
   - `aggregate(findings: Iterable[Locatable], *, prefixes: Sequence[str]) -> dict[tuple[str, str], int]`.
 - `save_baseline` writes through `write_text_record(..., error=BaselineError)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 - Update `:52-60` so both tests pass `prefixes=[]`.
 - Update the existing `aggregate` test the same way.
@@ -301,13 +303,13 @@ def test_aggregate_accepts_a_second_model():
 
 The dataclass stands in for `AuditorFinding`, so this task does not depend on Task 5.
 
-- [ ] **Step 2: Run them and see them fail.**
+- [x] **Step 2: Run them and see them fail.**
 
-- [ ] **Step 3: Implement.** Only an empty `prefixes` keeps the first-segment rule. The current skill's `bl.aggregate(findings)` call goes away in Task 12; nothing else calls it.
+- [x] **Step 3: Implement.** Only an empty `prefixes` keeps the first-segment rule. The current skill's `bl.aggregate(findings)` call goes away in Task 12; nothing else calls it.
 
-- [ ] **Step 4: Run the full suite** → PASS.
+- [x] **Step 4: Run the full suite** → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(acf): baseline aggregation over a protocol with declared subsystems"`
 
@@ -326,13 +328,13 @@ The dataclass stands in for `AuditorFinding`, so this task does not depend on Ta
   - `ReviewHostConfig(report_dir: PosixStr, baseline_path: PosixStr, baseline_max_age_days: int > 0, baseline_max_commits: int > 0, packs: list[str], subsystems: list[PosixStr], exclude: list[str])`, every field required;
   - `load_review_config(repo: Path) -> ReviewHostConfig`, built on `require_file` and `load_model_file` as `adr/host.py:28-33` is. Its missing-file message names `/acf-setup`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 They cover a missing field, an extra field, a backslash in `report_dir` and a missing file. Each raises `AcfInputError`, and the missing-file case matches `acf-setup`. Add one valid load.
 
-- [ ] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass.**
+- [x] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(review): finding contract and review.yml declaration"`
 
@@ -376,7 +378,7 @@ They cover a missing field, an extra field, a backslash in `report_dir` and a mi
 
 `select_rows` returns `rows` when `ids` is `None`. Otherwise it returns the rows whose ids are in `ids`, and an id matching no row raises `UnknownMandateError` naming it.
 
-- [ ] **Step 1: Write the failing tests.** Build each registry with `MandateRegistry.model_validate`. Use a `_row(**over)` helper that fills a valid `llm` row with `call_sites: [ci]`.
+- [x] **Step 1: Write the failing tests.** Build each registry with `MandateRegistry.model_validate`. Use a `_row(**over)` helper that fills a valid `llm` row with `call_sites: [ci]`.
 
 ```python
 def test_wrong_type_names_mandate(): # single-owner, allowlist_globs: "x" -> AcfInputError match "'r1'"
@@ -390,9 +392,9 @@ def test_select_rows_unknown_id(): ...                      # Review Focus 5
 def test_absent_settings_are_off(): ...                     # fail-loud row, no params -> exception_base is None
 ```
 
-- [ ] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass.**
+- [x] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(review): rule settings models and auditor validation"`
 
@@ -424,13 +426,13 @@ Pack contents follow §4.3's table:
 - `html-templates` covers `files: ["**/*.html", "**/*.htm"]`.
 - `sql` covers `files: ["**/*.sql"]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Each shipped pack loads. Hint keys are rule ids. An add-on without its base is refused. A `detectors` key is refused (write a temporary pack dict and validate it). A `python` row receives the `python` and `sql`/`html-templates` packs and not `ts-js`. `hint_files` for `ts-js` with `svelte` declared includes `**/*.svelte`.
 
-- [ ] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass,** including `test_packaging.py`, which now sees the yml files in the wheel.
+- [x] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass,** including `test_packaging.py`, which now sees the yml files in the wheel.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(review): technology packs"`
 
@@ -451,7 +453,7 @@ Each shipped pack loads. Hint keys are rule ids. An add-on without its base is r
   - `scan(tree, row: ReviewRow, surface: list[str], packs) -> list[Candidate]`;
   - `render_candidates(cands) -> str` (`file:line [tell] snippet`, one per line).
 
-- [ ] **Step 1: Write the failing tests** in a `tmp_path` tree:
+- [x] **Step 1: Write the failing tests** in a `tmp_path` tree:
   - candidates per pack and language;
   - `surface_exclude` applies;
   - a rule with no hints yields `[]`;
@@ -460,9 +462,9 @@ Each shipped pack loads. Hint keys are rule ids. An add-on without its base is r
   - a declared surface matching nothing raises with the id;
   - Review Focus 3: a file holding the bytes `b"\xff\xfe"` inside the surface raises `AcfInputError` matching its POSIX key.
 
-- [ ] **Step 2: Run them and see them fail. Step 3: Implement.** Read each file with `encoding="utf-8"` and wrap a `UnicodeDecodeError` in `AcfInputError(f"{key}: not UTF-8 ...")`. **Step 4: Run them and see them pass.**
+- [x] **Step 2: Run them and see them fail. Step 3: Implement.** Read each file with `encoding="utf-8"` and wrap a `UnicodeDecodeError` in `AcfInputError(f"{key}: not UTF-8 ...")`. **Step 4: Run them and see them pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(review): target tree, surfaces and hint pre-pass"`
 
@@ -488,7 +490,7 @@ Each shipped pack loads. Hint keys are rule ids. An add-on without its base is r
   - `render_report(*, commit: str, invocation: str, results: list[GroupResult], findings: list[AuditorFinding], exempted: int, rollup_md: str) -> str`.
   - `write_report(tree: RepoTree, cfg: ReviewHostConfig, text: str, today: date) -> Path`, which writes `ARCHITECTURE_REVIEW_<date>.md`, then `_2`, `_3` and so on, never overwriting, through `tree.contained` and `write_text_record(error=ReportWriteError)`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - a good payload parses;
   - a finding outside the group's rows is a violation;
   - group mismatch is a violation;
@@ -496,9 +498,9 @@ Each shipped pack loads. Hint keys are rule ids. An add-on without its base is r
   - an exempted line is dropped and counted;
   - a second same-day report gets `_2`.
 
-- [ ] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass.**
+- [x] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(review): auditor payloads, exemptions and report"`
 
@@ -519,7 +521,7 @@ Each shipped pack loads. Hint keys are rule ids. An add-on without its base is r
   - `render_rollup(*, repo: Path, cfg: ReviewHostConfig, findings: list[AuditorFinding], results: list[GroupResult], now: datetime) -> str`. With no file at `cfg.baseline_path` it omits drift, staleness and provenance and writes `no baseline (run --update-baseline to set one)`. Neither drift, staleness nor provenance affects the exit status.
   - `exit_status(results: list[GroupResult]) -> int`, which is 1 if any group is FAILED and 0 otherwise.
 
-- [ ] **Step 1: Write the failing tests** against a real temporary git repo (`git init`, two commits):
+- [x] **Step 1: Write the failing tests** against a real temporary git repo (`git init`, two commits):
   - staleness by age and by commits;
   - a fresh baseline gives no warning;
   - a baseline commit `deadbeef` gives `unknown` containing git's text;
@@ -527,9 +529,9 @@ Each shipped pack loads. Hint keys are rule ids. An add-on without its base is r
   - no baseline file gives the `no baseline` line and no drift, staleness or provenance heading;
   - Review Focus 2: a committed line `x = "é"` classifies as pre-baseline under `PYTHONUTF8=1`.
 
-- [ ] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass.**
+- [x] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: Run them and see them pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(review): drift, staleness and provenance roll-up"`
 
@@ -552,16 +554,16 @@ Each prompt states:
 
 Port the substance of the origin auditor named in §4.2's Source column, and of the plugin auditor where one is named. `data-access-boundary` is written from §4.2's paragraph. `_contract.md` fixes the payload: one fenced `json` block matching `AuditorPayload`, which echoes `group`, gives each finding the `mandate_id` of one of the dispatched rows, and draws paths only from the given surface.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
   - `test_every_rule_has_a_prompt_and_back`: the set of `RULES` keys equals the set of `rules/*.md` stems minus `_contract`.
   - In `test_adr_skill_prose.py`, `FILES` gains the twelve prompts, `_contract.md`, `architecture-review/SKILL.md` and the six pack files.
   - `FORBIDDEN` gains `ContentMetadataService`, `index.yml`, `DeclaredFSM`, `HistoricMansions`, `PosixPathStr`, `structural_realizations`, `IMAGES_YAML`, `scripts/core`, `templates/families`.
   - A new test parses every `plugins/arch-compliance/python/acf/review/*.py` with `ast` and checks that no string constant contains a `FORBIDDEN` item (stricter choice 2).
   - `test_the_seven_files_moved` keeps its own list.
 
-- [ ] **Step 2: Run them and see them fail. Step 3: Write the prompts and delete `auditors/`. Step 4: Run the full suite and see it pass.**
+- [x] **Step 2: Run them and see them fail. Step 3: Write the prompts and delete `auditors/`. Step 4: Run the full suite and see it pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(review): twelve generic rule prompts and the auditor contract"`
 
@@ -592,9 +594,9 @@ The skill keeps the invocation `[--paths <glob>] [--include-tests] [--mandates <
 
 Remove the `Finding` mapping (`:108`) and `Path("config/architecture/mandates.yml")` (`:62`).
 
-- [ ] **Step 1: Write the failing test.** `_python_bodies` includes `architecture-review/SKILL.md`. The existing import-resolution test then fails on the old body's names.
-- [ ] **Step 2: Run it and see it fail. Step 3: Rewrite. Step 4: Run the full suite and see it pass,** including the prose test.
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Write the failing test.** `_python_bodies` includes `architecture-review/SKILL.md`. The existing import-resolution test then fails on the old body's names.
+- [x] **Step 2: Run it and see it fail. Step 3: Rewrite. Step 4: Run the full suite and see it pass,** including the prose test.
+- [x] **Step 5: Commit**
 
 `git commit -m "feat(review): rewrite /architecture-review onto acf.review"`
 
@@ -642,9 +644,9 @@ Remove the `Finding` mapping (`:108`) and `Path("config/architecture/mandates.ym
 - **`acf-setup`.** It writes `review.yml` and asks for the field values. `:115` and `:138-139` say line equality.
 - **The two tests.** `test_self_host.py` gains `test_every_auditor_resolves`, asserting `check_auditors(_registry(), ROOT)` returns without raising. `test_profile_drift.py` calls `check_auditors(regs, profile_dir)` in its loop.
 
-- [ ] **Step 1: Write the two failing test additions.** Run them: they fail on `react-boundaries`, which is unknown.
-- [ ] **Step 2: Make the edits. Step 3: Run the full suite and see it pass.**
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Write the two failing test additions.** Run them: they fail on `react-boundaries`, which is unknown.
+- [x] **Step 2: Make the edits. Step 3: Run the full suite and see it pass.**
+- [x] **Step 4: Commit**
 
 `git commit -m "feat(review): self-host declaration, doctrine and skill prose for the port"`
 
@@ -655,13 +657,13 @@ Remove the `Finding` mapping (`:108`) and `Path("config/architecture/mandates.ym
 **Files:**
 - Modify: `scripts/check_installed_skills.py:18-21` (`GATE_SKILLS` gains `"architecture-review"`), `tests/test_check_installed_skills.py`, `README.md`, `pyproject.toml:3`, `plugins/arch-compliance/.claude-plugin/plugin.json:3`
 
-- [ ] **Step 1: Write the failing test.** `tests/test_check_installed_skills.py` asserts that a difference in `architecture-review/rules/fail-loud.md` is reported.
-- [ ] **Step 2: Implement.**
+- [x] **Step 1: Write the failing test.** `tests/test_check_installed_skills.py` asserts that a difference in `architecture-review/rules/fail-loud.md` is reported.
+- [x] **Step 2: Implement.**
   - Add the skill to the tuple.
   - Bump both versions to `0.3.0`.
   - Add a README upgrade note: `config/architecture/review.yml` is required, and `auditor` values are rule ids or repository prompt paths (`react-boundaries` became `ui-logic-isolation`).
-- [ ] **Step 3: Run the full suite and the diff gate**, `PYTHONUTF8=1 python -m acf.cli_check_diff --repo . --base origin/main --call-site ci`. Expected: both pass.
-- [ ] **Step 4: Commit**
+- [x] **Step 3: Run the full suite and the diff gate**, `PYTHONUTF8=1 python -m acf.cli_check_diff --repo . --base origin/main --call-site ci`. Expected: both pass.
+- [x] **Step 4: Commit**
 
 `git commit -m "chore(release): v0.3.0 — architecture-review port"`
 
@@ -669,16 +671,16 @@ Remove the `Finding` mapping (`:108`) and `Path("config/architecture/mandates.ym
 
 ### Task 15: Plugin-stage acceptance (§9 items 1 and 3)
 
-- [ ] **Step 1: Self-host run.** Run `/arch-compliance:architecture-review` in this worktree, using the worktree's skill and package. It must run end to end. The first run writes the report with `no baseline`. Then run it with `--update-baseline` and commit the report and the baseline.
-- [ ] **Step 2: Scratch repository.** Use a temporary directory outside the repo with:
+- [x] **Step 1: Self-host run.** Run `/arch-compliance:architecture-review` in this worktree, using the worktree's skill and package. It must run end to end. The first run writes the report with `no baseline`. Then run it with `--update-baseline` and commit the report and the baseline.
+- [x] **Step 2: Scratch repository.** Use a temporary directory outside the repo with:
   - `config/architecture/{ARCHITECTURE.md,mandates.yml,review.yml}`;
   - `packs: [ts-js, svelte]`;
   - one `ui-logic-isolation` row;
   - one `.svelte` file using `$derived(`.
 
   Run the review end to end. Then run `grep -r -i -E "historic|gemini|scripts/core" <report>`. Expected: no output.
-- [ ] **Step 3: Record both runs** in the PR description.
-- [ ] **Step 4: Merge and install.** Push, open the PR, and merge on the user's approval. Then update the installed plugin and run `python scripts/check_installed_skills.py <INSTALL_PATH>`. Expected: it exits 0.
+- [x] **Step 3: Record both runs** in the PR description.
+- [x] **Step 4: Merge and install.** Push, open the PR, and merge on the user's approval. Then update the installed plugin and run `python scripts/check_installed_skills.py <INSTALL_PATH>`. Expected: it exits 0.
 
 ---
 
