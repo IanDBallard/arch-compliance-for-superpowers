@@ -372,6 +372,84 @@ def test_malformed_provider_responses_raise_response_error() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "payload, problem",
+    [
+        ({"confidence": "high", "message": "m"}, "missing"),
+        ({"violation": "false", "confidence": "high"}, "str"),
+        ({"violation": "true", "confidence": "high"}, "str"),
+        ({"violation": 0, "confidence": "high"}, "int"),
+        ({"violation": 1, "confidence": "high"}, "int"),
+        ({"violation": None, "confidence": "high"}, "NoneType"),
+    ],
+)
+def test_violation_missing_or_not_bool_raises_response_error(
+    payload: dict, problem: str
+) -> None:
+    """Issue #39: only an explicit JSON false means no finding."""
+    with pytest.raises(JudgeResponseError, match="violation") as exc_info:
+        _result_from_text(json.dumps(payload), _llm_mandate())
+    assert problem in str(exc_info.value)
+
+
+def test_violation_explicit_false_is_no_finding() -> None:
+    assert _result_from_text(json.dumps({"violation": False}), _llm_mandate()) is None
+
+
+def test_violation_explicit_true_is_a_finding() -> None:
+    res = _result_from_text(
+        json.dumps({"violation": True, "confidence": "high", "message": "m"}),
+        _llm_mandate(),
+    )
+    assert res is not None
+    assert res.confidence == "high"
+    assert res.message == "m"
+    assert res.severity == "BLOCK"
+
+
+def test_provider_reply_missing_violation_surfaces_as_response_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The provider path raises, it does not return a clean result."""
+    reply = json.dumps({"confidence": "high", "message": "m"})
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"content": [{"type": "text", "text": reply}]}
+
+    class FakeClient:
+        def __init__(self, *, timeout: float) -> None:
+            pass
+
+        def __enter__(self) -> FakeClient:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def post(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    with pytest.raises(JudgeResponseError, match="violation"):
+        run_judge(
+            diff_text="...",
+            mandates=[_llm_mandate()],
+            provider=AnthropicProvider(api_key="sk-ant"),
+        )
+
+
+def test_judge_prompt_states_violation_is_required() -> None:
+    from acf.judge import _build_prompt
+
+    out = _build_prompt(diff_text="D", mandate=_llm_mandate())
+    assert "violation" in out
+    assert "required" in out
+
+
 def test_response_error_is_not_configuration_error() -> None:
     assert not issubclass(JudgeResponseError, JudgeNotConfiguredError)
 

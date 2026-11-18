@@ -319,7 +319,18 @@ def _parse_json_object(text: str) -> dict:
 
 def _result_from_text(text: str, mandate: Mandate) -> JudgeResult | None:
     data = _parse_json_object(text)
-    if not data.get("violation", False):
+    if "violation" not in data:
+        raise JudgeResponseError(
+            "judge JSON is missing the required 'violation' field; "
+            "refusing to read its absence as no violation"
+        )
+    violation = data["violation"]
+    if type(violation) is not bool:
+        raise JudgeResponseError(
+            "judge JSON 'violation' must be a JSON boolean (true or false), "
+            f"got {type(violation).__name__} {violation!r}"
+        )
+    if not violation:
         return None
     try:
         return JudgeResult(

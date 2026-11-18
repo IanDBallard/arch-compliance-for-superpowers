@@ -60,6 +60,7 @@ JUDGE_PROMPT_EXPECTED = (
     '{"violation": bool, "severity": "BLOCK"|"WARN", "confidence": '
     '"high"|"medium"|"low", "message": string, "path": string|null, '
     '"line": int|null}\n'
+    'The "violation" field is required and must be the JSON boolean true or false.\n'
     "Set violation=false when the diff does not violate the mandate.\n"
     "\n"
     "DIFF:\n"
