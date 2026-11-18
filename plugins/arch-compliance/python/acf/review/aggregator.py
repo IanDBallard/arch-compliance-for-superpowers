@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from acf.agent_payload import extract_json_block
 from acf.enforcement import token_exempted
-from acf.exceptions import AuditorContractViolationError, ReportWriteError
+from acf.exceptions import AcfInputError, AuditorContractViolationError, ReportWriteError
 from acf.loader import write_text_record
 from acf.repo import RepoTree
 from acf.review.contract import AuditorFinding, AuditorPayload
@@ -129,10 +129,22 @@ def _fenced(text: str, indent: str = "") -> list[str]:
     return [f"{indent}{fence}", *(f"{indent}{line}" for line in text.split("\n")), f"{indent}{fence}"]
 
 
+def checked_auditor_model(value: str) -> str:
+    """The declared auditor model, stripped; an empty or ``<placeholder>`` value fails loud."""
+    model = value.strip()
+    if not model or (model.startswith("<") and model.endswith(">")):
+        raise AcfInputError(
+            f"auditor_model {value!r} is empty or a placeholder; set it to the model "
+            "every auditor in this run is dispatched on"
+        )
+    return model
+
+
 def render_report(
     *,
     commit: str,
     invocation: str,
+    auditor_model: str,
     results: list[GroupResult],
     findings: list[AuditorFinding],
     exempted: int,
@@ -142,12 +154,14 @@ def render_report(
 ) -> str:
     """The review report. ``findings`` are the findings left after inline exemptions;
     each group's count is taken from them. ``out_of_scope`` names the rows dropped
-    because their default surface is empty under ``--paths``."""
+    because their default surface is empty under ``--paths``. ``auditor_model`` is the
+    one model every group was dispatched on, recorded so runs can be compared."""
     out = [
         "# Architecture review",
         "",
         f"- Commit: {commit}",
         f"- Invocation: {invocation}",
+        f"- Auditor model: {checked_auditor_model(auditor_model)}",
         "",
         "## Groups",
         "",

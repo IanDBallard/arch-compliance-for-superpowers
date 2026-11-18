@@ -7,12 +7,13 @@ from datetime import date
 
 import pytest
 
-from acf.exceptions import AuditorContractViolationError, ReportWriteError
+from acf.exceptions import AcfInputError, AuditorContractViolationError, ReportWriteError
 from acf.registry import MandateRegistry
 from acf.repo import RepoTree
 from acf.review.aggregator import (
     GroupResult,
     apply_exemptions,
+    checked_auditor_model,
     parse_auditor_payload,
     render_report,
     write_report,
@@ -154,6 +155,7 @@ def test_render_report_shows_failed_and_ok():
     text = render_report(
         commit="abc123",
         invocation="/architecture-review",
+        auditor_model="model-a",
         results=[ok, failed],
         findings=[finding],
         exempted=2,
@@ -178,7 +180,7 @@ def test_render_report_without_failures_has_no_failed_section():
         error=None,
     )
     text = render_report(
-        commit="c", invocation="i", results=[ok], findings=[], exempted=0, rollup_md="R",
+        commit="c", invocation="i", auditor_model="model-a", results=[ok], findings=[], exempted=0, rollup_md="R",
         rows=[],
     )
     assert "## Failed groups" not in text
@@ -208,7 +210,7 @@ def test_failed_group_fence_encloses_raw_payload_with_inner_fence():
     raw = "intro\n```json\n{}\n```\ntail"
     failed = GroupResult(group="g2", status="FAILED", payload=None, raw=raw, error="bad")
     text = render_report(
-        commit="c", invocation="i", results=[failed], findings=[], exempted=0, rollup_md="R",
+        commit="c", invocation="i", auditor_model="model-a", results=[failed], findings=[], exempted=0, rollup_md="R",
         rows=[],
     )
     fence = "````"
@@ -229,7 +231,7 @@ def _ok(findings, errors=(), files_examined=1, group="g1"):
 
 def _report(results, findings, **over):
     args = dict(
-        commit="c", invocation="i", results=results, findings=findings, exempted=0,
+        commit="c", invocation="i", auditor_model="model-a", results=results, findings=findings, exempted=0,
         rollup_md="R", rows=[],
     )
     args.update(over)
@@ -278,3 +280,21 @@ def test_group_count_is_after_exemptions():
     text = _report([_ok([kept, exempt])], [kept], exempted=1)
     assert "Findings (after exemptions)" in text
     assert "| g1 | OK | 1 | 1 |" in text
+
+
+def test_render_report_records_the_auditor_model():
+    text = _report([], [], auditor_model="model-top-tier")
+    header = text[:text.index("## Groups")]
+    assert "- Auditor model: model-top-tier\n" in header
+
+
+@pytest.mark.parametrize("value", ["", "   ", "<model>", " <any placeholder> "])
+def test_empty_or_placeholder_auditor_model_fails_loud(value):
+    with pytest.raises(AcfInputError, match="auditor_model"):
+        checked_auditor_model(value)
+    with pytest.raises(AcfInputError, match="auditor_model"):
+        _report([], [], auditor_model=value)
+
+
+def test_checked_auditor_model_strips_surrounding_space():
+    assert checked_auditor_model("  model-a ") == "model-a"

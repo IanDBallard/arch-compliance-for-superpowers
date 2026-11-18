@@ -31,7 +31,10 @@ mandate_ids = None      # --mandates a,b as ["a", "b"]; None when absent
 update_baseline = False # --update-baseline
 invocation = "/architecture-review"  # the exact command line, flags included
 skill_dir = "<base directory>"  # this skill's base directory, as the harness announces it when the skill loads
+auditor_model = "<model>"  # the one model every auditor is dispatched on (step 5); recorded in the report
 ```
+
+`auditor_model` is not a command-line flag: set it to the most capable model available to you, the controller. An empty or `<placeholder>` value raises `AcfInputError` before any dispatch.
 
 ## Step 1 — Load the host and select the rows
 
@@ -116,8 +119,15 @@ Candidates are hints, not findings; precision is the auditor's job. A rule with 
 
 Assemble each group's brief, then dispatch every group in parallel with Superpowers **`dispatching-parallel-agents`**.
 
+**One model.** Every group in a run is dispatched on that one model, `auditor_model`: the most capable model available to you. A smaller or cheaper tier is never used to save cost, for any group, because the report and the baseline compare runs, in this repository and across repositories, and a count from a weaker auditor is not comparable with one from a stronger auditor.
+
+**Whole surface.** A group's auditor must finish its whole surface: it classifies every candidate and examines every surface file, as `_contract.md` states under "Coverage". If a group is too large for one agent to finish, re-dispatch it (the same brief, on the same model) until it returns a payload that covers the surface; never accept a partial payload as the group's result. A payload whose `errors` name files or candidates left unexamined is partial: re-dispatch rather than store it. Only when a path cannot be examined at all (unreadable, not text) does a payload that names it in `errors` count as finished.
+
 ```python
 from pathlib import Path
+from acf.review.aggregator import checked_auditor_model
+
+auditor_model = checked_auditor_model(auditor_model)
 
 rules_dir = Path(skill_dir) / "rules"
 
@@ -171,7 +181,7 @@ Each agent receives exactly its `briefs[group]`:
 5. each row's surface, doctrine section, `docs` and candidates;
 6. the instruction: *Read `config/architecture/ARCHITECTURE.md` in full, then every document it points to.*
 
-Tool allowlist: `Read`, `Grep`, `Glob` only. No `Edit`, `Write` or mutating shell. The tree is not mutated during the audit; the controller writes only the report and baseline after the agents return. When each agent returns, store its final message in `payloads[group]`.
+Dispatch each agent with its model set to `auditor_model`. Tool allowlist: `Read`, `Grep`, `Glob` only. No `Edit`, `Write` or mutating shell. The tree is not mutated during the audit; the controller writes only the report and baseline after the agents return. When each agent returns a payload that covers its surface, store its final message in `payloads[group]`.
 
 ## Step 6 — Parse the payloads
 
@@ -234,6 +244,7 @@ commit = head.stdout.strip()
 report_md = render_report(
     commit=commit,
     invocation=invocation,
+    auditor_model=auditor_model,
     results=results,
     findings=findings,
     exempted=exempted,
@@ -300,6 +311,8 @@ Write the report, print the roll-up and the report's repository-relative POSIX p
 | Missing `mandates.yml` or `review.yml` | Hard fail; run `/acf-setup` |
 | Unknown `--mandates` id | `UnknownMandateError` |
 | Empty target tree | `EmptyTargetTreeError` |
+| Empty or placeholder `auditor_model` | `AcfInputError` before any dispatch |
+| Auditor payload names unexamined files or candidates | Partial: re-dispatch the group; never store it as the group's result |
 | Declared surface matches nothing, or anchor matches nothing | `AcfInputError` naming the mandate id |
 | Default surface empty (no declared `surface`) | `AcfInputError` naming the mandate id, its `languages` and the declared packs; under `--paths` the row is dropped and listed under "Not in scope under --paths" |
 | Auditor payload violates the contract | Group FAILED, raw payload kept, run continues, exit status 1 |
@@ -312,6 +325,8 @@ Write the report, print the roll-up and the report's repository-relative POSIX p
 | Mistake | Fix |
 |---------|-----|
 | Letting auditors Edit or Write | Read-only; the controller writes the report and baseline |
+| Dispatching a group on a smaller or cheaper model | Every group runs on `auditor_model`, the most capable model available |
+| Accepting a payload that stopped early | Re-dispatch until the group covers its whole surface |
 | Treating drift as a gate | Report only; it never changes the exit status |
 | Writing the baseline without `--update-baseline` | Only write when the flag is set |
 | Hand-parsing a payload | Use `parse_auditor_payload` |
