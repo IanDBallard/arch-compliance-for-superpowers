@@ -103,7 +103,7 @@ _PARAMS = {
 
 
 def _node_available() -> bool:
-    return (_PACK_ROOT / "node_modules").is_dir() and _shutil.which("npx") is not None
+    return (_PACK_ROOT / "node_modules").is_dir() and _shutil.which("node") is not None
 
 
 def _row(detector: str, sites: frozenset[str]) -> str:
@@ -194,7 +194,7 @@ def test_contract_against_dispatch(tmp_path, capsys, gate):
     if not with_ts:
         _pytest.skip(
             f"gate {gate}: TypeScript ids {sorted(TS_MANDATE_IDS.values())} not checked "
-            "(Node pack or npx unavailable); every other id was"
+            "(Node pack or node unavailable); every other id was"
         )
 
 
