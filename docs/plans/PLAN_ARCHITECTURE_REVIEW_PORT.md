@@ -24,6 +24,8 @@ The skill prose drives the package step by step, as the ADR gate skill does. The
 
 **Merged (plugin stage, Tasks 1–15):** PR #38 (`b10fd24`, 2026-11-17), released and installed as 0.3.0. The final review's fix wave (`7778231`) added work beyond these tasks: briefs carry the group name, auditor errors and coverage notes reach the report, undeclared settings keys are listed, `--update-baseline` refuses a failed or narrowed run, and a row whose default surface is empty under `--paths` is dropped and listed as not in scope. Follow-ups filed: #39 (judge reads a reply missing `violation` as no violation, found by the self-host run), #40 (pack id validation and noisy hints), #41 (`--paths` residuals and report I/O), #42 (`check_installed_skills` passes on a missing skill dir), #43 (test-coverage and wording minors). Tasks 16–17 (origin stage) are not started.
 
+**Merged (origin stage, Tasks 16–17):** HistoricMansionsV3#610 (`93ce76cb6`, 2026-11-18). Before the merge the user asked for a run comparable with the origin review, which added two pieces of work. First, plugin 0.3.1 (#45, `5314e0c`): every group runs on one most-capable auditor model, recorded in the report; a coverage rule bars triage cutoffs; and a partial group is retried, then split and merged. Second, HM review settings: §13 `style_schema`/`bindings` and §5 `state_field` filled from the origin auditors; the §11 twin rows split at the inventory manifest; the file set aligned with the origin's (419 files, 406 Python). The baseline was reset by an all-Opus run on 0.3.1: 11/11 groups OK, 263 findings (53 blocking). Task 16 deviations recorded in the PR: the census found three unlisted hits (ruled); `languages` follows §5.1 literally; the book→factory crossing is removed and origin rule 2 recorded as uncovered; dead-code `--update-baseline` absorbed 53 entries that were already on main. Spec-stage escapes: 2, both lens `hardening` (implementability). §5.2's table assigned a layer-boundaries `{BOOK_ROOT}/` tier that matches no file, so a declared check could never fire. It also left §13 `bindings`/`style_schema` and §5 `state_field` empty, which switched off checks the origin review ran. Both were found at the task 16 review and the pre-merge comparison. Follow-up filed: #46 (coverage wording for pattern-keyed checks, continuation as the retry, auditor model in the baseline, slice edge cases).
+
 ## Global Constraints
 
 - **Path forms.** Unprefixed paths are this repository. `hm:` paths are `C:/Users/iball/Arduino/Projects/HistoricMansions`. `cy:` paths are the Cayenne checkout, which is read-only: nothing under `cy:` changes.
@@ -688,22 +690,22 @@ Remove the `Finding` mapping (`:108`) and `Path("config/architecture/mandates.ym
 
 Work in a new HistoricMansions worktree off its `main`. The requirements are the spec's §5.1–§5.7 tables. This task executes them; it does not restate them.
 
-- [ ] **Step 1: Re-run the census.** Run recipes A, B and C of §5.4 against the worktree's `HEAD` and diff their hits against §5.4's Site column. Any hit not in the table stops the task: rule on its disposition, ledger it in the PR description, then continue. Also run the import check over the whole tree outside `docs` (stricter choice 3): `git grep -n -E "^\s*(from|import) acf\b" -- ':!docs'`. Expected: no output.
-- [ ] **Step 2: §5.1 schema.** In `hm:scripts/core/architecture/registry.py`, rename `gemini_anchor` to `arch_anchor` and add `languages` and `params`. Every recipe B site is renamed: §5.4's rows, the 48 row keys included. Each row gains `languages` as §5.1 assigns.
-- [ ] **Step 3: §5.2 rows.** Each origin row's `auditor` becomes its rule id, and each row takes the `params` of §5.2's table.
-- [ ] **Step 4: §5.3, §5.5 and §5.6.** Add `hm:config/architecture/review.yml`, the twelve anchor headings and the Cursor follow-up row.
-- [ ] **Step 5: §5.4 dispositions.** Apply every remaining row in order: deletions, the moved pre-pass, judge prompts, coverage map, exceptions (the `:1525` docstring included) and the hook lines `:137-138`.
-- [ ] **Step 6: Dead-code ratchet.** Run `python -m scripts.ci.dead_code_ratchet --check`, quote its output in the PR, then run `--update-baseline`. State the growth `--check` showed. The expected growth is `MandateEntry.arch_anchor` (test-only) and `MandateEntry.languages`.
-- [ ] **Step 7: Origin suite.** Run the origin's suite and guards as its CI does. Expected: they pass.
-- [ ] **Step 8: Commit** on the origin branch, in origin commit style.
+- [x] **Step 1: Re-run the census.** Run recipes A, B and C of §5.4 against the worktree's `HEAD` and diff their hits against §5.4's Site column. Any hit not in the table stops the task: rule on its disposition, ledger it in the PR description, then continue. Also run the import check over the whole tree outside `docs` (stricter choice 3): `git grep -n -E "^\s*(from|import) acf\b" -- ':!docs'`. Expected: no output.
+- [x] **Step 2: §5.1 schema.** In `hm:scripts/core/architecture/registry.py`, rename `gemini_anchor` to `arch_anchor` and add `languages` and `params`. Every recipe B site is renamed: §5.4's rows, the 48 row keys included. Each row gains `languages` as §5.1 assigns.
+- [x] **Step 3: §5.2 rows.** Each origin row's `auditor` becomes its rule id, and each row takes the `params` of §5.2's table.
+- [x] **Step 4: §5.3, §5.5 and §5.6.** Add `hm:config/architecture/review.yml`, the twelve anchor headings and the Cursor follow-up row.
+- [x] **Step 5: §5.4 dispositions.** Apply every remaining row in order: deletions, the moved pre-pass, judge prompts, coverage map, exceptions (the `:1525` docstring included) and the hook lines `:137-138`.
+- [x] **Step 6: Dead-code ratchet.** Run `python -m scripts.ci.dead_code_ratchet --check`, quote its output in the PR, then run `--update-baseline`. State the growth `--check` showed. The expected growth is `MandateEntry.arch_anchor` (test-only) and `MandateEntry.languages`.
+- [x] **Step 7: Origin suite.** Run the origin's suite and guards as its CI does. Expected: they pass.
+- [x] **Step 8: Commit** on the origin branch, in origin commit style.
 
 ### Task 17: Origin stage — baseline reset and acceptance (§5.7, §9 item 2)
 
-- [ ] **Step 1: Record the installed plugin.** Confirm `python -c "import acf, importlib.metadata as m; print(acf.__file__, m.version('acf'))"` prints version `0.3.0`, and that the installed checkout's `git rev-parse HEAD` equals the merged release commit. Record both in the PR.
-- [ ] **Step 2: Reset the baseline.** Delete `hm:docs/architecture/compliance_baseline.json` and run `/arch-compliance:architecture-review --update-baseline` through the installed plugin, as the last change before merge.
-- [ ] **Step 3: Compare.** Compare the per-rule finding counts with the last origin report and list the differences in the PR.
-- [ ] **Step 4: Fix plugin defects first.** A plugin defect found here is fixed by a plugin patch release before this PR merges.
-- [ ] **Step 5: Merge on the user's approval.**
+- [x] **Step 1: Record the installed plugin.** Confirm `python -c "import acf, importlib.metadata as m; print(acf.__file__, m.version('acf'))"` prints version `0.3.0`, and that the installed checkout's `git rev-parse HEAD` equals the merged release commit. Record both in the PR.
+- [x] **Step 2: Reset the baseline.** Delete `hm:docs/architecture/compliance_baseline.json` and run `/arch-compliance:architecture-review --update-baseline` through the installed plugin, as the last change before merge.
+- [x] **Step 3: Compare.** Compare the per-rule finding counts with the last origin report and list the differences in the PR.
+- [x] **Step 4: Fix plugin defects first.** A plugin defect found here is fixed by a plugin patch release before this PR merges.
+- [x] **Step 5: Merge on the user's approval.**
 
 ---
 
