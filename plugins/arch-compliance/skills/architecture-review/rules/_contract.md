@@ -29,6 +29,23 @@ or empty, report no findings for that row and add one `errors` string naming the
 setting, for example `"check off: classifier absent"`. A rule that returns nothing
 without saying why looks like a clean pass.
 
+## Coverage
+
+There is no triage cutoff. However large the surface, finish it before you answer; do
+not stop early and return what you have so far.
+
+- Classify every pre-pass candidate by reading the code at its line, not by its
+  snippet or its tell. Dismissals need not be listed: a candidate you read and judged
+  clean gets no entry.
+- Examine every file in each row's surface that the rule's checks apply to, whether or
+  not a candidate points into it.
+- Name in `errors`, by path, any surface file or candidate you could not examine, with
+  the reason: one path per entry, or one entry with an explicit list of paths, for
+  example `"not examined (unreadable): src/a.py, src/b.py"`; a candidate is named by
+  its `file:line`. A count or a summary ("about 120 handlers not read") does not count.
+- A payload that leaves work unexamined does not claim a clean pass for it: name that
+  work in `errors` as above, and count in `files_examined` only the files you read.
+
 ## Read-only
 
 Use only `Read`, `Grep` and `Glob`. Do not edit, write, move or delete any file, and
@@ -72,7 +89,8 @@ block anywhere. It matches this shape, with no extra keys:
 - `severity` is one of `blocking`, `important`, `nit`, `suggestion`; there is no
   "pass". Grade by the rule prompt's rubric.
 - `files_examined` is the number of files you actually read, not the surface size.
-- `errors` holds one string per file you could not read (path and reason), and one
-  string for any triage cutoff or any part of a surface you did not cover. Never skip
-  silently: a run that reports a full surface it did not read is a false clean.
+- `errors` holds one string per file you could not read (path and reason), the paths
+  of any surface file or candidate you did not examine (see "Coverage"), and any
+  "check off" note. Never skip silently: a run that reports a full surface it did not
+  read is a false clean.
 - Report only real violations. No entries for clean files, no "no violation" findings.

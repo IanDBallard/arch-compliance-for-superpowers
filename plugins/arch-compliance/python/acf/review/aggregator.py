@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from acf.agent_payload import extract_json_block
 from acf.enforcement import token_exempted
-from acf.exceptions import AuditorContractViolationError, ReportWriteError
+from acf.exceptions import AcfInputError, AuditorContractViolationError, ReportWriteError
 from acf.loader import write_text_record
 from acf.repo import RepoTree
 from acf.review.contract import AuditorFinding, AuditorPayload
@@ -129,10 +129,52 @@ def _fenced(text: str, indent: str = "") -> list[str]:
     return [f"{indent}{fence}", *(f"{indent}{line}" for line in text.split("\n")), f"{indent}{fence}"]
 
 
+def checked_auditor_model(value: str) -> str:
+    """The declared auditor model, stripped; an empty or ``<placeholder>`` value fails loud."""
+    model = value.strip()
+    if not model or (model.startswith("<") and model.endswith(">")):
+        raise AcfInputError(
+            f"auditor_model {value!r} is empty or a placeholder; set it to the model "
+            "every auditor in this run is dispatched on"
+        )
+    return model
+
+
+def merge_slice_payloads(raws: list[str], *, group: str) -> str:
+    """One fenced ``json`` payload for ``group`` from the payloads of its slice agents.
+
+    Findings are concatenated in slice order, ``files_examined`` is summed and ``errors``
+    are joined, an entry repeated across slices (a "check off" note) kept once. Each
+    slice must carry exactly one ``json`` block matching the contract and name ``group``.
+    """
+    if not raws:
+        raise AuditorContractViolationError(f"group {group!r}: no slice payloads to merge")
+    findings: list[AuditorFinding] = []
+    errors: list[str] = []
+    examined = 0
+    for index, raw in enumerate(raws, 1):
+        subject = f"group {group!r} slice {index}"
+        data = extract_json_block(raw, subject=subject, error=AuditorContractViolationError)
+        try:
+            parsed = AuditorPayload.model_validate(data)
+        except ValidationError as exc:
+            raise AuditorContractViolationError(
+                f"{subject}: payload does not match the auditor contract: {exc}"
+            ) from exc
+        if parsed.group != group:
+            raise AuditorContractViolationError(f"{subject}: payload names group {parsed.group!r}")
+        findings += parsed.findings
+        errors += [error for error in parsed.errors if error not in errors]
+        examined += parsed.files_examined
+    merged = AuditorPayload(group=group, files_examined=examined, findings=findings, errors=errors)
+    return "```json\n" + merged.model_dump_json(indent=2) + "\n```\n"
+
+
 def render_report(
     *,
     commit: str,
     invocation: str,
+    auditor_model: str,
     results: list[GroupResult],
     findings: list[AuditorFinding],
     exempted: int,
@@ -142,12 +184,14 @@ def render_report(
 ) -> str:
     """The review report. ``findings`` are the findings left after inline exemptions;
     each group's count is taken from them. ``out_of_scope`` names the rows dropped
-    because their default surface is empty under ``--paths``."""
+    because their default surface is empty under ``--paths``. ``auditor_model`` is the
+    one model every group was dispatched on, recorded so runs can be compared."""
     out = [
         "# Architecture review",
         "",
         f"- Commit: {commit}",
         f"- Invocation: {invocation}",
+        f"- Auditor model: {checked_auditor_model(auditor_model)}",
         "",
         "## Groups",
         "",

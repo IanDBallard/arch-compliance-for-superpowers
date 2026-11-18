@@ -134,7 +134,7 @@ def test_review_calls_pass_the_scope_arguments():
     report_calls = list(_calls("render_report"))
     assert report_calls
     for call in report_calls:
-        assert {"rows", "out_of_scope"} <= {k.arg for k in call.keywords}
+        assert {"rows", "out_of_scope", "auditor_model"} <= {k.arg for k in call.keywords}
 
 
 def test_no_python_c_body_opens_a_literal_ledger_path():
@@ -144,3 +144,67 @@ def test_no_python_c_body_opens_a_literal_ledger_path():
         for node in ast.walk(ast.parse(body)):
             if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "open":
                 assert not (node.args and isinstance(node.args[0], ast.Constant)), where
+
+
+def _review_step(heading: str) -> str:
+    text = REVIEW_SKILL.read_text(encoding="utf-8")
+    start = text.index(heading)
+    end = text.find("\n## ", start + len(heading))
+    return text[start:end if end != -1 else len(text)]
+
+
+def test_review_flags_declare_the_auditor_model():
+    declared = []
+    for where, body in _python_bodies():
+        if not where.startswith("architecture-review"):
+            continue
+        for node in ast.walk(ast.parse(body)):
+            if (
+                isinstance(node, ast.Assign)
+                and getattr(node.targets[0], "id", None) == "auditor_model"
+                and isinstance(node.value, ast.Constant)
+            ):
+                declared.append(node.value.value)
+    assert declared == ["<model>"], "the flag block declares auditor_model once, as a placeholder"
+    assert list(_calls("checked_auditor_model")), "the skill checks auditor_model before dispatch"
+
+
+def test_review_step_5_pins_one_most_capable_model():
+    step = " ".join(_review_step("## Step 5").split())
+    assert "Every group in a run is dispatched on that one model" in step
+    assert "the most capable model available to you" in step
+    assert "never used to save cost" in step
+    assert "the report and the baseline compare runs" in step
+
+
+def test_review_step_5_requires_the_whole_surface():
+    step = " ".join(_review_step("## Step 5").split())
+    assert "must finish its whole surface" in step
+    assert "Re-dispatch a partial group once" in step
+    assert "Never accept a partial payload" in step
+
+
+def test_auditor_contract_pins_the_coverage_rule():
+    text = " ".join((RULES_DIR / "_contract.md").read_text(encoding="utf-8").split())
+    assert "## Coverage" in text
+    assert "There is no triage cutoff." in text
+    assert "Classify every pre-pass candidate by reading the code at its line" in text
+    assert "Dismissals need not be listed" in text
+    assert "Examine every file in each row's surface" in text
+    assert "one path per entry, or one entry with an explicit list of paths" in text
+    assert "A count or a summary" in text
+    assert "does not claim a clean pass" in text
+    assert "triage cutoff or any part of a surface you did not cover" not in text
+
+
+def test_review_step_5_caps_retries_and_splits_a_partial_group():
+    step = " ".join(_review_step("## Step 5").split())
+    assert "Re-dispatch a partial group once, on the same brief" in step
+    assert "disjoint slices" in step
+    assert "still partial after one retry" in step
+    assert "record the group as FAILED" in step
+    assert "until it returns a payload that covers the surface" not in step
+    assert "a \"check off: ...\" note or an unreadable-path entry does not" in step
+    assert list(_calls("slice_briefs")), "step 5 builds the slice briefs"
+    merge_calls = list(_calls("merge_slice_payloads"))
+    assert merge_calls and all("group" in {k.arg for k in c.keywords} for c in merge_calls)
