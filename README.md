@@ -109,6 +109,11 @@ Plugin `hooks/hooks.json` registers:
 
 Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message. Committing `.acf/` approves no host code; each person runs `acf-allow` themselves.
 
+### Upgrading a host to a strict judge and a shell-free TypeScript bridge (v0.3.2)
+
+- The LLM judge (`acf-check-llm`) now requires the `violation` field in every reply, as a JSON boolean. A reply without it, or with `0`, `1`, a string or `null`, raises `JudgeResponseError` instead of reading as clean; only an explicit `false` means no finding. A run that passed on 0.3.1 because a model left the field out now fails loud. The judge prompt states the field is required.
+- The TypeScript detector bridge now runs the `node` executable on tsx's JS entry point (named by `bin` in the pack's `node_modules/tsx/package.json`), never through a shell or an `npx`/`.cmd` shim, so a file name containing `&`, `|`, `^`, `%` or `"` can no longer change what runs on Windows. It needs `node` itself on `PATH` (a `.cmd`/`.bat` `node` is refused), and refuses loudly with the `npm ci` hint when tsx is not installed; `npx` is no longer used.
+
 ### Upgrading a host to comparable architecture reviews (v0.3.1)
 
 - `/architecture-review` now dispatches every auditor group on one model, the most capable one available to the controller, and never on a cheaper tier to save cost. The report's header records it as `Auditor model:`. A report from 0.3.0 has no such line; compare its counts with a 0.3.1 run only knowing which model produced them.
