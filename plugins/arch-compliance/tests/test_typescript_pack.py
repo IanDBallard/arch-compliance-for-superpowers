@@ -211,7 +211,33 @@ def test_tsx_bin_object_form_is_accepted(tmp_path: Path, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(typescript_bridge.subprocess, "run", spy_run)
     scan_typescript_file(tmp_path / "a.ts")
-    assert Path(captured["cmd"][1]) == tsx / "dist" / "cli.mjs"
+    assert Path(captured["cmd"][1]) == (tsx / "dist" / "cli.mjs").resolve()
+
+
+def test_tsx_bin_escaping_the_package_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The entry must be inside node_modules/tsx, even when the escaped target exists."""
+    pack = tmp_path / "typescript"
+    _fake_tsx(pack, "../../x.mjs")
+    (pack / "x.mjs").write_text("// outside the tsx package\n", encoding="utf-8")
+    monkeypatch.setattr(typescript_bridge, "_PACK_ROOT", pack)
+    monkeypatch.setattr(typescript_bridge.shutil, "which", lambda name: str(tmp_path / "node"))
+    with pytest.raises(DetectorPackError, match="outside"):
+        scan_typescript_file(tmp_path / "a.ts")
+
+
+def test_unreadable_tsx_manifest_carries_npm_ci_hint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pack = tmp_path / "typescript"
+    tsx = _fake_tsx(pack)
+    (tsx / "package.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(typescript_bridge, "_PACK_ROOT", pack)
+    with pytest.raises(DetectorPackError, match="Unreadable tsx manifest") as exc_info:
+        scan_typescript_file(tmp_path / "a.ts")
+    assert "npm ci" in str(exc_info.value)
+    assert pack.as_posix() in str(exc_info.value)
 
 
 def _metachar_name(tmp_path: Path) -> str:

@@ -10,6 +10,7 @@ from pathlib import Path
 from acf.exceptions import DetectorPackError
 from acf.finding import Finding, Severity
 from acf.engine import posix_path, validate_hit_fields
+from acf.repo import RepoTree
 
 TS_MANDATE_IDS = {
     "empty_catch": "fail-loud.empty-catch",
@@ -55,7 +56,9 @@ def _tsx_entry(pack: Path) -> Path:
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise DetectorPackError(f"Unreadable tsx manifest {manifest.as_posix()}: {exc}") from exc
+        raise DetectorPackError(
+            f"Unreadable tsx manifest {manifest.as_posix()}: {exc}. {_npm_ci_hint()}"
+        ) from exc
     bin_field = data.get("bin") if isinstance(data, dict) else None
     if isinstance(bin_field, dict):
         bin_field = bin_field.get("tsx")
@@ -64,7 +67,14 @@ def _tsx_entry(pack: Path) -> Path:
             f"tsx manifest {manifest.as_posix()} names no 'bin' entry for tsx; "
             f"cannot locate the tsx entry point. {_npm_ci_hint()}"
         )
-    entry = manifest.parent / bin_field
+    # RepoTree is the one owner of path containment: the entry must resolve
+    # inside the tsx package, so a manifest cannot point node at a file elsewhere.
+    entry = RepoTree(manifest.parent).contained(bin_field)
+    if entry is None:
+        raise DetectorPackError(
+            f"tsx 'bin' entry {bin_field!r} in {manifest.as_posix()} resolves outside "
+            f"the tsx package; refusing to run it. {_npm_ci_hint()}"
+        )
     if entry.suffix.lower() in _SHIM_SUFFIXES:
         raise DetectorPackError(
             f"tsx 'bin' entry {entry.as_posix()} is a batch shim; refusing to run it"
