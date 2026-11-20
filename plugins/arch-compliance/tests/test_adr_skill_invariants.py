@@ -144,6 +144,8 @@ def test_housekeeping_skill_invariants():
         "not run (an earlier post-deploy action failed)",
         "re-runs step 1's verification first",
         "report fields: not declared in ## Post-merge, skipped",
+        "A run of step 6.7 after an earlier one first re-runs step 1's verification and reads the new record.",
+        "Whatever the plan record says, add a merge annotation",
     ):
         assert required in body, f"missing required housekeeping invariant: {required}"
     assert "Tick them." not in body

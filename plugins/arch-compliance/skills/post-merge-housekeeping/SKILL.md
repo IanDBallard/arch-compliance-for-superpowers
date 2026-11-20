@@ -281,7 +281,8 @@ say so and leave the changes unstaged rather than forcing them in.
 
 If the branch executed a tracked implementation plan, open the plan, mark completed
 steps as the plan record under `## Post-merge` declares, or, if none is declared, tick
-every completed step `[x]`, and add a merge annotation (PR #, merge/squash SHA, date). If
+every completed step `[x]`. Whatever the plan record says, add a merge annotation (PR #,
+merge/squash SHA, date). If
 review rounds changed the approach, fix the plan text or excise stale code blocks (a
 stale block that contradicts shipped code is worse than none). Record any override
 rows that changed.
@@ -429,7 +430,9 @@ against what it can actually see.
 
 Read the post-deploy actions on the post-merge CI bullet under `## Post-merge`. If
 there are none, record `post-deploy actions: not declared in ## Post-merge, skipped`.
-Otherwise read step 1's `post-merge verification` record:
+Otherwise read step 1's `post-merge verification` record.
+A run of step 6.7 after an earlier one first re-runs step 1's verification and reads the new record.
+Then:
 
 - if it is not `passed`, record `post-deploy actions: verification <value>, not run`,
   and tell the user that a later run of step 6.7 re-runs step 1's verification first;
