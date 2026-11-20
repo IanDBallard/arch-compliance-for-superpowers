@@ -121,8 +121,19 @@ def test_housekeeping_skill_invariants():
         "headRefOid",
         "git fetch --prune",
         "What ALREADY gets through the guard we just shipped?",
+        "## Host declarations",
+        "### 2.2 Host pre-flight checks",
+        "post-merge verification: <value>",
+        "counts toward passed",
+        "pre-flight: not declared in ## Post-merge, skipped",
+        "restates <owner>, not run",
+        "once step 2.2 has run",
+        "portable rule applied",
     ):
         assert required in body, f"missing required housekeeping invariant: {required}"
+    assert "post-merge CI check: not declared" not in body
+    assert body.index("### 2.2 Host pre-flight checks") < body.index("### 2.5 ")
+    assert body.index("## Host declarations") < body.index("## The Checklist")
     py_blocks = _PY_FENCE_BODY_RE.findall(body)
     assert py_blocks, "expected at least one fenced ```python block in post-merge-housekeeping/SKILL.md"
     for block in py_blocks:

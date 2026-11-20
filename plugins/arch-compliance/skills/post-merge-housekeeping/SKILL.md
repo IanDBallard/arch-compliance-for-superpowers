@@ -17,11 +17,38 @@ false-alarm investigation. This checklist is the looking.
 Step 2.5 has a PowerShell branch (Windows developer nodes) and a POSIX branch (Linux,
 macOS, Docker, cloud sessions); run the one that matches the host OS and state which
 you ran. `gh` is not present in every environment; steps 1, 2, and 6 name the
-fallbacks. Host-specific operational conventions (shared-checkout branch lock,
-worktree daemon probe, post-merge CI workflows, and durable tracking target) are read
-from the `## Post-merge` section of the host's doctrine (`acf.repo.ARCH_REL`, or a
-document it points to). When `## Post-merge` omits a check, report `<check>: not
-declared in ## Post-merge, skipped` in step 8 rather than skipping silently.
+fallbacks. Host declarations are read from the `## Post-merge` section of the host's
+doctrine (`acf.repo.ARCH_REL`, or a document it points to): the branch lock, the
+daemon probe, post-merge CI with its post-deploy actions, the tracking target with its
+filing rule, tracking documents with their closing rules, pre-flight checks, the plan
+record and report fields. Each is read by one step (see `## Host declarations`). Every
+declaration step 8 reports is recorded in one of three forms:
+`<declaration>: not declared in ## Post-merge, skipped`,
+`<rule>: not declared in ## Post-merge, portable rule applied`, or
+`<what>: … not run`.
+
+## Host declarations
+
+Each concern has one owner. A declaration is a bold-labelled bullet in `## Post-merge`;
+a refinement is a labelled sentence or sub-bullet inside its owner's bullet. The step
+named below is the only place its rule is stated and applied.
+
+| Concern | Declaration in `## Post-merge` | Read by |
+| --- | --- | --- |
+| The shared checkout's HEAD, its lock or branch guard | branch-lock bullet | step 0, again at step 3.5 |
+| A worktree's background processes | daemon-probe bullet | step 2.5 |
+| Whether the merge landed on the default branch | none: step 1's content-presence check, which no host refines | step 1 |
+| Post-merge CI and deploy verification | post-merge CI bullet | step 1, which writes the one verification record |
+| Actions gated on that verification passing | post-merge CI bullet, refined with **post-deploy actions** | step 6.7 |
+| Checks on the merge itself (a competing housekeeping run, a twin pull request) | **pre-flight checks** bullet | step 2.2 |
+| How a merged plan's completed steps are marked | **plan record** bullet | step 4 |
+| Which documents step 5 reconciles beyond its Markdown grep, and how items in them are closed | **tracking documents** bullet, refined with a **closing rule** per document | step 5 |
+| Where deferred items and guard escapes are filed, and how | tracking-target bullet, refined with a **filing rule** | steps 6, 6.5 |
+| Extra report fields | **report fields** bullet | step 8 |
+
+One file may appear on both the tracking-documents bullet and the tracking-target
+bullet, because reconciling and filing are different concerns: each bullet carries only
+its own concern's rule.
 
 ## The Checklist (run from the main checkout root, in order)
 
@@ -120,10 +147,15 @@ tells you nothing either way.
 gh run list --branch "$default_branch" --limit 5
 ```
 
-Also run any post-merge CI or deploy verification declared under `## Post-merge` in
-the host's doctrine. If `gh` is absent and no post-merge CI check is declared under
-`## Post-merge`, report `post-merge CI check: not declared in ## Post-merge, skipped`
-in step 8.
+Also run every post-merge CI or deploy verification declared under `## Post-merge` in
+the host's doctrine. Record one result for steps 6.7 and 8,
+`post-merge verification: <value>`: `passed` when at least one verification is
+declared and every declared verification succeeded; `failed`; `in progress`; or
+`not declared in ## Post-merge, skipped` when none is declared. A CI workflow named on
+the post-merge CI bullet is a declared verification, and its run for the merge commit
+counts toward passed. When `gh` is present, the same record also carries the
+`gh run list` result for the merge commit; runs of workflows the bullet does not name
+never make it `passed`.
 
 ### 2. Stranded-commit check (the one everyone skips)
 
@@ -137,7 +169,7 @@ reached `origin/$default_branch` some other way (prove that by the commit's **wh
 diff, every added line, not a sampled phrase: later edits reword rows, so a phrase can
 match while the change it belonged to is missing). A post-merge push also silently
 **recreates the just-deleted remote branch**. Cherry-pick doc-only strays onto
-`$default_branch`; anything with code goes through a follow-up PR.
+`$default_branch` once step 2.2 has run; anything with code goes through a follow-up PR.
 
 **Compare against `headRefOid`, never against `mergedAt`.** A commit's timestamp
 records when it was made, not when it was pushed. A commit made before the merge but
@@ -151,6 +183,21 @@ on `origin/$default_branch`.
 
 A branch with **no PR** has no merged head: every commit in
 `"origin/$default_branch"..<branch>` is a candidate, checked the same way.
+
+### 2.2 Host pre-flight checks
+
+Run this in the main session once every step 1–2 result is collected, subagents
+included, and before step 2.5. Read the pre-flight checks bullet under `## Post-merge`.
+If it is absent, record `pre-flight: not declared in ## Post-merge, skipped`. Otherwise
+run each check in order, once per run, against every merged item:
+
+- a **stop** outcome ends the run for every item before step 2.5, naming the item and
+  the check and saying what the user should do;
+- a **carry** outcome is recorded for steps 4, 5 and 8;
+- a check whose concern `## Host declarations` gives to another step is not run, and is
+  recorded as `pre-flight: restates <owner>, not run`.
+
+A remedy that would change anything is reported to the user, never performed here.
 
 ### 2.5 Worktree process & resource sweep — REQUIRED before any `git worktree remove`
 
