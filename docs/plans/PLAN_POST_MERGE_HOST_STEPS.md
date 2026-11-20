@@ -10,6 +10,14 @@
 
 **Spec:** `docs/design/POST_MERGE_HOST_STEPS.md` (v4, CLEARED_WITH_ABSORPTIONS, repo @ `d85d32da`; absorptions folded at `90fe465`). The spec's §4.2 is the authority for every prose edit. Its §6 table gives the line numbers at `e9dd881`, which are unchanged on this branch. Section references (§N) below are to that spec.
 
+**Merged:** PR #51, squash `0749dfc`, 2026-11-20. Tasks 1-4 executed inline; the
+whole-branch Opus review found 0 Critical and 2 Important, fixed in `c19c2d4` with
+failing-first pins: step 6.7's re-run of step 1 is an agent instruction, and step 4's
+merge annotation is a separate sentence ("Whatever the plan record says, add a merge
+annotation"), departing from Task 2 step 3's "word for word" because the spec makes the
+annotation unconditional. Task 4 baseline after `npm ci`: 822 passed. Follow-ups: #52,
+#53 (spec §9 items 3 and 4), #54 (deferred review minors and spec gaps).
+
 ## Global Constraints
 
 - **No host vocabulary in skill prose.** `## Prose names no host`: "Skill prose and runtime messages name no host repository, path or section." `plugins/arch-compliance/tests/test_adr_skill_prose.py` enforces its `FORBIDDEN` list; every example stays generic.
@@ -55,7 +63,7 @@
   - step 2.2's carry facts, read by Task 2's steps 4 and 5;
   - the `## Host declarations` table, which Tasks 2 and 3 must not restate.
 
-- [ ] **Step 1: Write the failing test.** Append to the `required` tuple in `test_housekeeping_skill_invariants`:
+- [x] **Step 1: Write the failing test.** Append to the `required` tuple in `test_housekeeping_skill_invariants`:
   - `"## Host declarations"`
   - `"### 2.2 Host pre-flight checks"`
   - `"post-merge verification: <value>"`
@@ -73,26 +81,26 @@
   assert body.index("## Host declarations") < body.index("## The Checklist")
   ```
 
-- [ ] **Step 2: Run it to verify it fails.**
+- [x] **Step 2: Run it to verify it fails.**
   Run: `PYTHONUTF8=1 python -m pytest plugins/arch-compliance/tests/test_adr_skill_invariants.py::test_housekeeping_skill_invariants -q`
   Expected: FAIL, `missing required housekeeping invariant: ## Host declarations`.
 
-- [ ] **Step 3: Edit the overview (`:16-24`).** Follow §4.2 "Overview".
+- [x] **Step 3: Edit the overview (`:16-24`).** Follow §4.2 "Overview".
   - Name every declaration: branch lock; daemon probe; post-merge CI with its post-deploy actions; tracking target with its filing rule; tracking documents with their closing rules; pre-flight checks; plan record; report fields. Each is read by one step (see `## Host declarations`).
   - Replace the sentence at `:23-24` with the three-form sentence quoted in §4.2. Its middle form, `<rule>: not declared in ## Post-merge, portable rule applied`, carries the `portable rule applied` pin.
 
-- [ ] **Step 4: Insert `## Host declarations`** before `## The Checklist`. It is the §4.1 table, written generically, with columns Concern | Declaration in `## Post-merge` | Read by. It has one row per §4.1 row and states no rule. Add one sentence: a file may appear on both the tracking-documents and tracking-target bullets, because reconciling and filing are different concerns.
+- [x] **Step 4: Insert `## Host declarations`** before `## The Checklist`. It is the §4.1 table, written generically, with columns Concern | Declaration in `## Post-merge` | Read by. It has one row per §4.1 row and states no rule. Add one sentence: a file may appear on both the tracking-documents and tracking-target bullets, because reconciling and filing are different concerns.
 
-- [ ] **Step 5: Replace step 1's `:123-126` sentence** with the §4.2 step-1 text. It covers:
+- [x] **Step 5: Replace step 1's `:123-126` sentence** with the §4.2 step-1 text. It covers:
   - running every declared verification;
   - the one record and its four values;
   - "a CI workflow named on the post-merge CI bullet is a declared verification, and its run for the merge commit counts toward passed";
   - the `gh run list` result carried in the same record;
   - runs of workflows the bullet does not name never make it `passed`.
 
-- [ ] **Step 6: Step 2 (`:139-140`).** After "Cherry-pick doc-only strays onto `$default_branch`", insert "once step 2.2 has run".
+- [x] **Step 6: Step 2 (`:139-140`).** After "Cherry-pick doc-only strays onto `$default_branch`", insert "once step 2.2 has run".
 
-- [ ] **Step 7: Insert `### 2.2 Host pre-flight checks`** before `### 2.5`. Follow §4.2 "New `### 2.2`":
+- [x] **Step 7: Insert `### 2.2 Host pre-flight checks`** before `### 2.5`. Follow §4.2 "New `### 2.2`":
   - it runs in the main session once every step 1–2 result is collected, subagents included, and before step 2.5;
   - absent → `pre-flight: not declared in ## Post-merge, skipped`;
   - otherwise each check runs in order, once per run, against every merged item;
@@ -101,11 +109,11 @@
   - a check on a concern `## Host declarations` gives another step → `pre-flight: restates <owner>, not run`;
   - a remedy that changes anything is reported to the user, never performed.
 
-- [ ] **Step 8: Run the test and the prose test.**
+- [x] **Step 8: Run the test and the prose test.**
   Run: `PYTHONUTF8=1 python -m pytest plugins/arch-compliance/tests/test_adr_skill_invariants.py plugins/arch-compliance/tests/test_adr_skill_prose.py -q`
   Expected: all pass.
 
-- [ ] **Step 9: Commit.**
+- [x] **Step 9: Commit.**
 
   ```bash
   git add plugins/arch-compliance/skills/post-merge-housekeeping/SKILL.md plugins/arch-compliance/tests/test_adr_skill_invariants.py
@@ -123,7 +131,7 @@
 **Interfaces:**
 - Consumes: step 2.2's carry facts (Task 1).
 
-- [ ] **Step 1: Write the failing test.** Append to `required`:
+- [x] **Step 1: Write the failing test.** Append to `required`:
   - `"### 4. Plan truthfulness — record it NOW"`
   - `"plan record: not declared in ## Post-merge, portable rule applied"`
   - `"tracking documents declared under ## Post-merge"`
@@ -136,37 +144,37 @@
 
   Add `assert "Tick them." not in body` and `assert "non-Markdown tracking files declared" not in body`.
 
-- [ ] **Step 2: Run it to verify it fails.**
+- [x] **Step 2: Run it to verify it fails.**
   Run: `PYTHONUTF8=1 python -m pytest plugins/arch-compliance/tests/test_adr_skill_invariants.py::test_housekeeping_skill_invariants -q`
   Expected: FAIL, `missing required housekeeping invariant: ### 4. Plan truthfulness — record it NOW`.
 
-- [ ] **Step 3: Step 4.**
+- [x] **Step 3: Step 4.**
   - Heading → `### 4. Plan truthfulness — record it NOW`.
   - Only the clause "tick every completed step `[x]`" changes, to "mark completed steps as the plan record under `## Post-merge` declares, or, if none is declared, tick every completed step `[x]`".
   - The merge annotation, stale-text and override-row text stays word for word.
   - Append the carry-facts sentence and the `plan record: … portable rule applied` record from §4.2.
 
-- [ ] **Step 4: Step 5.**
+- [x] **Step 4: Step 5.**
   - "non-Markdown tracking files declared under `## Post-merge`" → "tracking documents declared under `## Post-merge`".
   - After "Update them, with dates.", add the §4.2 step-5 text: apply a declared closing rule per document; take carry facts into account; record the two absences (`tracking documents: … skipped`, `closing rule: … portable rule applied`).
 
-- [ ] **Step 5: Steps 6 and 6.5.**
+- [x] **Step 5: Steps 6 and 6.5.**
   - In each filing sentence, after "tracking target", add "following its declared filing rule (for example how an item's ID is allocated)".
   - Add the `filing rule: … portable rule applied` record once, in step 6, and have step 6.5 refer to it.
   - Leave both STOP sentences unchanged.
 
-- [ ] **Step 6: Single tick statement.**
+- [x] **Step 6: Single tick statement.**
   - Description (`:3`): "unticked checkboxes in merged plans" → "merged plans whose status the plan record (step 4) has not recorded".
   - Rationalizations row (`:387`) → "'Checkboxes are ceremony; the merge is the record' | A plan whose status nobody recorded reads as 'not started'. Apply the plan record (step 4)."
   - Red Flags (`:402`) → "A merged plan whose status the plan record (step 4) has not recorded".
 
-- [ ] **Step 7: Run the tests and recipe B.**
+- [x] **Step 7: Run the tests and recipe B.**
   Run: `PYTHONUTF8=1 python -m pytest plugins/arch-compliance/tests/test_adr_skill_invariants.py plugins/arch-compliance/tests/test_adr_skill_prose.py -q`
   Expected: all pass.
   Run: `git grep -n -i -E "tick|checkbox" -- plugins/arch-compliance/skills/post-merge-housekeeping/SKILL.md`
   Expected: two hits only. One is step 4's portable clause ("tick every completed step `[x]`"). The other is the Rationalizations row's quoted excuse ("Checkboxes are ceremony"), which states no rule.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
   ```bash
   git add plugins/arch-compliance/skills/post-merge-housekeeping/SKILL.md plugins/arch-compliance/tests/test_adr_skill_invariants.py
@@ -184,7 +192,7 @@
 **Interfaces:**
 - Consumes: Task 1's `post-merge verification` record; every `not run`, `portable rule applied` and carry record from Tasks 1–2.
 
-- [ ] **Step 1: Write the failing test.** Append to `required`:
+- [x] **Step 1: Write the failing test.** Append to `required`:
   - `"### 6.7 Post-deploy actions"`
   - `"post-deploy actions: not declared in ## Post-merge, skipped"`
   - `"post-deploy actions: verification <value>, not run"`
@@ -194,28 +202,28 @@
 
   Add `assert body.index("### 6.5 ") < body.index("### 6.7 Post-deploy actions") < body.index("### 7. ")`.
 
-- [ ] **Step 2: Run it to verify it fails.**
+- [x] **Step 2: Run it to verify it fails.**
   Run: `PYTHONUTF8=1 python -m pytest plugins/arch-compliance/tests/test_adr_skill_invariants.py::test_housekeeping_skill_invariants -q`
   Expected: FAIL, `missing required housekeeping invariant: ### 6.7 Post-deploy actions`.
 
-- [ ] **Step 3: Insert `### 6.7 Post-deploy actions`.** Follow §4.2:
+- [x] **Step 3: Insert `### 6.7 Post-deploy actions`.** Follow §4.2:
   - no actions → `post-deploy actions: not declared in ## Post-merge, skipped`;
   - record not `passed` → `post-deploy actions: verification <value>, not run`, and the step says that a later run of step 6.7 re-runs step 1's verification first;
   - `passed` → run in declared order; a failure is reported, and each later action gets `<action>: not run (an earlier post-deploy action failed)`;
   - these run in the main session with no subagents in flight.
 
-- [ ] **Step 4: Step 8.** Add the §4.2 step-8 list:
+- [x] **Step 4: Step 8.** Add the §4.2 step-8 list:
   - step 1's verification record;
   - every carry fact;
   - every `not run` and `portable rule applied` record from steps 2.2, 4, 5, 6, 6.5 and 6.7;
   - each post-deploy action as run, failed or not run (§9 item 1);
   - every declared report field, or `report fields: not declared in ## Post-merge, skipped`.
 
-- [ ] **Step 5: Run the tests.**
+- [x] **Step 5: Run the tests.**
   Run: `PYTHONUTF8=1 python -m pytest plugins/arch-compliance/tests/test_adr_skill_invariants.py plugins/arch-compliance/tests/test_adr_skill_prose.py -q`
   Expected: all pass.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
   ```bash
   git add plugins/arch-compliance/skills/post-merge-housekeeping/SKILL.md plugins/arch-compliance/tests/test_adr_skill_invariants.py
@@ -231,32 +239,32 @@
 - Modify: `plugins/arch-compliance/.claude-plugin/plugin.json:3`, `pyproject.toml:3`
 - Test: `tests/test_self_host.py:57-61` (unchanged; must still pass)
 
-- [ ] **Step 1: Record the baseline.**
+- [x] **Step 1: Record the baseline.**
   The worktree has no TypeScript detector `node_modules`. Without it, `test_typescript_pack.py` fails: the authoring-time run at `cdab063` gave 6 failed, 813 passed, 3 skipped. Run `npm ci --prefix plugins/arch-compliance/detectors/typescript` first; it writes only that git-ignored directory.
   Run: `PYTHONUTF8=1 python -m pytest -q` at the commit before Task 1.
   Expected: record the pass count in the ledger. Every later run must match it, since this plan adds asserts to an existing test, not new tests.
 
-- [ ] **Step 2: `## Post-merge`.**
+- [x] **Step 2: `## Post-merge`.**
   - The tracking-target bullet (`:326`) labels its existing rule: append "**Filing rule:** file with `gh issue create`, so filing a follow-up or guard escape never edits an already-cleared spec." Then delete the duplicate "so filing a follow-up…" clause from the bullet's first sentence, so the rule is stated once.
   - Add one line before the `No row` line: "This repository declares no pre-flight checks, plan record, tracking documents, post-deploy actions or report fields."
   - The `## Post-merge` heading and the line `No row: host operational declarations; no test enforces this.` stay byte-identical.
 
-- [ ] **Step 3: `## Declared, never defaulted`.** After the review's built-in meanings sentence, add one sentence. `post-merge-housekeeping` gives three absent refinements a built-in meaning, recorded here:
+- [x] **Step 3: `## Declared, never defaulted`.** After the review's built-in meanings sentence, add one sentence. `post-merge-housekeeping` gives three absent refinements a built-in meaning, recorded here:
   - an absent plan record → step 4 ticks completed steps;
   - an absent filing rule → steps 6 and 6.5 write the item into the target;
   - an absent closing rule → step 5 updates status cells.
 
   Each is reported as `<rule>: not declared in ## Post-merge, portable rule applied`.
 
-- [ ] **Step 4: Version.** Change `0.3.2` → `0.3.3` in `plugin.json` and `pyproject.toml`.
+- [x] **Step 4: Version.** Change `0.3.2` → `0.3.3` in `plugin.json` and `pyproject.toml`.
 
-- [ ] **Step 5: Full suite and diff gate.**
+- [x] **Step 5: Full suite and diff gate.**
   Run: `PYTHONUTF8=1 python -m pytest -q`
   Expected: the step-1 count, all passing (including `tests/test_self_host.py`).
   Run: `PYTHONUTF8=1 python -m acf.cli_check_diff --repo . --base origin/main --call-site ci`
   Expected: exit 0.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
   ```bash
   git add config/architecture/ARCHITECTURE.md plugins/arch-compliance/.claude-plugin/plugin.json pyproject.toml
@@ -267,16 +275,16 @@
 
 ### Task 5: Pull request (stop for approval), then post-merge
 
-- [ ] **Step 1: STOP and ask the user before pushing.** Show the branch's commit list and the PR body draft. The body must name:
+- [x] **Step 1: STOP and ask the user before pushing.** Show the branch's commit list and the PR body draft. The body must name:
   - issue #50 as closed;
   - the Cayenne and HistoricMansions cutovers as adoption work this release unblocks: R5 in HistoricMansions' Workstream E table, and its `post-merge-housekeeping` cutover row;
   - the two §9 follow-ups (step 1 MISSING outcome; per-action "already done" check).
 
   It ends with "🤖 Generated with [Claude Code](https://claude.com/claude-code)".
 
-- [ ] **Step 2: After the user approves, push and open the PR.** Bind it with the ccd_pr tools.
+- [x] **Step 2: After the user approves, push and open the PR.** Bind it with the ccd_pr tools.
 
-- [ ] **Step 3: After merge (user-approved), run `post-merge-housekeeping`.**
+- [x] **Step 3: After merge (user-approved), run `post-merge-housekeeping`.**
   - Reinstall the plugin; `python scripts/check_installed_skills.py <INSTALL_PATH>` must print `installed gate skills identical to the clone` (DoD 5).
   - File the two §9 follow-ups with `gh issue create`.
   - Append the `LedgerAmendment` for `dispatch_commit_sha` `d85d32dadb4868f6a8a46adc4513150648c843ee` (the v4 run).

@@ -109,6 +109,11 @@ Plugin `hooks/hooks.json` registers:
 
 Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message. Committing `.acf/` approves no host code; each person runs `acf-allow` themselves.
 
+### Upgrading a host to declared post-merge steps (v0.3.3)
+
+- `/post-merge-housekeeping` now reads more host declarations from the doctrine's `## Post-merge`, each refining the one step that owns its concern: **pre-flight checks** (new step 2.2), a **plan record** (step 4), **tracking documents** with **closing rules** (step 5), a **filing rule** on the tracking target (steps 6 and 6.5), **post-deploy actions** on the post-merge CI bullet (new step 6.7, run only when verification passed) and **report fields** (step 8). The skill's `## Host declarations` table names each owner. Every declaration is optional; an absent plan record, filing rule or closing rule falls back to the old behaviour and is reported as `<rule>: not declared in ## Post-merge, portable rule applied`.
+- Step 1 now writes one record, `post-merge verification: <value>` (`passed`, `failed`, `in progress`, or `not declared in ## Post-merge, skipped`), in place of `post-merge CI check: not declared …`. A CI workflow named on the post-merge CI bullet counts toward `passed`. Anything that read the old record string should read the new one.
+
 ### Upgrading a host to a strict judge and a shell-free TypeScript bridge (v0.3.2)
 
 - The LLM judge (`acf-check-llm`) now requires the `violation` field in every reply, as a JSON boolean. A reply without it, or with `0`, `1`, a string or `null`, raises `JudgeResponseError` instead of reading as clean; only an explicit `false` means no finding. A run that passed on 0.3.1 because a model left the field out now fails loud. The judge prompt states the field is required.
