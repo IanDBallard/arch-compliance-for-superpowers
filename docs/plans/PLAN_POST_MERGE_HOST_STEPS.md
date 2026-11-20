@@ -232,6 +232,7 @@
 - Test: `tests/test_self_host.py:57-61` (unchanged; must still pass)
 
 - [ ] **Step 1: Record the baseline.**
+  The worktree has no TypeScript detector `node_modules`. Without it, `test_typescript_pack.py` fails: the authoring-time run at `cdab063` gave 6 failed, 813 passed, 3 skipped. Run `npm ci --prefix plugins/arch-compliance/detectors/typescript` first; it writes only that git-ignored directory.
   Run: `PYTHONUTF8=1 python -m pytest -q` at the commit before Task 1.
   Expected: record the pass count in the ledger. Every later run must match it, since this plan adds asserts to an existing test, not new tests.
 
