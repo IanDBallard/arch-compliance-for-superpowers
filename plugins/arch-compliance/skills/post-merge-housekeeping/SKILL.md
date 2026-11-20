@@ -1,6 +1,6 @@
 ---
 name: post-merge-housekeeping
-description: Use when a PR has just merged or a branch is otherwise finished, before starting the next task — and when noticing stale worktrees, orphaned/zombie test servers still listening after a worktree was pruned, unticked checkboxes in merged plans, or tracking docs that contradict merged code.
+description: Use when a PR has just merged or a branch is otherwise finished, before starting the next task — and when noticing stale worktrees, orphaned/zombie test servers still listening after a worktree was pruned, merged plans whose status the plan record (step 4) has not recorded, or tracking docs that contradict merged code.
 ---
 
 # Post-Merge Housekeeping
@@ -277,19 +277,24 @@ stop here. Steps 1–3 are already done and are the time-critical half (stranded
 commits, ghost branches). Steps 4–7 are bookkeeping and can wait for the checkout —
 say so and leave the changes unstaged rather than forcing them in.
 
-### 4. Plan truthfulness — tick the checkboxes NOW
+### 4. Plan truthfulness — record it NOW
 
-If the branch executed a tracked implementation plan, open the plan, tick every
-completed step `[x]`, and add a merge annotation (PR #, merge/squash SHA, date). If
+If the branch executed a tracked implementation plan, open the plan, mark completed
+steps as the plan record under `## Post-merge` declares, or, if none is declared, tick
+every completed step `[x]`, and add a merge annotation (PR #, merge/squash SHA, date). If
 review rounds changed the approach, fix the plan text or excise stale code blocks (a
 stale block that contradicts shipped code is worse than none). Record any override
 rows that changed.
 
+Take step 2.2's carry facts into account (a stage recorded in flight is not marked
+complete). With no plan record declared, record
+`plan record: not declared in ## Post-merge, portable rule applied`.
+
 ### 5. Tracking-doc reconciliation (out-of-branch residue)
 
 The in-branch doc ripple covers docs you edited. This step finds the ones you didn't
-across all tracked Markdown files (plus any non-Markdown tracking files declared under
-`## Post-merge` in the host's doctrine):
+across all tracked Markdown files, plus the
+tracking documents declared under ## Post-merge in the host's doctrine:
 
 ```bash
 git grep -il "<changed-surface-keyword>" -- '*.md'
@@ -299,6 +304,11 @@ For each hit, check: status cells and tables that describe the old behavior ("no
 atomic", "pending", "in flight"), counts your change moved, and revision histories.
 Update them, with dates.
 
+Where a tracking document declares a closing rule, apply it to that document. Take
+step 2.2's carry facts into account. With no tracking documents declared, record
+`tracking documents: not declared in ## Post-merge, skipped`; with no closing rule
+declared, record `closing rule: not declared in ## Post-merge, portable rule applied`.
+
 ### 6. Review-round sweep — file every deferred item & amend the ADR ledger
 
 Re-read the review verdicts — PR comments (`gh pr view <N> --comments`) AND
@@ -307,8 +317,10 @@ in-session reviewer reports if reviews ran via subagents — for anything tagged
 non-GitHub host?** Sweep in-session subagent review reports and branch commit
 messages, and ask the user for any external PR/MR review notes rather than skipping.
 Each item gets **written into the durable tracking target declared under
-`## Post-merge` in the host's doctrine** (or plan / project memory if appropriate)
-before you move on. If `## Post-merge` declares no tracking target and deferred items
+`## Post-merge` in the host's doctrine** (or plan / project memory if appropriate),
+following its declared filing rule (for example how an item's ID is allocated), before
+you move on. With no filing rule declared, record
+`filing rule: not declared in ## Post-merge, portable rule applied`. If `## Post-merge` declares no tracking target and deferred items
 exist, **STOP and ask the user** where to file them — chat history is not a filing
 system; unfiled follow-ups evaporate.
 
@@ -394,7 +406,9 @@ Not "what *would* get through" — that phrasing yields categories and hypotheti
 and every gap filed as a hypothetical so far was materially wrong until someone
 hunted a live instance. The searched-for-and-found-none answer is recorded with the
 search you ran, so the next reader can re-run it. File any live finding in the
-durable tracking target declared under `## Post-merge` in the host's doctrine (if none
+durable tracking target declared under `## Post-merge` in the host's doctrine,
+following its declared filing rule (for example how an item's ID is allocated); with
+none declared, record the `filing rule` absence as step 6 does (if no tracking target
 is declared, stop and ask the user where to file it). "Nothing — it checks the
 behaviour, not a code shape" is a valid and valuable answer; write that down too, with
 the evidence.
@@ -431,7 +445,7 @@ next task.
 | "Git says the branch is unmerged, so keep it" | Squash merges *always* look unmerged. Verify content, then delete. |
 | "Every branch commit predates `mergedAt`, so nothing is stranded" | A timestamp says when a commit was made, not when it was pushed. Compare against `headRefOid`. Three commits were nearly lost this way on 2026-10-28. |
 | "`git diff default_branch branch` was empty/clean" | That check is broken in both directions — use content presence + the stranded-commit log. |
-| "Checkboxes are ceremony; the merge is the record" | Merged plans with unticked boxes read as "not started" to the next reader. Tick them. |
+| "Checkboxes are ceremony; the merge is the record" | A plan whose status nobody recorded reads as "not started". Apply the plan record (step 4). |
 | "The reviewer's follow-up is small, I'll remember it" | Nobody remembered. File it or do it now. |
 | "The branch docs were updated in-branch, so docs are done" | Out-of-branch docs (roadmaps, audits, inventories) drift independently — grep for them. |
 | "Step 1 says checkout the default branch, so I'll checkout first" | It does not. Steps 1–2 are read-only (`git show "origin/$default_branch:<path>"`). A checkout there mutates a checkout other worktrees and sessions share, to answer a question that needs no mutation. |
@@ -446,7 +460,7 @@ next task.
 - About to say "let's start the next feature" within minutes of a merge
 - A worktree or branch you can't immediately account for
 - A background test-server listener you can't immediately account for
-- A merged plan with unticked boxes
+- A merged plan whose status the plan record (step 4) has not recorded
 - Pushing anything to a feature branch after its PR merged
 - A reviewer note containing "follow-up" or "out of scope" that isn't filed anywhere
 

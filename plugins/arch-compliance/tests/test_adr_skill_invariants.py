@@ -129,8 +129,19 @@ def test_housekeeping_skill_invariants():
         "restates <owner>, not run",
         "once step 2.2 has run",
         "portable rule applied",
+        "### 4. Plan truthfulness — record it NOW",
+        "plan record: not declared in ## Post-merge, portable rule applied",
+        "tracking documents declared under ## Post-merge",
+        "tracking documents: not declared in ## Post-merge, skipped",
+        "closing rule: not declared in ## Post-merge, portable rule applied",
+        "filing rule: not declared in ## Post-merge, portable rule applied",
+        "the plan record (step 4)",
+        "add a merge annotation",
+        "Record any override",
     ):
         assert required in body, f"missing required housekeeping invariant: {required}"
+    assert "Tick them." not in body
+    assert "non-Markdown tracking files declared" not in body
     assert "post-merge CI check: not declared" not in body
     assert body.index("### 2.2 Host pre-flight checks") < body.index("### 2.5 ")
     assert body.index("## Host declarations") < body.index("## The Checklist")
