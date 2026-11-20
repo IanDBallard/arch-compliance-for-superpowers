@@ -1,6 +1,6 @@
 ---
 name: post-merge-housekeeping
-description: Use when a PR has just merged or a branch is otherwise finished, before starting the next task — and when noticing stale worktrees, orphaned/zombie test servers still listening after a worktree was pruned, unticked checkboxes in merged plans, or tracking docs that contradict merged code.
+description: Use when a PR has just merged or a branch is otherwise finished, before starting the next task — and when noticing stale worktrees, orphaned/zombie test servers still listening after a worktree was pruned, merged plans whose status the plan record (step 4) has not recorded, or tracking docs that contradict merged code.
 ---
 
 # Post-Merge Housekeeping
@@ -17,11 +17,38 @@ false-alarm investigation. This checklist is the looking.
 Step 2.5 has a PowerShell branch (Windows developer nodes) and a POSIX branch (Linux,
 macOS, Docker, cloud sessions); run the one that matches the host OS and state which
 you ran. `gh` is not present in every environment; steps 1, 2, and 6 name the
-fallbacks. Host-specific operational conventions (shared-checkout branch lock,
-worktree daemon probe, post-merge CI workflows, and durable tracking target) are read
-from the `## Post-merge` section of the host's doctrine (`acf.repo.ARCH_REL`, or a
-document it points to). When `## Post-merge` omits a check, report `<check>: not
-declared in ## Post-merge, skipped` in step 8 rather than skipping silently.
+fallbacks. Host declarations are read from the `## Post-merge` section of the host's
+doctrine (`acf.repo.ARCH_REL`, or a document it points to): the branch lock, the
+daemon probe, post-merge CI with its post-deploy actions, the tracking target with its
+filing rule, tracking documents with their closing rules, pre-flight checks, the plan
+record and report fields. Each is read by one step (see `## Host declarations`). Every
+declaration step 8 reports is recorded in one of three forms:
+`<declaration>: not declared in ## Post-merge, skipped`,
+`<rule>: not declared in ## Post-merge, portable rule applied`, or
+`<what>: … not run`.
+
+## Host declarations
+
+Each concern has one owner. A declaration is a bold-labelled bullet in `## Post-merge`;
+a refinement is a labelled sentence or sub-bullet inside its owner's bullet. The step
+named below is the only place its rule is stated and applied.
+
+| Concern | Declaration in `## Post-merge` | Read by |
+| --- | --- | --- |
+| The shared checkout's HEAD, its lock or branch guard | branch-lock bullet | step 0, again at step 3.5 |
+| A worktree's background processes | daemon-probe bullet | step 2.5 |
+| Whether the merge landed on the default branch | none: step 1's content-presence check, which no host refines | step 1 |
+| Post-merge CI and deploy verification | post-merge CI bullet | step 1, which writes the one verification record |
+| Actions gated on that verification passing | post-merge CI bullet, refined with **post-deploy actions** | step 6.7 |
+| Checks on the merge itself (a competing housekeeping run, a twin pull request) | **pre-flight checks** bullet | step 2.2 |
+| How a merged plan's completed steps are marked | **plan record** bullet | step 4 |
+| Which documents step 5 reconciles beyond its Markdown grep, and how items in them are closed | **tracking documents** bullet, refined with a **closing rule** per document | step 5 |
+| Where deferred items and guard escapes are filed, and how | tracking-target bullet, refined with a **filing rule** | steps 6, 6.5 |
+| Extra report fields | **report fields** bullet | step 8 |
+
+One file may appear on both the tracking-documents bullet and the tracking-target
+bullet, because reconciling and filing are different concerns: each bullet carries only
+its own concern's rule.
 
 ## The Checklist (run from the main checkout root, in order)
 
@@ -120,10 +147,15 @@ tells you nothing either way.
 gh run list --branch "$default_branch" --limit 5
 ```
 
-Also run any post-merge CI or deploy verification declared under `## Post-merge` in
-the host's doctrine. If `gh` is absent and no post-merge CI check is declared under
-`## Post-merge`, report `post-merge CI check: not declared in ## Post-merge, skipped`
-in step 8.
+Also run every post-merge CI or deploy verification declared under `## Post-merge` in
+the host's doctrine. Record one result for steps 6.7 and 8,
+`post-merge verification: <value>`: `passed` when at least one verification is
+declared and every declared verification succeeded; `failed`; `in progress`; or
+`not declared in ## Post-merge, skipped` when none is declared. A CI workflow named on
+the post-merge CI bullet is a declared verification, and its run for the merge commit
+counts toward passed. When `gh` is present, the same record also carries the
+`gh run list` result for the merge commit; runs of workflows the bullet does not name
+never make it `passed`.
 
 ### 2. Stranded-commit check (the one everyone skips)
 
@@ -137,7 +169,7 @@ reached `origin/$default_branch` some other way (prove that by the commit's **wh
 diff, every added line, not a sampled phrase: later edits reword rows, so a phrase can
 match while the change it belonged to is missing). A post-merge push also silently
 **recreates the just-deleted remote branch**. Cherry-pick doc-only strays onto
-`$default_branch`; anything with code goes through a follow-up PR.
+`$default_branch` once step 2.2 has run; anything with code goes through a follow-up PR.
 
 **Compare against `headRefOid`, never against `mergedAt`.** A commit's timestamp
 records when it was made, not when it was pushed. A commit made before the merge but
@@ -151,6 +183,21 @@ on `origin/$default_branch`.
 
 A branch with **no PR** has no merged head: every commit in
 `"origin/$default_branch"..<branch>` is a candidate, checked the same way.
+
+### 2.2 Host pre-flight checks
+
+Run this in the main session once every step 1–2 result is collected, subagents
+included, and before step 2.5. Read the pre-flight checks bullet under `## Post-merge`.
+If it is absent, record `pre-flight: not declared in ## Post-merge, skipped`. Otherwise
+run each check in order, once per run, against every merged item:
+
+- a **stop** outcome ends the run for every item before step 2.5, naming the item and
+  the check and saying what the user should do;
+- a **carry** outcome is recorded for steps 4, 5 and 8;
+- a check whose concern `## Host declarations` gives to another step is not run, and is
+  recorded as `pre-flight: restates <owner>, not run`.
+
+A remedy that would change anything is reported to the user, never performed here.
 
 ### 2.5 Worktree process & resource sweep — REQUIRED before any `git worktree remove`
 
@@ -230,19 +277,25 @@ stop here. Steps 1–3 are already done and are the time-critical half (stranded
 commits, ghost branches). Steps 4–7 are bookkeeping and can wait for the checkout —
 say so and leave the changes unstaged rather than forcing them in.
 
-### 4. Plan truthfulness — tick the checkboxes NOW
+### 4. Plan truthfulness — record it NOW
 
-If the branch executed a tracked implementation plan, open the plan, tick every
-completed step `[x]`, and add a merge annotation (PR #, merge/squash SHA, date). If
+If the branch executed a tracked implementation plan, open the plan, mark completed
+steps as the plan record under `## Post-merge` declares, or, if none is declared, tick
+every completed step `[x]`. Whatever the plan record says, add a merge annotation (PR #,
+merge/squash SHA, date). If
 review rounds changed the approach, fix the plan text or excise stale code blocks (a
 stale block that contradicts shipped code is worse than none). Record any override
 rows that changed.
 
+Take step 2.2's carry facts into account (a stage recorded in flight is not marked
+complete). With no plan record declared, record
+`plan record: not declared in ## Post-merge, portable rule applied`.
+
 ### 5. Tracking-doc reconciliation (out-of-branch residue)
 
 The in-branch doc ripple covers docs you edited. This step finds the ones you didn't
-across all tracked Markdown files (plus any non-Markdown tracking files declared under
-`## Post-merge` in the host's doctrine):
+across all tracked Markdown files, plus the
+tracking documents declared under ## Post-merge in the host's doctrine:
 
 ```bash
 git grep -il "<changed-surface-keyword>" -- '*.md'
@@ -252,6 +305,11 @@ For each hit, check: status cells and tables that describe the old behavior ("no
 atomic", "pending", "in flight"), counts your change moved, and revision histories.
 Update them, with dates.
 
+Where a tracking document declares a closing rule, apply it to that document. Take
+step 2.2's carry facts into account. With no tracking documents declared, record
+`tracking documents: not declared in ## Post-merge, skipped`; with no closing rule
+declared, record `closing rule: not declared in ## Post-merge, portable rule applied`.
+
 ### 6. Review-round sweep — file every deferred item & amend the ADR ledger
 
 Re-read the review verdicts — PR comments (`gh pr view <N> --comments`) AND
@@ -260,8 +318,10 @@ in-session reviewer reports if reviews ran via subagents — for anything tagged
 non-GitHub host?** Sweep in-session subagent review reports and branch commit
 messages, and ask the user for any external PR/MR review notes rather than skipping.
 Each item gets **written into the durable tracking target declared under
-`## Post-merge` in the host's doctrine** (or plan / project memory if appropriate)
-before you move on. If `## Post-merge` declares no tracking target and deferred items
+`## Post-merge` in the host's doctrine** (or plan / project memory if appropriate),
+following its declared filing rule (for example how an item's ID is allocated), before
+you move on. With no filing rule declared, record
+`filing rule: not declared in ## Post-merge, portable rule applied`. If `## Post-merge` declares no tracking target and deferred items
 exist, **STOP and ask the user** where to file them — chat history is not a filing
 system; unfiled follow-ups evaporate.
 
@@ -347,7 +407,9 @@ Not "what *would* get through" — that phrasing yields categories and hypotheti
 and every gap filed as a hypothetical so far was materially wrong until someone
 hunted a live instance. The searched-for-and-found-none answer is recorded with the
 search you ran, so the next reader can re-run it. File any live finding in the
-durable tracking target declared under `## Post-merge` in the host's doctrine (if none
+durable tracking target declared under `## Post-merge` in the host's doctrine,
+following its declared filing rule (for example how an item's ID is allocated); with
+none declared, record the `filing rule` absence as step 6 does (if no tracking target
 is declared, stop and ask the user where to file it). "Nothing — it checks the
 behaviour, not a code shape" is a valid and valuable answer; write that down too, with
 the evidence.
@@ -364,6 +426,23 @@ declarations does not see the same defect hand-rolled in a helper body.
 tells the next reader the question is settled. Check the guard's announced scope
 against what it can actually see.
 
+### 6.7 Post-deploy actions
+
+Read the post-deploy actions on the post-merge CI bullet under `## Post-merge`. If
+there are none, record `post-deploy actions: not declared in ## Post-merge, skipped`.
+Otherwise read step 1's `post-merge verification` record.
+A run of step 6.7 after an earlier one first re-runs step 1's verification and reads the new record.
+Then:
+
+- if it is not `passed`, record `post-deploy actions: verification <value>, not run`,
+  and tell the user that a later run of step 6.7 re-runs step 1's verification first;
+- if it is `passed`, run the actions in declared order. An action that fails is
+  reported, and each action after it is recorded as
+  `<action>: not run (an earlier post-deploy action failed)`.
+
+These run in the main session with no subagents in flight, like everything from step
+3.5 on.
+
 ### 7. Memory / status notes
 
 Update project memory entries whose status this merge changed (roadmap progress,
@@ -374,7 +453,15 @@ Update project memory entries whose status this merge changed (roadmap progress,
 Tell the user in one or two sentences what housekeeping found — including "nothing
 stranded, docs clean", which step-2.5 process-sweep branch ran, and any host-specific
 check reported as `<check>: not declared in ## Post-merge, skipped` — *then* start the
-next task.
+next task. The report also lists:
+
+- step 1's `post-merge verification` record;
+- every carry fact from step 2.2;
+- every `not run` and `portable rule applied` record from steps 2.2, 4, 5, 6, 6.5 and
+  6.7;
+- each post-deploy action as run, failed or not run;
+- every field the report fields bullet under `## Post-merge` declares, or
+  `report fields: not declared in ## Post-merge, skipped`.
 
 ## Rationalizations vs Reality
 
@@ -384,7 +471,7 @@ next task.
 | "Git says the branch is unmerged, so keep it" | Squash merges *always* look unmerged. Verify content, then delete. |
 | "Every branch commit predates `mergedAt`, so nothing is stranded" | A timestamp says when a commit was made, not when it was pushed. Compare against `headRefOid`. Three commits were nearly lost this way on 2026-10-28. |
 | "`git diff default_branch branch` was empty/clean" | That check is broken in both directions — use content presence + the stranded-commit log. |
-| "Checkboxes are ceremony; the merge is the record" | Merged plans with unticked boxes read as "not started" to the next reader. Tick them. |
+| "Checkboxes are ceremony; the merge is the record" | A plan whose status nobody recorded reads as "not started". Apply the plan record (step 4). |
 | "The reviewer's follow-up is small, I'll remember it" | Nobody remembered. File it or do it now. |
 | "The branch docs were updated in-branch, so docs are done" | Out-of-branch docs (roadmaps, audits, inventories) drift independently — grep for them. |
 | "Step 1 says checkout the default branch, so I'll checkout first" | It does not. Steps 1–2 are read-only (`git show "origin/$default_branch:<path>"`). A checkout there mutates a checkout other worktrees and sessions share, to answer a question that needs no mutation. |
@@ -399,7 +486,7 @@ next task.
 - About to say "let's start the next feature" within minutes of a merge
 - A worktree or branch you can't immediately account for
 - A background test-server listener you can't immediately account for
-- A merged plan with unticked boxes
+- A merged plan whose status the plan record (step 4) has not recorded
 - Pushing anything to a feature branch after its PR merged
 - A reviewer note containing "follow-up" or "out of scope" that isn't filed anywhere
 

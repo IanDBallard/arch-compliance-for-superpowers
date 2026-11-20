@@ -204,7 +204,12 @@ rule setting: every rule settings key is optional, an absent scalar (for example
 it, and an absent list (for example `surface_exclude`, `docs`, `bindings`) is empty.
 Source: phase 1c decision 4,
 `plugins/arch-compliance/python/acf/adr/host.py:19-33`. Row:
-`plugin.declared-never-defaulted`. Three defaults elsewhere in the package are outside
+`plugin.declared-never-defaulted`. `post-merge-housekeeping` gives three absent
+`## Post-merge` refinements a built-in meaning, recorded here: an absent plan record,
+where step 4 ticks completed steps; an absent filing rule, where steps 6 and 6.5 write
+the item into the tracking target; and an absent closing rule, where step 5 updates
+status cells. Each is reported as
+`<rule>: not declared in ## Post-merge, portable rule applied`. Three defaults elsewhere in the package are outside
 this rule and recorded here: the fail-loud ratchet's baseline path when a row omits
 `params.baseline` (`plugins/arch-compliance/python/acf/repo.py:23-26`), `resolve_repo`
 falling back to the process directory (`plugins/arch-compliance/python/acf/repo.py:32-44`,
@@ -323,6 +328,8 @@ Host operational declarations read by `post-merge-housekeeping`:
 - **Shared-checkout branch lock:** none declared.
 - **Worktree daemon probe:** none declared (tests spawn no background server).
 - **Post-merge CI workflows:** `.github/workflows/ci.yml` (`test` job on `main`).
-- **Durable tracking target:** GitHub Issues on `IanDBallard/arch-compliance-for-superpowers` (`gh issue create`), so filing a follow-up or guard escape never edits an already-cleared spec.
+- **Durable tracking target:** GitHub Issues on `IanDBallard/arch-compliance-for-superpowers`. **Filing rule:** file with `gh issue create`, so filing a follow-up or guard escape never edits an already-cleared spec.
+
+This repository declares no pre-flight checks, plan record, tracking documents, post-deploy actions or report fields.
 
 No row: host operational declarations; no test enforces this.
