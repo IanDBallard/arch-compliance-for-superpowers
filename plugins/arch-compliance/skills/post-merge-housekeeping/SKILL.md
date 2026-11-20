@@ -425,6 +425,21 @@ declarations does not see the same defect hand-rolled in a helper body.
 tells the next reader the question is settled. Check the guard's announced scope
 against what it can actually see.
 
+### 6.7 Post-deploy actions
+
+Read the post-deploy actions on the post-merge CI bullet under `## Post-merge`. If
+there are none, record `post-deploy actions: not declared in ## Post-merge, skipped`.
+Otherwise read step 1's `post-merge verification` record:
+
+- if it is not `passed`, record `post-deploy actions: verification <value>, not run`,
+  and tell the user that a later run of step 6.7 re-runs step 1's verification first;
+- if it is `passed`, run the actions in declared order. An action that fails is
+  reported, and each action after it is recorded as
+  `<action>: not run (an earlier post-deploy action failed)`.
+
+These run in the main session with no subagents in flight, like everything from step
+3.5 on.
+
 ### 7. Memory / status notes
 
 Update project memory entries whose status this merge changed (roadmap progress,
@@ -435,7 +450,15 @@ Update project memory entries whose status this merge changed (roadmap progress,
 Tell the user in one or two sentences what housekeeping found — including "nothing
 stranded, docs clean", which step-2.5 process-sweep branch ran, and any host-specific
 check reported as `<check>: not declared in ## Post-merge, skipped` — *then* start the
-next task.
+next task. The report also lists:
+
+- step 1's `post-merge verification` record;
+- every carry fact from step 2.2;
+- every `not run` and `portable rule applied` record from steps 2.2, 4, 5, 6, 6.5 and
+  6.7;
+- each post-deploy action as run, failed or not run;
+- every field the report fields bullet under `## Post-merge` declares, or
+  `report fields: not declared in ## Post-merge, skipped`.
 
 ## Rationalizations vs Reality
 
