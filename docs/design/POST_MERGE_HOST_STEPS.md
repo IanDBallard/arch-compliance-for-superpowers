@@ -1,6 +1,7 @@
 # Host Rules for `post-merge-housekeeping`, Each Read by the Step That Owns Its Concern
 
-**Status:** v4 — draft for `/arch-compliance:adversarial-design-review`.
+**Status:** v4 — approved; absorptions folded in (§4.1, §4.2 steps 1 and 5, §4.4, §5, §9).
+**Adversarial review:** v4 — 2026-11-19, 4 reviewers, CLEARED_WITH_ABSORPTIONS (repo @ d85d32da)
 **Spec kinds:** `feature`
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `e9dd881` (release 0.3.2).
 **Workstream:** HistoricMansions Workstream E, host roll-out step R5. Closes issue #50. A host
@@ -60,8 +61,8 @@ silently drops steps.
 
 This design gives each rule to the step that already owns its concern, as a refinement of
 that step's declaration, and adds a declaration only where no step owns the concern: the
-merge itself (pre-flight checks) and the report's extra fields. There is no general
-"host steps" slot.
+merge itself (pre-flight checks). Report fields are a refinement read by step 8, the step
+that owns the report. There is no general "host steps" slot.
 
 ---
 
@@ -73,9 +74,10 @@ merge itself (pre-flight checks) and the report's extra fields. There is no gene
 2. **Each host rule refines the declaration of the step that owns its concern.** §4.1 is
    the ownership table. A host rule is written on the owner's bullet in `## Post-merge`,
    and only the owning step reads it. A refinement replaces or extends exactly the clause
-   §4.2 names, and the rest of the step stays unconditional. Two concerns have no owner
-   today, and each gets one new bullet: **pre-flight checks** (checks on the merge
-   itself) and **report fields**. (author's call)
+   §4.2 names, and the rest of the step stays unconditional. One concern has no owner
+   today and gets a new bullet: **pre-flight checks** (checks on the merge itself). The
+   **report fields** bullet is a refinement read by step 8, which owns the report.
+   (author's call)
 3. **Declared, never defaulted.** An absent declaration adds nothing, and step 8 reports
    it as `<declaration>: not declared in ## Post-merge, skipped`. Three absent refinements
    have a built-in meaning, the skill's own portable clause: an absent plan record (step 4
@@ -151,7 +153,7 @@ merge itself (pre-flight checks) and the report's extra fields. There is no gene
 | How a merged plan's completed steps are marked | **plan record** bullet (new refinement of step 4's first clause) | step 4 |
 | Which documents step 5 reconciles beyond its Markdown grep, and how items in them are closed | **tracking documents** bullet: today's "non-Markdown tracking files" declaration, named, refined with a **closing rule** per document | step 5 |
 | Where deferred items and guard escapes are filed, and how | tracking-target bullet (existing), refined with a **filing rule** | steps 6, 6.5 |
-| Extra report fields | **report fields** bullet (new) | step 8 |
+| Extra report fields | **report fields** bullet (new refinement of step 8's report) | step 8 |
 
 Reconciling and filing are different concerns, so one file may be named on both the
 tracking-documents bullet (what step 5 closes in it) and the tracking-target bullet (what
@@ -178,9 +180,11 @@ labelled sentence or sub-bullet inside its owner's bullet.
   post-merge CI or deploy verification declared under `## Post-merge`. Record one result
   for steps 6.7 and 8, `post-merge verification: <value>`: `passed` when at least one
   verification is declared and every declared verification succeeded; `failed`; `in
-  progress`; or `not declared in ## Post-merge, skipped` when none is declared. When `gh`
-  is present, the same record also carries the `gh run list` result for the merge commit,
-  which never makes it `passed` on its own."
+  progress`; or `not declared in ## Post-merge, skipped` when none is declared. A CI
+  workflow named on the post-merge CI bullet is a declared verification, and its run for
+  the merge commit counts toward `passed`. When `gh` is present, the same record also
+  carries the `gh run list` result for the merge commit; runs of workflows the bullet does
+  not name never make it `passed`."
 - **Step 2** (`:139-140`): after "Cherry-pick doc-only strays onto `$default_branch`" add
   "once step 2.2 has run".
 - **New `### 2.2 Host pre-flight checks`** (between steps 2 and 2.5). It runs in the main
@@ -203,8 +207,10 @@ labelled sentence or sub-bullet inside its owner's bullet.
 - **Step 5** (`:243-253`): "non-Markdown tracking files declared under `## Post-merge`"
   becomes "the tracking documents declared under `## Post-merge`". After "Update them,
   with dates.", add: "Where a tracking document declares a closing rule, apply it to that
-  document. Take step 2.2's carry facts into account. With no closing rule declared,
-  record `closing rule: not declared in ## Post-merge, portable rule applied`."
+  document. Take step 2.2's carry facts into account. With no tracking documents
+  declared, record `tracking documents: not declared in ## Post-merge, skipped`; with no
+  closing rule declared, record `closing rule: not declared in ## Post-merge, portable
+  rule applied`."
 - **Step 6** (`:262-266`) and **step 6.5** (`:349-351`): each item is written into the
   tracking target "following its declared filing rule (for example how an item's ID is
   allocated)". With none declared, record `filing rule: not declared in ## Post-merge,
@@ -258,9 +264,12 @@ between them and changes neither, so the test needs no change.
 
 ### 4.4 Doctrine, version, installed-skills check
 
-- `config/architecture/ARCHITECTURE.md` `## Post-merge` (`:319-328`): add one line, before
-  the `No row` line, saying this repository declares no pre-flight checks, plan record,
-  tracking documents, filing rule, post-deploy actions or report fields. The
+- `config/architecture/ARCHITECTURE.md` `## Post-merge` (`:319-328`): the tracking-target
+  bullet (`:326`) labels its existing rule as its **filing rule**: file with
+  `gh issue create`, so filing a follow-up or guard escape never edits an already-cleared
+  spec. Add one line, before the `No row` line, saying this repository declares no
+  pre-flight checks, plan record, tracking documents, post-deploy actions or report
+  fields. The
   installed-skills byte check stays under `## Release discipline` (`:272-276`), because it
   guards gate runs as well and checks the tooling, not the merge.
 - `config/architecture/ARCHITECTURE.md` `## Declared, never defaulted` (`:189-216`): add
@@ -278,8 +287,8 @@ between them and changes neither, so the test needs no change.
 bullets the skill reads as prose, reporting an absent one as "not declared … skipped" and
 never defaulting one (`SKILL.md:20-24`, `:62-64`, `:123-126`, `:180-184`, `:244-245`,
 `:262-266`). Four of the new rules are refinements on the bullets of the steps that
-already own them; step 5's existing tracking-files declaration is named; two bullets are
-new.
+already own them; step 5's existing tracking-files declaration is named; the report
+fields bullet refines step 8; one bullet, pre-flight checks, is new.
 
 **What second way does it create?** The §4.1 table is the check, row by row:
 - **Shared checkout.** Still the branch-lock bullet only. A pre-flight check on it is
@@ -298,8 +307,10 @@ new.
   stays. The three other places that restated ticking refer to step 4.
 - **Report forms.** The overview states the three forms once, replacing its single-form
   sentence.
-- **Merge checks and report fields.** No existing declaration or step owns them (§1
-  table, last column), so each new bullet is their only home.
+- **Merge checks.** No existing declaration or step owns them (§1 table, last column), so
+  the pre-flight checks bullet is their only home.
+- **Report fields.** Step 8 owns the report; the report fields bullet is a refinement
+  only step 8 reads.
 
 **Lines touched.** §6's table lists, per line, each skill line this design edits and the
 lines it places new steps between.
@@ -391,3 +402,24 @@ Output: `plugins/arch-compliance/tests/test_adr_skill_invariants.py:117-118` and
 | A host's plan record drops step 4's other duties | Decision 2: the plan record replaces one clause; the annotation, stale-text fix and override-row record stay |
 | Every host must re-declare the competing-run check | Accepted (§3): recognising a competing housekeeping run is host-specific, so it stays a declaration |
 | A multi-item run stops for one item's pre-flight check | Decision 4: a stop ends the run for every item before anything is changed; the user re-runs without that item |
+
+---
+
+## 9. Items for the plan and follow-ups
+
+These leave the mechanism unchanged. The plan carries the first two as tasks, and the
+last two are filed as follow-ups under this repository's tracking target after the merge.
+
+1. **The report names each post-deploy action's outcome.** Step 8 lists every post-deploy
+   action as run, failed or not run, so a later run can see which actions already ran.
+2. **The `## Post-merge` filing-rule label.** §4.4 labels this repository's existing
+   `gh issue create` rule as its filing rule, so step 6 reports it as declared, not as
+   `portable rule applied`.
+3. **Follow-up: an outcome for step 1's MISSING content.** Step 1 prints PRESENT or
+   MISSING (`SKILL.md:93-96`) and names no action on MISSING. A host's "base is the
+   default branch" pre-flight check is refused as a restatement of step 1, so a merge into
+   another base relies on that unnamed outcome. A follow-up issue proposes a step-1 stop on
+   MISSING.
+4. **Follow-up: re-running post-deploy actions.** A later run of step 6.7 starts from the
+   first declared action. A follow-up issue proposes a per-action "already done" check
+   declared beside each action, so an action that emails users is not repeated.
