@@ -1,6 +1,6 @@
 # One Shipped Way for a Host to Run `acf-check-diff` in CI and Before a Push
 
-**Status:** v2 — approved by the user 2026-11-21; awaiting adversarial design review.
+**Status:** v3 — approved by the user 2026-11-21 (declared opt-out for the pre-push step chosen by the user); awaiting adversarial design review.
 **Spec kinds:** `feature`
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `b9aaf77` (release 0.3.3).
 **Workstream:** HistoricMansions Workstream E, host roll-out step R6 ("Wire `acf-check-diff`
@@ -9,9 +9,11 @@ ships the wiring once. Each host then adopts it with a few lines, and the first 
 pull request carries R6's acceptance (§8).
 **Governing mandates:** `config/architecture/ARCHITECTURE.md` sections `## One owner for
 host paths` (`:115-138`), `## Host detectors and call sites` (`:140-187`, the call-site rule
-and the trust boundary), `## Prose names no host` (`:223-233`), `## Live consumers`
+and the trust boundary), `## Declared, never defaulted` (`:189-221`), `## Prose names no
+host` (`:223-233`), `## Live consumers`
 (`:243-247`), `## No completeness claims` (`:249-259`), `## Release discipline`
-(`:274-284`) and `## Single point of definition` (`:286-303`).
+(`:274-284`), `## Single point of definition` (`:286-303`), `## Declared text decoding`
+(`:261-272`, cited for the Windows limits) and `## Post-merge` (`:324-335`).
 **No state-machine surface.** The design adds or modifies no state machine and no
 transition.
 
@@ -48,7 +50,8 @@ keep its copy in step with each release.
 This design ships that wiring as a composite GitHub Action in this repository, so a host's
 CI wiring is a checkout and one `uses:` line pinned to a release tag. It also replaces the
 pre-commit snippet with a pre-push step, which runs once per push rather than once per
-commit and skips with a warning where `acf-check-diff` is not installed.
+commit and refuses where `acf-check-diff` is not installed, unless the environment declares
+the check optional (§2 decision 6).
 
 The gate then runs at three points in a host, each with its own job:
 
@@ -97,15 +100,20 @@ The gate then runs at three points in a host, each with its own job:
 5. **Pre-push replaces pre-commit in `/acf-setup`.** The `precommit` call site keeps its
    name and means the local git-hook site, whichever hook runs it. Pre-push diffs the
    checked-out branch against `origin/<default>` with `--base`, the scope CI uses.
-6. **The local step skips only when the gate is absent.** A cloud session or a fresh clone
-   may not have `acf-check-diff`. The pre-push step then prints one line saying the check
-   was skipped and that CI runs it, and lets the push continue. Once the command is
-   installed, any non-zero exit blocks the push. `acf-check-diff` returns 1 for a BLOCK
-   finding and for a refusal alike (`cli_check_diff.py:106-108`, `:119-121`); the refusals
-   it catches print a line beginning `acf:`, and a missing approval, a TypeScript pack
-   without `npm ci` and an unresolvable base each say what failed. A local gate that is
-   installed but cannot run is fixed, not passed over; telling a refusal from a finding
-   would mean parsing stderr.
+6. **The local step refuses when the gate is absent, unless the environment declares
+   otherwise.** When `acf-check-diff` is not on `PATH`, the pre-push step blocks the push
+   and says how to install it. It lets the push continue, printing that the check was
+   skipped and that CI runs it, only when the environment sets `ACF_PREPUSH_OPTIONAL=1`.
+   That variable is set by whoever owns an environment where CI is meant to be the only
+   gate (a cloud session's environment settings, say) and is never committed to the
+   repository, so a fresh clone that has not installed the tool is stopped, not silently
+   passed. Unset, or any other value, means refuse. Once the command is installed, any
+   non-zero exit blocks the push. `acf-check-diff` returns 1 for a BLOCK finding and for a
+   refusal alike (`cli_check_diff.py:106-108`, `:119-121`); the refusals it catches print a
+   line beginning `acf:`, and a missing approval, a TypeScript pack without `npm ci` and an
+   unresolvable base each say what failed. An uncaught exception or a usage error also
+   exits non-zero and blocks. A local gate that is installed but cannot run is fixed, not
+   passed over; telling a refusal from a finding would mean parsing stderr.
 7. **Releases are tagged, by hand.** The repository has no tags today (`git tag` prints
    nothing). Hosts pin the action to `v<version>`, so whoever merges a version bump tags
    its merge commit on `main` `v<version>` and pushes the tag, starting with `v0.3.4`. No
@@ -114,9 +122,10 @@ The gate then runs at three points in a host, each with its own job:
    module into its own process (`plugins/arch-compliance/python/acf/detectors/host.py:102-109`),
    so a host detector's third-party Python packages must be installed in the environment
    that runs `acf-check-diff`, which is the action's own virtual environment (§4.1 step 4).
-   A host cannot reach that environment from a step before the action. The `host-setup`
-   input runs after the action's setup with that environment first on `PATH`, so one
-   place takes both a host's Python packages and its Node ones (a host detector that shells
+   That environment does not exist until the action creates it. The `host-setup` input,
+   the supported place for these dependencies, runs after the action's setup with that
+   environment first on `PATH`, so one place takes both a host's Python packages and its
+   Node ones (a host detector that shells
    out to the host's ESLint needs the host's `node_modules`; files installed by an earlier
    step would also stay on disk, and `host-setup` is the documented place for them).
 
@@ -187,7 +196,12 @@ the Python and Node versions the action selects.
 
 `tests/action_fixture_host.py <dest> --plant {empty-catch,clean}` is test scaffolding: it
 builds a git repository at `<dest>` for the CI job below, and no package code, hook or
-skill calls it. It takes the two config paths from `acf.repo` (`MANDATES_REL`, `ARCH_REL`,
+skill calls it. A runner has no git identity, so it commits with its own
+(`git -c user.name=… -c user.email=… -c commit.gpgsign=false commit`), as the repository's
+git-fixture tests do (`plugins/arch-compliance/tests/test_adr_citation_history.py:20`
+passes exactly these `-c` options). It creates the repository with its first branch named
+`main` (`git -c init.defaultBranch=main init`), since a runner's git may default to
+`master` and both runs diff against `main`. It takes the two config paths from `acf.repo` (`MANDATES_REL`, `ARCH_REL`,
 `plugins/arch-compliance/python/acf/repo.py:21`, `:24`), as `## One owner for host paths`
 asks of the repository-level `tests/` and `scripts/` (`ARCHITECTURE.md:120-122`). pytest
 does not collect it: its name matches neither of pytest's default file patterns,
@@ -278,41 +292,62 @@ change to the action is tested before it is tagged.
   ```sh
   if command -v acf-check-diff >/dev/null 2>&1; then
     acf-check-diff --base "origin/<default-branch>" --repo . --call-site precommit || exit 1
+  elif [ "${ACF_PREPUSH_OPTIONAL:-}" = "1" ]; then
+    echo "acf-check-diff is not installed; ACF_PREPUSH_OPTIONAL=1, so skipping the architecture check (the pull request's CI job runs it)." >&2
   else
-    echo "acf-check-diff is not installed; skipping the architecture check (CI runs it)." >&2
+    echo "acf-check-diff is not installed: install the arch-compliance Python package (/acf-setup step 4), or set ACF_PREPUSH_OPTIONAL=1 where CI is the only gate." >&2
+    exit 1
   fi
   ```
 
-  `|| exit 1` makes a failure end the hook, with or without `set -e`, when the snippet sits
-  at the hook's top level; inside a `( … )` subshell or a function, `exit` leaves only that
-  scope, so the text tells hosts to place it at top level. The text says
-  how to place it for the host's mechanism: a `pre-push` file in the directory
-  `git config core.hooksPath` names, or `.git/hooks/pre-push` when it is unset;
-  `.husky/pre-push`; or a pre-commit framework entry with `language: system`,
-  `pass_filenames: false`, `stages: [pre-push]` and `entry: sh -c '<the guarded command>'`
-  (the `if … fi` joined onto one line with `;`),
-  installed with `pre-commit install --hook-type pre-push` (or `default_install_hook_types`).
-  Where the host's hook already skips some pushes (docs only, say), the command goes after
-  that skip. Before proposing it, `/acf-setup` checks that the host's registry has an active
-  `ast` or `guard` row declaring `precommit`, since otherwise every push is refused ("selects
-  no active", exit 1). Before printing the workflow it checks the same for `ci`, since a
-  registry with no active `ast` or `guard` row there makes the action refuse every pull
-  request. The registry checks in step 8 (these two and the CI push trigger's)
-  consume the package, never a by-eye read of the YAML: `acf.detectors.load_gate_registry`
-  loads the registry, `MandateRegistry.active(sites, detection=…)` selects the active rows,
-  `active(sites, detector="fail_loud_ratchet")` the ratchet and
+  `|| exit 1` and the final `exit 1` end the hook, with or without `set -e`, when the
+  snippet sits at the hook's top level; inside a `( … )` subshell, `exit` leaves only the
+  subshell, so the text tells hosts to place it at top level. The text says where to put
+  it: a `pre-push` file in the directory `git config core.hooksPath` names, or
+  `.git/hooks/pre-push` when it is unset, or the host's hook manager (husky, the pre-commit
+  framework), configured to run the guarded command at pre-push. Where the host's hook
+  already skips some pushes (docs only, say), the command goes after that skip. It says
+  that `ACF_PREPUSH_OPTIONAL=1` belongs in an environment's own settings, never in a
+  committed file, and that the opt-out is only as strong as what stops a red CI job from
+  merging: a required status check where the host has one, otherwise the person merging
+  reading the check. Before proposing the pre-push step and the workflow, `/acf-setup` runs
+  `acf-check-diff --mode worktree --call-site precommit` and the same with
+  `--call-site ci`, and reads a "selects no active" refusal (`cli_check_diff.py:94-100`) as
+  "this site has no active row; do not wire it", since such a site would refuse every push
+  or every pull request. The gate's own predicate decides; the skill does not restate it.
+  The CI push-trigger check consumes the package, never a by-eye read of the YAML:
+  `acf.detectors.load_gate_registry` loads the registry,
+  `active(sites, detector="fail_loud_ratchet")` selects the ratchet and
   `host_rows(sites, detection="guard")` the host guards
-  (`plugins/arch-compliance/python/acf/registry.py:130-147`). The local command never carries `--trusted-checkout`, so a host with
-  host rows needs each person's `acf-allow`. The text states two known gaps; CI, on a clean
-  checkout of the pull request, has neither:
+  (`plugins/arch-compliance/python/acf/registry.py:130-147`). On a Windows machine the text
+  tells the host to run the gate, in the hook as elsewhere, under `PYTHONUTF8=1`: the git
+  runner does not declare its text encoding (`ARCHITECTURE.md`, `## Declared text
+  decoding`). The local command never carries `--trusted-checkout`, so a host with
+  host rows needs each person's `acf-allow`. The text states three known gaps; CI, on a
+  clean checkout of the pull request, has none of them:
   - the diff is of committed work, but the gate reads each changed file from the working
     tree (`cli_check_diff.py:145`, `:153`, `:189`): an uncommitted edit can move a reported
     line, hide a committed violation, or, when the file is deleted, skip it;
   - the diff is of the checked-out branch, so `git push origin <another-branch>` checks the
-    wrong commits.
-- **Upgrading section (`:251-258`):** "pre-commit invocations" becomes "local hook
-  invocations", and the closing reminder to install the `acf` package for "hooks/CI" becomes
-  "for local hooks; the CI action installs its own".
+    wrong commits;
+  - the base is the local `origin/<default-branch>`, not fetched by the hook, so a stale one
+    widens the checked range to commits already merged (extra findings, not misses).
+
+  The hook does not refuse the states behind the first two, although both are detectable:
+  refusing a dirty working tree would block every push made with unrelated uncommitted
+  work, which is ordinary; refusing a push whose refs differ from `HEAD` means reading the
+  refs git passes on standard input, which a host's own hook may already consume (the first
+  adopter's does, `cy:.githooks/pre-push:7`), so the snippet stays free of standard input.
+  Neither gap can pass a change into the default branch unseen: the pull request's CI job
+  checks a clean checkout of exactly what merges.
+- **The `--trusted-checkout` paragraph (`:249`):** "Only the CI sketch carries it. Never
+  add it to the pre-commit snippet or to a command you run yourself." becomes "Only the CI
+  action carries it (its `trusted-checkout` input). Never add it to the pre-push command or
+  to a command you run yourself."
+- **Upgrading section (`:251-258`):** "checked in pre-commit" (`:253`) becomes "checked
+  before a push", "pre-commit invocations" becomes "local hook invocations", and the
+  closing reminder to install the `acf` package for "hooks/CI" becomes "for local hooks;
+  the CI action installs its own".
 - **Step 9 and the friend-bar tip** keep `--mode worktree` / `--mode staged`: they smoke the
   toolchain on the current checkout, not the pushed branch.
 
@@ -320,7 +355,11 @@ change to the action is tested before it is tagged.
 pre-push/CI snippets". The developer command blocks in `README.md:53-58` ("developers / CI")
 and `docs/guides/SUPERPOWERS_COMPLEMENT.md:78-83` each print a CI invocation
 (`acf-check-diff --base origin/main --call-site ci --trusted-checkout`); both keep it as a
-local command for this repository and say that CI, here and in hosts, runs the action. `README.md` gains an "Upgrading a host to the check-diff action
+local command for this repository without `--trusted-checkout` (this repository has no
+host rows, and the flag is for CI alone) and say that CI, here and in hosts, runs the
+action. Their prose on the flag (`README.md:62`, `docs/guides/SUPERPOWERS_COMPLEMENT.md:87`,
+"which CI workflows pass") stays true and gains "(the check-diff action passes it by
+default)". `README.md` gains an "Upgrading a host to the check-diff action
 (v0.3.4)" note beside the v0.3.3 one (`:112`): replace a pasted CI sketch with the action,
 move a pre-commit entry to pre-push, and pin `v0.3.4`. `.github/dependabot.yml` gains a
 `github-actions` entry for `/.github/actions/check-diff`, whose `uses:` lines the root entry
@@ -332,7 +371,19 @@ move a pre-commit entry to pre-push, and pin `v0.3.4`. `.github/dependabot.yml` 
   add after the sentence naming the diff sites: "`precommit` is the local git-hook site,
   whichever hook (pre-commit or pre-push) runs it."
 - `## Release discipline`: add "Whoever merges a version bump tags its merge commit on
-  `main` `v<version>` and pushes the tag; hosts pin the check-diff action to that tag."
+  `main` `v<version>`, once `main`'s CI run for that commit has passed, and pushes the tag;
+  hosts pin the check-diff action to that tag." (The `action` job's run on the push to
+  `main` is the first to exercise the empty-`base_ref` path.)
+- `## Declared, never defaulted`: record the action's input defaults beside the package
+  defaults it already lists (`:212-221`): `repo` `.`, `trusted-checkout` `true` (the
+  workflow file is the opt-in), `base` derived from the event, and the Python and Node
+  versions. They are action inputs, not host declarations a gate reads, so they sit
+  outside the rule. The pre-push step's `ACF_PREPUSH_OPTIONAL` has no default: unset means
+  refuse.
+- The doctrine's opening scope (`:3-9`) adds the shipped action under `.github/actions/`,
+  so the action is held to this doctrine like the hooks and the package.
+- `## Post-merge`, post-merge CI bullet (`:330`): "(`test` job on `main`)" becomes
+  "(`test` and `action` jobs on `main`)", since the gate run moves to the `action` job.
 - `## Single point of definition`: record the install recipe's three copies and why they
   stay apart (§5).
 - Version 0.3.4 in `plugins/arch-compliance/.claude-plugin/plugin.json` and
@@ -391,8 +442,11 @@ Recorded here so the plan can sequence it; it lands as its own pull request in `
   `host-setup: npm ci --prefix cayenne-web`: its host rows run the ESLint in
   `cayenne-web/node_modules`. Its registry has no `fail_loud_ratchet` row and no host guard
   row, so `pull_request` alone.
-- `cy:.githooks/pre-push`: the guarded command after its existing docs-only skip
-  (`scope=$(node scripts/lib/pre-push-scope.mjs)`, which exits early on `skip`).
+- `cy:.githooks/pre-push`: the guarded command at top level after its existing docs-only
+  skip (`scope=$(node scripts/lib/pre-push-scope.mjs)`; the hook exits 0 when it prints
+  `skip`) and before its final `exit 0`. Cloud
+  sessions that push to it and do not install the plugin set `ACF_PREPUSH_OPTIONAL=1` in
+  their environment settings; that is outside the repository and outside this design.
 - `cy:config/architecture/ARCHITECTURE.md`, `## Post-merge`, post-merge CI bullet: it names
   `.github/workflows/ci.yml` on `main`. The new workflow runs on pull requests only, so it
   joins no post-merge list; the bullet gains one sentence saying the architecture check is
