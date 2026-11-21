@@ -20,3 +20,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+
+  # The composite action's own `uses:` lines, which the root entry does not scan.
+  - package-ecosystem: github-actions
+    directory: /.github/actions/check-diff
+    schedule:
+      interval: weekly

@@ -1,0 +1,134 @@
+name: arch-compliance check-diff
+description: >-
+  Install the arch-compliance plugin from this action's own files and run
+  acf-check-diff --call-site ci on a host repository's pull-request diff.
+
+inputs:
+  base:
+    description: >-
+      Ref to diff against. Empty means origin/<github.base_ref>, or
+      origin/<the repository's default branch> when there is no base ref.
+    required: false
+    default: ""
+  repo:
+    description: The host repository's root, absolute or relative to the workspace.
+    required: false
+    default: "."
+  trusted-checkout:
+    description: >-
+      "true" passes --trusted-checkout (the workflow file is the opt-in for host
+      detectors); "false" does not.
+    required: false
+    default: "true"
+  python-version:
+    description: Python version handed to actions/setup-python.
+    required: false
+    default: "3.12"
+  node-version:
+    description: Node version handed to actions/setup-node.
+    required: false
+    default: "22"
+  host-setup:
+    description: >-
+      Shell command run from the host root before the gate, with the action's
+      virtual environment first on PATH, for host detectors' own dependencies.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check the action runs from a full copy of the plugin repository
+      shell: bash
+      run: |
+        root="$GITHUB_ACTION_PATH/../../.."
+        missing=0
+        for f in pyproject.toml plugins/arch-compliance/detectors/typescript/package.json; do
+          if [ ! -f "$root/$f" ]; then
+            echo "::error::check-diff expects to run from a full copy of the plugin repository; missing $root/$f"
+            missing=1
+          fi
+        done
+        [ "$missing" = 0 ] || exit 1
+        echo "ACF_PLUGIN_ROOT=$(cd "$root" && pwd)" >> "$GITHUB_ENV"
+
+    - name: Refuse Windows runners
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        echo "::error::check-diff supports Linux and macOS runners only"
+        exit 1
+
+    - name: Resolve inputs
+      shell: bash
+      env:
+        IN_TRUSTED: ${{ inputs.trusted-checkout }}
+        IN_REPO: ${{ inputs.repo }}
+        IN_BASE: ${{ inputs.base }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: |
+        case "$IN_TRUSTED" in
+          true|false) ;;
+          *) echo "::error::trusted-checkout must be true or false, got '$IN_TRUSTED'"; exit 1 ;;
+        esac
+        case "$IN_REPO" in
+          /*) repo="$IN_REPO" ;;
+          *) repo="$GITHUB_WORKSPACE/$IN_REPO" ;;
+        esac
+        if [ -n "$IN_BASE" ]; then
+          base="$IN_BASE"
+        elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+          base="origin/$GITHUB_BASE_REF"
+        else
+          base="origin/$DEFAULT_BRANCH"
+        fi
+        {
+          echo "ACF_TRUSTED=$IN_TRUSTED"
+          echo "ACF_REPO=$repo"
+          echo "ACF_BASE=$base"
+          echo "ACF_VENV=$RUNNER_TEMP/acf-venv"
+        } >> "$GITHUB_ENV"
+
+    - uses: actions/setup-python@v7
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install the plugin into its own virtual environment
+      shell: bash
+      run: |
+        python -m venv "$ACF_VENV"
+        "$ACF_VENV/bin/python" -m pip install --quiet -e "$ACF_PLUGIN_ROOT"
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install the TypeScript detectors
+      shell: bash
+      run: npm ci --prefix "$ACF_PLUGIN_ROOT/plugins/arch-compliance/detectors/typescript"
+
+    - name: Host setup
+      if: inputs.host-setup != ''
+      shell: bash
+      env:
+        HOST_SETUP: ${{ inputs.host-setup }}
+      run: |
+        cd "$ACF_REPO"
+        PATH="$ACF_VENV/bin:$PATH" bash -c "$HOST_SETUP"
+
+    - name: Refuse a shallow clone
+      shell: bash
+      run: |
+        if [ "$(git -C "$ACF_REPO" rev-parse --is-shallow-repository)" = "true" ]; then
+          echo "::error::check-diff needs the merge base: check out with fetch-depth: 0"
+          exit 1
+        fi
+
+    - name: Architecture compliance (diff vs base)
+      shell: bash
+      run: |
+        set -o pipefail
+        flags=()
+        [ "$ACF_TRUSTED" = "true" ] && flags+=(--trusted-checkout)
+        "$ACF_VENV/bin/acf-check-diff" --repo "$ACF_REPO" --base "$ACF_BASE" --call-site ci "${flags[@]}" \
+          | tee "$RUNNER_TEMP/acf-check-diff.txt"
