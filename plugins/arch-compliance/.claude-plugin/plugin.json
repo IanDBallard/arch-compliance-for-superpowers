@@ -1,6 +1,6 @@
 {
   "name": "arch-compliance",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Architecture Compliance Framework companion for Superpowers (Claude Code).",
   "author": {
     "name": "IanDBallard"
