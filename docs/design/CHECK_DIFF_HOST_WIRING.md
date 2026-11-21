@@ -1,6 +1,9 @@
 # One Shipped Way for a Host to Run `acf-check-diff` in CI and Before a Push
 
-**Status:** v3 — approved by the user 2026-11-21 (declared opt-out for the pre-push step chosen by the user); awaiting adversarial design review.
+**Status:** v4 — approved by the user 2026-11-21 (declared opt-out for the pre-push step chosen by the user); precision revision of v3, cleared by verification pass.
+**Adversarial review:** v4 — 2026-11-21, verification pass over the v3 full run
+(BLOCKED; all blocking findings precision-class, absorbed and re-measured),
+user-approved (repo @ bc86c69)
 **Spec kinds:** `feature`
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `b9aaf77` (release 0.3.3).
 **Workstream:** HistoricMansions Workstream E, host roll-out step R6 ("Wire `acf-check-diff`
@@ -74,7 +77,7 @@ The gate then runs at three points in a host, each with its own job:
    action installs the `acf` package editable from the repository root three levels above
    its own directory (`$GITHUB_ACTION_PATH/../../..`) and runs `npm ci` there, with no
    second checkout. That location holding this repository at the pinned ref is GitHub
-   platform behaviour, which no file in this repository records. The design therefore does
+   platform behaviour, which this repository does not document (§6 gives the recipe). The design therefore does
    not rely on it silently: the action's first step stops, naming what is missing, unless
    that directory holds `pyproject.toml` and `plugins/arch-compliance/detectors/typescript/package.json`
    (§4.1 step 1). The `action` CI job (§4.2) runs the action by local path; the first
@@ -180,10 +183,13 @@ Steps, in order:
    the gate imports host detectors from) and step 5's Node active. A non-zero exit stops the
    action.
 7. Stop with a message naming `fetch-depth: 0` when
-   `git -C <repo> rev-parse --is-shallow-repository` prints `true`. This only improves the
-   message: without it, the missing merge base already makes `acf-check-diff` refuse with a
-   `GitError` (`diff.py:33-39`, `cli_check_diff.py:106-108`), and that refusal stays the
-   authoritative one.
+   `git -C <repo> rev-parse --is-shallow-repository` prints `true`. Where the merge base is
+   missing, this replaces `acf-check-diff`'s own `GitError` refusal (`diff.py:33-39`,
+   `cli_check_diff.py:106-108`) with a message naming the fix, and that refusal stays the
+   authoritative one. The stop is also stricter than the gate: it refuses a shallow clone
+   deep enough to hold the merge base, which the gate would complete. That is deliberate;
+   the snippet checks out with `fetch-depth: 0`, so a shallow checkout means the host left
+   the snippet, and one predicate is simpler than computing the merge base twice.
 8. Run the virtual environment's `acf-check-diff --repo <repo> --base <base> --call-site ci`,
    with `--trusted-checkout` when the input is `true`, writing its standard output both to
    the log and, overwriting it, to `$RUNNER_TEMP/acf-check-diff.txt` (through `tee`, with
@@ -196,7 +202,7 @@ the Python and Node versions the action selects.
 
 `tests/action_fixture_host.py <dest> --plant {empty-catch,clean}` is test scaffolding: it
 builds a git repository at `<dest>` for the CI job below, and no package code, hook or
-skill calls it. A runner has no git identity, so it commits with its own
+skill calls it. A runner may have no git identity configured, so it commits with its own
 (`git -c user.name=… -c user.email=… -c commit.gpgsign=false commit`), as the repository's
 git-fixture tests do (`plugins/arch-compliance/tests/test_adr_citation_history.py:20`
 passes exactly these `-c` options). It creates the repository with its first branch named
@@ -205,7 +211,8 @@ passes exactly these `-c` options). It creates the repository with its first bra
 `plugins/arch-compliance/python/acf/repo.py:21`, `:24`), as `## One owner for host paths`
 asks of the repository-level `tests/` and `scripts/` (`ARCHITECTURE.md:120-122`). pytest
 does not collect it: its name matches neither of pytest's default file patterns,
-`test_*.py` and `*_test.py`, and `pyproject.toml` sets no `python_files`. It writes:
+`test_*.py` and `*_test.py`, and no pytest configuration sets `python_files` (§6 gives the
+recipe). It writes:
 
 - On `main`: `MANDATES_REL` with one row,
 
@@ -352,7 +359,10 @@ change to the action is tested before it is tagged.
   toolchain on the current checkout, not the pushed branch.
 
 `docs/guides/SUPERPOWERS_COMPLEMENT.md:40` changes "print pre-commit/CI snippets" to "print
-pre-push/CI snippets". The developer command blocks in `README.md:53-58` ("developers / CI")
+pre-push/CI snippets". The README's upgrade notes for v0.2.4 and v0.2.5 (`README.md:136`,
+`:141-142`) mention pre-commit and CI configuration as it stood at those releases; they are
+history and stay as written, and the new v0.3.4 note supersedes them. The developer command
+blocks in `README.md:53-58` ("developers / CI")
 and `docs/guides/SUPERPOWERS_COMPLEMENT.md:78-83` each print a CI invocation
 (`acf-check-diff --base origin/main --call-site ci --trusted-checkout`); both keep it as a
 local command for this repository without `--trusted-checkout` (this repository has no
@@ -420,6 +430,10 @@ move a pre-commit entry to pre-push, and pin `v0.3.4`. `.github/dependabot.yml` 
 | `/acf-setup` prints a pre-commit entry and a CI sketch with no install step | `acf-setup/SKILL.md:214-249`, `:258` |
 | The first adopter's CI does not run the gate | `MSYS_NO_PATHCONV=1 git grep -c -i acf origin/main -- .github .githooks` in `cy:` exits 1 with no output |
 | The first adopter's `main` has no required checks | `cy:.github/workflows/ci.yml:6-7`: "main has no required status checks"; `gh api repos/IanDBallard/Cayenne/branches/main/protection` returns 404 "Branch not protected" |
+| The first adopter's registry has no `fail_loud_ratchet` row and no host guard row | `MSYS_NO_PATHCONV=1 git show 7313bca5:config/architecture/mandates.yml \| grep -n -E "^\s*(detection\|detector):"` in `cy:` lists one `guard` row, the built-in `no_build_artifacts` (`cy:config/architecture/mandates.yml:32-33`), and two host rows, both `ast` (`:142-143`, `:161-162`); `grep -c fail_loud_ratchet` prints 0 |
+| This repository's registry has no host rows | `grep -n -E "^\s*detector:" config/architecture/mandates.yml \| grep -c ":.*\.py:"` prints 0: no `detector` names a `<path>.py:<callable>` reference (`ARCHITECTURE.md:142-145`, reference syntax) |
+| No pytest configuration sets `python_files` | `grep -n python_files pyproject.toml` exits 1 (`pyproject.toml:23-25` sets only `testpaths` and `pythonpath`); `ls pytest.ini setup.cfg tox.ini tests/conftest.py` finds none |
+| The repository does not document where GitHub places a remote action's files | `grep -rn "GITHUB_ACTION_PATH\|action_path"` outside `docs/design`, `docs/plans` and `docs/reviews` exits 1 |
 | The first adopter's host detectors need its own `node_modules` | `cy:config/architecture/detectors/eslint_rules.py:33`: `ESLINT = WEB / "node_modules" / "eslint" / "bin" / "eslint.js"`; it imports only the standard library and `acf` (`:20-29`); its CI uses Node `'22'` (`cy:.github/workflows/ci.yml:94`) |
 
 ---
@@ -441,7 +455,7 @@ Recorded here so the plan can sequence it; it lands as its own pull request in `
 - `cy:.github/workflows/arch-compliance.yml`, the §4.3 workflow at `@v0.3.4`, with
   `host-setup: npm ci --prefix cayenne-web`: its host rows run the ESLint in
   `cayenne-web/node_modules`. Its registry has no `fail_loud_ratchet` row and no host guard
-  row, so `pull_request` alone.
+  row (§6 gives the recipe), so `pull_request` alone.
 - `cy:.githooks/pre-push`: the guarded command at top level after its existing docs-only
   skip (`scope=$(node scripts/lib/pre-push-scope.mjs)`; the hook exits 0 when it prints
   `skip`) and before its final `exit 0`. Cloud
@@ -466,4 +480,5 @@ Recorded here so the plan can sequence it; it lands as its own pull request in `
 | The pinned ref's files are not where the action expects them | step 1 stops and names both paths; the first adopter's pull request finds it before any other host adopts |
 | A host pins a tag that does not match its installed plugin | CI and local runs disagree until both are upgraded; `/acf-setup` tells the host to pin the installed version |
 | A forgotten tag | the host's `uses: …@v<version>` fails to resolve, at the host, loudly |
+| A tag pushed on a commit whose `plugin.json` and `pyproject.toml` versions differ from its name | nothing in this design catches it; a read-only check comparing a pushed tag with those two fields is a follow-up outside this change |
 | The action's install adds about a minute to each pull request | one job per pull request; pushes to the default branch only for hosts with whole-tree rows |
