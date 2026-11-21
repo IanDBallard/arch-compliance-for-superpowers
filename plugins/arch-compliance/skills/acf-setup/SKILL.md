@@ -1,6 +1,6 @@
 ---
 name: acf-setup
-description: Use when installing Architecture Compliance Framework (ACF) into a host repo, running /acf-setup, wiring mandates.yml or ARCHITECTURE.md for the first time, enabling .acf hooks, or adding pre-commit/CI gates with acf-check-diff.
+description: Use when installing Architecture Compliance Framework (ACF) into a host repo, running /acf-setup, wiring mandates.yml or ARCHITECTURE.md for the first time, enabling .acf hooks, or adding pre-push/CI gates with acf-check-diff.
 ---
 
 # /acf-setup — Host Project Bootstrap
@@ -22,7 +22,7 @@ Complete these steps in order. Create a todo per step and check each off.
 6b. Write `config/architecture/review.yml` (ask the user for every value)
 7. Write `.acf/enabled` marker
    - When `mandates.yml` has host rows, show the user the detector files and ask them to run `acf-allow` themselves (one approval per checkout directory; the key is the resolved root, so each clone and each git worktree needs its own `acf-allow`); never run `acf-allow` or add `--trusted-checkout` yourself
-8. Print pre-commit / CI snippets
+8. Print pre-push / CI snippets
 9. Smoke-run `acf-check-diff --call-site precommit`
 10. Summarize what was written and next steps (`/acf-mandate`, `/architecture-review`)
 
@@ -207,55 +207,75 @@ With host rows, the second command skips them (with a notice) until the user has
 
 If `CLAUDE_PLUGIN_ROOT` is unset, use the absolute path to `plugins/arch-compliance` in this marketplace checkout.
 
-## Step 8 — Print pre-commit / CI snippets
+## Step 8 — Print pre-push / CI snippets
 
-Print these for the user to paste (adapt package manager / paths as needed). Do not silently edit their CI unless they ask.
+Print these for the user to paste (adapt package manager / paths as needed). Do not silently edit their CI or hooks unless they ask.
 
-### Pre-commit (local)
+Before printing either, check that the site would gate something. From the host root run `acf-check-diff --mode worktree --call-site precommit` and `acf-check-diff --mode worktree --call-site ci`. A refusal that says the site "selects no active" `ast`/`guard` row means that site has no active row: do not wire it (it would refuse every push or every pull request); tell the user which rows need the site added. Any other result means the site has rows. The gate's own check decides; do not restate it by reading the YAML.
 
-```yaml
-# .pre-commit-config.yaml — example local repo hook
-repos:
-  - repo: local
-    hooks:
-      - id: acf-check-diff
-        name: acf-check-diff
-        entry: acf-check-diff --mode staged --call-site precommit
-        language: system
-        pass_filenames: false
-        stages: [pre-commit]
-```
+### CI (GitHub Actions)
 
-If the console script is not on PATH, install the plugin Python package so it is; do not substitute `python -m`.
-
-With host rows, a pre-commit run needs each person's `acf-allow`; the snippet carries no `--trusted-checkout`.
-
-`--call-site {ci,precommit}` is required and selects the rows that run: only active rows that declare that site. A site that selects no active `ast`/`guard` row is refused (exit 1), not reported as a clean run.
-
-### CI (GitHub Actions sketch)
-
-In CI the checkout is clean, so `--mode staged` / `--mode worktree` see an empty
-diff and always pass. Use `--base` to diff the branch against its merge-base:
+Add a workflow file, `.github/workflows/arch-compliance.yml`:
 
 ```yaml
-- uses: actions/checkout@v4
-  with:
-    fetch-depth: 0   # --base needs history for merge-base
-- name: Architecture compliance (diff vs base)
-  run: acf-check-diff --base "origin/${{ github.base_ref || 'main' }}" --repo . --call-site ci --trusted-checkout
-  # or: acf-check-diff --base origin/main --repo . --call-site ci --trusted-checkout
+name: Architecture compliance
+on:
+  pull_request:
+jobs:
+  arch-compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: IanDBallard/arch-compliance-for-superpowers/.github/actions/check-diff@v<version>
 ```
 
-`--trusted-checkout` runs host detectors without a local approval; in CI the workflow file is the opt-in. Only the CI sketch carries it. Never add it to the pre-commit snippet or to a command you run yourself.
+- `<version>` is the installed plugin's version, so CI and the local hooks run the same detectors.
+- The action installs the plugin itself (from its own files, into its own virtual environment); the host installs nothing for CI. It runs on Linux and macOS runners.
+- It runs on pull requests. On a push to the default branch the diff is empty, so per-file rows check nothing. Add `push: branches: [<default-branch>]` only when the registry has an active `fail_loud_ratchet` row or a host guard row at `ci`, which run on an empty diff. Decide with the package, never by eye: `acf.detectors.load_gate_registry(repo, repo / acf.repo.MANDATES_REL)`, then `registry.active(frozenset({"ci"}), detector="fail_loud_ratchet")` and `registry.host_rows(frozenset({"ci"}), detection="guard")`.
+- It carries no `paths-ignore`, so a host that makes it a required check never leaves a docs-only pull request waiting; the host may add its own.
+- A host with one CI workflow may instead add the job there under `if: github.event_name == 'pull_request'` (or the push condition above).
+- When host detectors need dependencies (a Python package, or `node_modules` for a tool they run), add `with: host-setup: <command>` to the `uses:` step. Read the host rows' detector files and propose the command (for example `npm ci --prefix web`). It runs from the host root after the action's own setup, with its virtual environment first on `PATH`.
+- Other inputs: `base` (default: the pull request's base, or the default branch), `repo` (default `.`), `trusted-checkout` (default `true`), `python-version` (`3.12`), `node-version` (`22`).
+
+`--trusted-checkout` runs host detectors without a local approval; in CI the workflow file is the opt-in. Only the CI action carries it (its `trusted-checkout` input). Never add it to the pre-push command or to a command you run yourself.
+
+### Pre-push (local)
+
+The command a pre-push hook runs, guarded:
+
+```sh
+if command -v acf-check-diff >/dev/null 2>&1; then
+  acf-check-diff --base "origin/<default-branch>" --repo . --call-site precommit || exit 1
+elif [ "${ACF_PREPUSH_OPTIONAL:-}" = "1" ]; then
+  echo "acf-check-diff is not installed; ACF_PREPUSH_OPTIONAL=1, so skipping the architecture check (the pull request's CI job runs it)." >&2
+else
+  echo "acf-check-diff is not installed: install the arch-compliance Python package (/acf-setup step 4), or set ACF_PREPUSH_OPTIONAL=1 where CI is the only gate." >&2
+  exit 1
+fi
+```
+
+- Put it in a `pre-push` file in the directory `git config core.hooksPath` names, or `.git/hooks/pre-push` when it is unset, or configure the host's hook manager (husky, the pre-commit framework) to run it at pre-push. Place it at the hook's top level, not inside a `( … )` subshell, where `exit` would leave only the subshell. Where the hook already skips some pushes (documentation only, say), put it after that skip.
+- Any non-zero exit blocks the push: a finding, a refusal (a missing `acf-allow`, a TypeScript pack without `npm ci`, a base it cannot resolve) or a crash. Fix the local gate rather than passing over it.
+- `ACF_PREPUSH_OPTIONAL=1` belongs in an environment's own settings (a cloud session's environment, say), never in a committed file, so a fresh clone still refuses. Unset, or any other value, refuses. The opt-out is only as strong as what stops a red CI job from merging: a required status check where the host has one, otherwise the person merging reading the check.
+- With host rows, a pre-push run needs each person's `acf-allow`; the command carries no `--trusted-checkout`.
+- On Windows, run the gate under `PYTHONUTF8=1`: the git runner does not declare its text encoding.
+- Known gaps, which the pull request's CI job (a clean checkout of exactly what merges) does not have:
+  - the diff is of committed work, but changed files are read from the working tree, so an uncommitted edit can move a reported line, hide a committed violation or, when the file is deleted, skip it;
+  - the diff is of the checked-out branch, so `git push origin <another-branch>` checks the wrong commits;
+  - the base is the local `origin/<default-branch>`, not fetched by the hook, so a stale one widens the checked range to commits already merged.
+
+`--call-site {ci,precommit}` is required and selects the rows that run: only active rows that declare that site. `precommit` is the local git-hook site, whichever hook runs it. A site that selects no active `ast`/`guard` row is refused (exit 1), not reported as a clean run.
 
 ### Upgrading a host installed before `--call-site` (v0.2.4)
 
-- Add `precommit` to the `call_sites` of each `ast`/`guard` row the host wants checked in pre-commit. Registries copied from a profile before this release declare no `precommit` site (typically `[ci, hook]`), and a `--call-site precommit` run that selects no active row is refused ("selects no active", exit 1), never a silent pass.
-- Add `--call-site ci` / `--call-site precommit` to the host's own CI and pre-commit invocations; omitting it exits 2 with a usage error.
+- Add `precommit` to the `call_sites` of each `ast`/`guard` row the host wants checked before a push. Registries copied from a profile before this release declare no `precommit` site (typically `[ci, hook]`), and a `--call-site precommit` run that selects no active row is refused ("selects no active", exit 1), never a silent pass.
+- Add `--call-site ci` / `--call-site precommit` to the host's own CI and local hook invocations; omitting it exits 2 with a usage error.
 - Set `status: unenforced` on any `partial` row whose detector or prompt does not exist yet; an active (`enforced` or `partial`) row naming a missing one is refused when the registry loads.
 - Load-time refusals also cover a `call_sites` value outside `ci`, `precommit`, `hook`, `posttooluse`, `audit` (for example `pre-commit` is refused; use `precommit`), an active `ast`/`guard` row whose only site is `audit`, and an active non-built-in row that reuses a built-in mandate id (reserved).
 
-Remind them the CLI defaults to `<repo>/config/architecture/mandates.yml`. Install the `acf` package into the environment used by hooks/CI (`pip install` from the marketplace plugin’s Python package / editable install as documented in the repo README).
+Remind them the CLI defaults to `<repo>/config/architecture/mandates.yml`. Install the `acf` package into the environment used by local hooks; the CI action installs its own (`pip install` from the marketplace plugin’s Python package / editable install as documented in the repo README).
 
 ## Step 9 — Smoke check
 
@@ -282,7 +302,7 @@ Tell the user:
 
 - Languages detected and which profile(s) were applied
 - Paths written: `config/architecture/mandates.yml`, `config/architecture/ARCHITECTURE.md`, `config/architecture/review.yml`, `.acf/enabled`
-- That pre-commit/CI snippets were printed (not necessarily applied)
+- That pre-push/CI snippets were printed (not necessarily applied)
 - Smoke command result
 - Next: customize with `/acf-mandate`; full audit later with `/architecture-review`
 - Host config overrides plugin templates from now on
