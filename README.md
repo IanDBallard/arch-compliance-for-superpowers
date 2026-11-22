@@ -55,11 +55,13 @@ From this repo root (developers / CI):
 ```bash
 pip install -e ".[dev]"
 acf-check-diff --mode staged --call-site precommit        # local: staged or --mode worktree
-acf-check-diff --base origin/main --call-site ci --trusted-checkout   # CI: diff vs merge-base (needs full git history)
+acf-check-diff --base origin/main --call-site ci   # the CI scope locally: diff vs merge-base (needs full git history)
 pytest
 ```
 
-`acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host mandate registry, and host guards see every changed file inside the repository. `--call-site {ci,precommit}` is required: the gates run the active rows whose `call_sites` declare that site. `BLOCK` findings exit non-zero. In CI use `--base` — a fresh checkout has an empty staged/worktree diff. A registry with host rows runs them only after the user has reviewed the detector files and run `acf-allow` (stored in `~/.acf/approvals.json`), or, for `acf-check-diff`, when the invocation passes `--trusted-checkout`, which CI workflows pass because the workflow file is the opt-in; without either, the diff gate refuses.
+CI, here and in hosts, runs the check-diff action (`.github/actions/check-diff`), which installs the plugin and runs `acf-check-diff --call-site ci` itself.
+
+`acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host mandate registry, and host guards see every changed file inside the repository. `--call-site {ci,precommit}` is required: the gates run the active rows whose `call_sites` declare that site. `BLOCK` findings exit non-zero. In CI use `--base` — a fresh checkout has an empty staged/worktree diff. A registry with host rows runs them only after the user has reviewed the detector files and run `acf-allow` (stored in `~/.acf/approvals.json`), or, for `acf-check-diff`, when the invocation passes `--trusted-checkout`, which CI workflows pass because the workflow file is the opt-in (the check-diff action passes it by default); without either, the diff gate refuses.
 
 Portable Python detectors (enable via profile / `/acf-mandate`):
 
@@ -108,6 +110,12 @@ Plugin `hooks/hooks.json` registers:
 - **PostToolUse** (`Write|Edit|MultiEdit`) — `posttooluse_gate.py` runs the active rows declaring `hook` or `posttooluse` on edited `.py`/`.ts`/`.tsx` files, and host guards on every edited path inside the repository (edited files outside the repository are not scanned). `BLOCK` findings and gate failures exit 2 so Claude receives them as blocking feedback; `WARN` findings come back as additional context. Host rows run only with an approval (`acf-allow`); without one the hook skips them with a notice and runs the built-ins.
 
 Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message. Committing `.acf/` approves no host code; each person runs `acf-allow` themselves.
+
+### Upgrading a host to the check-diff action (v0.3.4)
+
+- Replace a pasted CI sketch running `acf-check-diff` with a workflow that checks out with `fetch-depth: 0` and runs `uses: IanDBallard/arch-compliance-for-superpowers/.github/actions/check-diff@v0.3.4` (`/acf-setup` step 8 prints it). The action installs the plugin and the TypeScript detectors itself; pass `host-setup: <command>` when host detectors need their own dependencies.
+- Move a pre-commit `acf-check-diff` entry to a pre-push hook with the guarded command `/acf-setup` step 8 prints. It refuses when `acf-check-diff` is not installed unless the environment sets `ACF_PREPUSH_OPTIONAL=1`; set that only in an environment's own settings, where CI is the only gate.
+- Releases are now tagged `v<version>`; pin the action to the tag of the plugin version you have installed.
 
 ### Upgrading a host to declared post-merge steps (v0.3.3)
 

@@ -36,9 +36,57 @@ jobs:
       - name: Run pytest
         run: pytest
 
-      - name: Architecture compliance (diff vs base)
-        run: python -m acf.cli_check_diff --repo . --base "origin/${{ github.base_ref || 'main' }}" --call-site ci
-
       - name: Run TypeScript detector self-test
         working-directory: plugins/arch-compliance/detectors/typescript
         run: npm test
+
+  # The check-diff composite action, run from this tree: against a planted and a clean
+  # fixture host, then against this repository itself (the repository's own diff gate).
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the third run's --base needs history for the merge-base
+
+      - name: Build fixture hosts
+        env:
+          PYTHONPATH: plugins/arch-compliance/python
+        run: |
+          python tests/action_fixture_host.py "$RUNNER_TEMP/planted" --plant empty-catch
+          python tests/action_fixture_host.py "$RUNNER_TEMP/clean" --plant clean
+
+      - name: Check-diff on the planted fixture (must fail)
+        id: planted
+        continue-on-error: true
+        uses: ./.github/actions/check-diff
+        with:
+          repo: ${{ runner.temp }}/planted
+          base: main
+
+      - name: The planted run failed on the finding
+        env:
+          OUTCOME: ${{ steps.planted.outcome }}
+        run: |
+          test "$OUTCOME" = failure
+          grep -q 'BLOCK fail-loud.empty-catch' "$RUNNER_TEMP/acf-check-diff.txt"
+
+      - name: Check-diff on the clean fixture (must pass)
+        id: clean
+        uses: ./.github/actions/check-diff
+        with:
+          repo: ${{ runner.temp }}/clean
+          base: main
+          host-setup: touch "$RUNNER_TEMP/host-setup-ran"
+
+      - name: The clean run passed and ran host-setup
+        env:
+          OUTCOME: ${{ steps.clean.outcome }}
+        run: |
+          test "$OUTCOME" = success
+          test -f "$RUNNER_TEMP/host-setup-ran"
+
+      - name: Check-diff on this repository
+        uses: ./.github/actions/check-diff
+        with:
+          repo: .

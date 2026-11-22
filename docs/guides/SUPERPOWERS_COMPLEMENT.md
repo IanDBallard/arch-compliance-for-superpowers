@@ -37,7 +37,7 @@ Where plugin defaults or injected constraints conflict with Superpowers generics
 
 | Skill | Role |
 |---|---|
-| `/acf-setup` | Detect languages; copy matching profile(s) into host `config/architecture/`; point at `ARCHITECTURE.md`; write `.acf/enabled`; print pre-commit/CI snippets; smoke `acf-check-diff`. |
+| `/acf-setup` | Detect languages; copy matching profile(s) into host `config/architecture/`; point at `ARCHITECTURE.md`; write `.acf/enabled`; print pre-push/CI snippets; smoke `acf-check-diff`. |
 | `/acf-mandate` | Add / edit / deprecate registry rows with schema validation. Does not generate detector code. |
 | `/architecture-review` | Tier-3 audit + optional baseline / drift report. |
 | `/adversarial-design-review` | Spec-stage adversarial review gate; the host declares `config/architecture/adr.yml`. |
@@ -80,11 +80,13 @@ From the marketplace repo root:
 ```bash
 pip install -e ".[dev]"
 acf-check-diff --mode worktree --call-site precommit      # local working-tree diff
-acf-check-diff --base origin/main --call-site ci --trusted-checkout   # CI: diff vs merge-base
+acf-check-diff --base origin/main --call-site ci   # the CI scope locally: diff vs merge-base
 pytest
 ```
 
-Plugin hooks live under `plugins/arch-compliance/hooks/hooks.json` and invoke `python` — ensure `python` on PATH is Python 3.11+ with the `acf` package installed. Hooks are a true no-op until the host has `.acf/enabled`; with that marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud. The PostToolUse gate exits 2 on `BLOCK` findings and on gate failures so Claude receives them as blocking feedback. Host detectors run only with a per-user approval (`acf-allow`, which the user runs after reviewing the detector files); `acf-check-diff` also accepts `--trusted-checkout`, which CI passes because the workflow file is the opt-in. Without an approval the hook skips host rows with a notice and the diff gate refuses. Enforcement follows the host registry: `unenforced` rows never gate; `enforced` and `partial` both gate (`partial` means incomplete coverage, not advisory-only), and a row gates only at the call sites it declares (a `[ci]`-only row is not reported by the PostToolUse hook). Severity comes from the row. Detectors emit raw findings; only registry `exemption_tokens` suppress via inline `# token: reason` / `// token: reason` comments.
+CI, here and in hosts, runs the check-diff action (`.github/actions/check-diff`).
+
+Plugin hooks live under `plugins/arch-compliance/hooks/hooks.json` and invoke `python` — ensure `python` on PATH is Python 3.11+ with the `acf` package installed. Hooks are a true no-op until the host has `.acf/enabled`; with that marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud. The PostToolUse gate exits 2 on `BLOCK` findings and on gate failures so Claude receives them as blocking feedback. Host detectors run only with a per-user approval (`acf-allow`, which the user runs after reviewing the detector files); `acf-check-diff` also accepts `--trusted-checkout`, which CI passes because the workflow file is the opt-in (the check-diff action passes it by default). Without an approval the hook skips host rows with a notice and the diff gate refuses. Enforcement follows the host registry: `unenforced` rows never gate; `enforced` and `partial` both gate (`partial` means incomplete coverage, not advisory-only), and a row gates only at the call sites it declares (a `[ci]`-only row is not reported by the PostToolUse hook). Severity comes from the row. Detectors emit raw findings; only registry `exemption_tokens` suppress via inline `# token: reason` / `// token: reason` comments.
 
 ## Related docs
 

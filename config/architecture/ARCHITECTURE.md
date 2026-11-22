@@ -5,8 +5,8 @@ repository: the Python package under `plugins/arch-compliance/python/acf/`, the 
 under `plugins/arch-compliance/hooks/`, the skill prose under
 `plugins/arch-compliance/skills/`, the TypeScript bridge under
 `plugins/arch-compliance/detectors/typescript/`, the plugin's tests and fixtures under
-`plugins/arch-compliance/tests/`, and the repository-level `tests/`, `scripts/` and
-`config/`. The CI diff gate and the PostToolUse hook run the registry's detectors on
+`plugins/arch-compliance/tests/`, the shipped check-diff action under `.github/actions/`,
+and the repository-level `tests/`, `scripts/` and `config/`. The CI diff gate and the PostToolUse hook run the registry's detectors on
 changed `.py`, `.ts` and `.tsx` files anywhere in the repository, host guards see every
 changed file inside the repository, and rows run where their `call_sites` say; host rows
 run only with an approval or, for the diff gate, `--trusted-checkout` (`**Trust
@@ -155,7 +155,8 @@ every changed file inside the repository.
 `posttooluse` and `audit`. `ci` and `precommit` are the diff sites
 (`acf.registry.DIFF_CALL_SITES`); `hook` and `posttooluse` are two spellings of the one
 PostToolUse site (`HOOK_CALL_SITES`); together they are the Tier-1 sites
-(`TIER1_CALL_SITES`). `acf-check-diff` requires `--call-site {ci,precommit}` and runs
+(`TIER1_CALL_SITES`). `precommit` is the local git-hook site, whichever hook (pre-commit or
+pre-push) runs it. `acf-check-diff` requires `--call-site {ci,precommit}` and runs
 only rows that are active (not `unenforced`) and declare that site; a site that selects
 no active `ast` or `guard` row is refused, not reported as a clean run. The PostToolUse
 hook runs rows declaring `hook` or `posttooluse`. A row declaring only `[ci]` is not
@@ -218,7 +219,13 @@ when `--provider` / `ACF_JUDGE_PROVIDER` or `--model` / `ACF_JUDGE_MODEL` are om
 (`DEFAULT_PROVIDER = "anthropic"`, `DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6"`,
 `DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"` in
 `plugins/arch-compliance/python/acf/judge.py:25-27`; provider API keys are never
-defaulted or cross-provider-fallback-resolved).
+defaulted or cross-provider-fallback-resolved). The check-diff action's inputs are outside
+the rule too, being action inputs and not host declarations a gate reads, and are recorded
+here: `repo` `.`, `trusted-checkout` `true` (the workflow file is the opt-in), `base` derived
+from the event (`origin/<github.base_ref>`, else `origin/<default branch>`),
+`python-version` `3.12` and `node-version` `22` (`.github/actions/check-diff/action.yml`).
+The pre-push step's `ACF_PREPUSH_OPTIONAL` has no default: unset, or any value but `1`,
+refuses.
 
 ## Prose names no host
 
@@ -281,7 +288,9 @@ or `post-merge-housekeeping` run, the installed copy of the two gate skills,
 clone and the session restarted. The check covers those four skill trees only: the hooks
 run the installed copy's `hooks/` and `python/` (`plugins/arch-compliance/hooks/posttooluse_gate.py:22-26`),
 which it does not compare. Source: phase 1d spec risk table (cache drift) and 1d plan
-Task 8 step 1. No row: no test enforces this yet.
+Task 8 step 1. Whoever merges a version bump tags its merge commit on `main` `v<version>`,
+once `main`'s CI run for that commit has passed, and pushes the tag; hosts pin the
+check-diff action to that tag. No row: no test enforces this yet.
 
 ## Single point of definition
 
@@ -299,8 +308,13 @@ dialects, `acf.repo.path_matches` (the review's target tree) and `fnmatch`
 (`plugins/arch-compliance/python/acf/detectors/facade_sinks.py:59`,
 `plugins/arch-compliance/python/acf/detectors/fail_loud_ratchet.py:68`), kept apart
 because moving the ratchet onto `path_matches` would change what a host's existing
-`exclude_globs` means (spec `docs/design/ARCHITECTURE_REVIEW_PORT.md` §10). No row: no test
-enforces this yet.
+`exclude_globs` means (spec `docs/design/ARCHITECTURE_REVIEW_PORT.md` §10); and three
+installs of the plugin and its TypeScript detectors for three environments, kept apart
+because merging them would make the `test` job install twice or put pytest in hosts'
+runners: `/acf-setup` step 4 (a developer machine), the `test` job in
+`.github/workflows/ci.yml` (`.[dev]`, for pytest and the TypeScript self-test) and the
+check-diff action (a host's runner, its own virtual environment; spec
+`docs/design/CHECK_DIFF_HOST_WIRING.md` §5). No row: no test enforces this yet.
 
 ## Scoped refactor
 
@@ -327,7 +341,7 @@ Host operational declarations read by `post-merge-housekeeping`:
 
 - **Shared-checkout branch lock:** none declared.
 - **Worktree daemon probe:** none declared (tests spawn no background server).
-- **Post-merge CI workflows:** `.github/workflows/ci.yml` (`test` job on `main`).
+- **Post-merge CI workflows:** `.github/workflows/ci.yml` (`test` and `action` jobs on `main`).
 - **Durable tracking target:** GitHub Issues on `IanDBallard/arch-compliance-for-superpowers`. **Filing rule:** file with `gh issue create`, so filing a follow-up or guard escape never edits an already-cleared spec.
 
 This repository declares no pre-flight checks, plan record, tracking documents, post-deploy actions or report fields.
