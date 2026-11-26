@@ -39,8 +39,8 @@ Claims resting on the Claude Code documentation are marked *(external)* and name
 Where those pages are silent, the claim is marked *(unverified)* and §8 tests it. Claims about git's behaviour that this design depends on are pinned by tests in §6.1 against the git on the test machine; the observations quoted in §1.3 were made with git 2.49.0.windows.1.
 
 Probes this spec rests on are committed beside it in `docs/design/evidence/HOST_DETECTOR_APPROVAL_PER_REPOSITORY_AT_THE_PROMPT/`, each script with its recorded output:
-- `run_git_decode_probe.py` and `.out`: today's `run_git` on non-ASCII directory names (G4).
-- `hook_deny_source_probe.py` and `.out`: how Claude Code 2.1.330 turns a PreToolUse hook's deny into a decision, read from the source bundled in its binary and pinned by the binary's SHA-256 (Decision 4).
+- `run_git_decode_probe.py` and `run_git_decode_probe.out`: today's `run_git` on non-ASCII directory names (G4).
+- `hook_deny_source_probe.py` and `hook_deny_source_probe.out`: how Claude Code 2.1.330 turns a PreToolUse hook's deny into a decision, read from the source bundled in its binary and pinned by the binary's SHA-256 (Decision 4).
 - `bypass_hook_probe.py`: the live check of Decision 4 in `bypassPermissions` mode, run headless; it is the instrument of §8 item 4 and has no recorded output yet.
 
 ---
