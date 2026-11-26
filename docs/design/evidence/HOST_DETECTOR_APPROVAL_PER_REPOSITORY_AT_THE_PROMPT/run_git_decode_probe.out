@@ -1,0 +1,62 @@
+git version 2.49.0.windows.1
+{
+  "python": "3.13.2",
+  "platform": "win32",
+  "locale_encoding": "cp1252",
+  "utf8_mode": 0,
+  "rows": [
+    {
+      "dir": "ascii_dir",
+      "utf8_bytes_of_name": "61 73 63 69 69 5f 64 69 72",
+      "returncode": 0,
+      "stdout": "<tmp>/ascii_dir/.git\n",
+      "stdout_matches_utf8_truth": true,
+      "reader_thread_error": []
+    },
+    {
+      "dir": "\u00c1_dir",
+      "utf8_bytes_of_name": "c3 81 5f 64 69 72",
+      "returncode": 0,
+      "stdout": null,
+      "stdout_matches_utf8_truth": false,
+      "reader_thread_error": [
+        "UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 in position 47: character maps to <undefined>"
+      ]
+    },
+    {
+      "dir": "\u00dd_dir",
+      "utf8_bytes_of_name": "c3 9d 5f 64 69 72",
+      "returncode": 0,
+      "stdout": null,
+      "stdout_matches_utf8_truth": false,
+      "reader_thread_error": [
+        "UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 47: character maps to <undefined>"
+      ]
+    },
+    {
+      "dir": "\u00e9_dir",
+      "utf8_bytes_of_name": "c3 a9 5f 64 69 72",
+      "returncode": 0,
+      "stdout": "<tmp>/\u00c3\u00a9_dir/.git\n",
+      "stdout_matches_utf8_truth": false,
+      "reader_thread_error": []
+    },
+    {
+      "dir": "\u00fc_dir",
+      "utf8_bytes_of_name": "c3 bc 5f 64 69 72",
+      "returncode": 0,
+      "stdout": "<tmp>/\u00c3\u00bc_dir/.git\n",
+      "stdout_matches_utf8_truth": false,
+      "reader_thread_error": []
+    },
+    {
+      "dir": "\u65e5\u672c_dir",
+      "utf8_bytes_of_name": "e6 97 a5 e6 9c ac 5f 64 69 72",
+      "returncode": 0,
+      "stdout": "<tmp>/\u00e6\u2014\u00a5\u00e6\u0153\u00ac_dir/.git\n",
+      "stdout_matches_utf8_truth": false,
+      "reader_thread_error": []
+    }
+  ]
+}
+
