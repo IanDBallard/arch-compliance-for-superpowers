@@ -114,7 +114,8 @@ Every ACF exception subclasses `AcfError` and nothing else; no stdlib mixin such
 
 ## One owner for host paths
 
-`acf.repo` is the one declaration of where ACF looks inside a host repository, and it
+`acf.repo` is the one declaration of where ACF looks inside a host repository and of the
+per-user approval store's path relative to the home directory (`STORE_REL`), and it
 imports only the standard library and `acf.exceptions` (itself stdlib-only)
 (`plugins/arch-compliance/python/acf/repo.py:1-7`).
 Row: `plugin.one-owner-host-paths`; its test scans `plugins/arch-compliance/python/` and
@@ -177,15 +178,19 @@ every built-in mandate id is reserved: no other kind of active row may use one.
 detector or prompt does not exist yet is `unenforced`.
 
 **Trust boundary.** Both gates run host code only when `~/.acf/approvals.json` holds an
-approval matching the fingerprint of the active host rows and their files (`acf-allow`,
-run by the user), or, for `acf-check-diff`, when the invocation passes
-`--trusted-checkout`. The PostToolUse hook also needs `.acf/enabled`; without an approval
-it runs the built-ins and reports the skipped host rows, and the diff gate refuses.
+approval matching the fingerprint of the active host rows and their files, or, for
+`acf-check-diff`, when the invocation passes `--trusted-checkout`. The approval is keyed
+by the repository's git common directory and the host's prefix inside it (the folder for
+a directory that is not a git repository), so it covers every worktree whose host rows
+and files match. An agent may start `acf-allow --fingerprint`; the plugin's PreToolUse
+hook makes it prompt, and the user's answer is the approval. The PostToolUse hook also
+needs `.acf/enabled`; without an approval it runs the built-ins and reports the skipped
+host rows, and the diff gate refuses.
 Committing `.acf/` approves no host code. The wrapping guarantees typed errors, not
 confinement: a host module runs in the gate's process with its privileges.
 `load_mandates` never imports host code. In hook mode, gate failures exit `2`.
 
-No row: enforced by plugins/arch-compliance/tests/test_host_detectors.py, test_builtin_detectors.py, test_registry.py, test_hooks.py, test_diff_cli.py, test_approval.py and test_cli_allow.py.
+No row: enforced by plugins/arch-compliance/tests/test_host_detectors.py, test_builtin_detectors.py, test_registry.py, test_hooks.py, test_diff_cli.py, test_approval.py, test_cli_allow.py, test_approval_prompt.py, test_cli_approval_status.py and test_git_runner.py (which pins G1 to G3, behind the repository key).
 
 ## Declared, never defaulted
 
@@ -210,11 +215,13 @@ Source: phase 1c decision 4,
 where step 4 ticks completed steps; an absent filing rule, where steps 6 and 6.5 write
 the item into the tracking target; and an absent closing rule, where step 5 updates
 status cells. Each is reported as
-`<rule>: not declared in ## Post-merge, portable rule applied`. Three defaults elsewhere in the package are outside
+`<rule>: not declared in ## Post-merge, portable rule applied`. Four defaults elsewhere in the package are outside
 this rule and recorded here: the fail-loud ratchet's baseline path when a row omits
 `params.baseline` (`plugins/arch-compliance/python/acf/repo.py:23-26`), `resolve_repo`
 falling back to the process directory (`plugins/arch-compliance/python/acf/repo.py:32-44`,
-documented there as a fallback), and the Tier-2 LLM judge's default provider and models
+documented there as a fallback), the approval key, which is the folder when git reports
+the directory is not a repository (`acf.approval.repo_key`; `describe_approval` prints the
+scope), and the Tier-2 LLM judge's default provider and models
 when `--provider` / `ACF_JUDGE_PROVIDER` or `--model` / `ACF_JUDGE_MODEL` are omitted
 (`DEFAULT_PROVIDER = "anthropic"`, `DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6"`,
 `DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"` in
@@ -236,8 +243,8 @@ reaches the gate only through its declaration and its doctrine. Rows:
 checks the two gate skills, `post-merge-housekeeping`, and `architecture-review` with its
 rule prompts and technology packs, plus the string constants of
 `plugins/arch-compliance/python/acf/review/`, against the enumerated `FORBIDDEN` list of
-known origin-host (`HistoricMansions`) vocabulary; the other two skills in
-`plugins/arch-compliance/skills/`, `acf-mandate` and `acf-setup`, have no row yet).
+known origin-host (`HistoricMansions`) vocabulary; the other three skills in
+`plugins/arch-compliance/skills/`, `acf-mandate`, `acf-setup` and `acf-approve`, have no row yet).
 
 ## Frozen ledger format
 
@@ -270,10 +277,10 @@ No row: no test enforces this yet.
 Every subprocess call in the package or the hooks that reads text declares
 `encoding="utf-8"`; every file read of prose declares its encoding. The scope is runtime
 code, which decodes a host's diffs, paths and scanner output; the plugin's tests run
-their subprocesses over this repository's own fixtures and are outside it. Three calls
-breach the rule today and are declared debt: `plugins/arch-compliance/python/acf/diff.py:24-30` (`run_git`),
-`plugins/arch-compliance/python/acf/adr/citations.py:62-65` (`_git`) and
-`plugins/arch-compliance/python/acf/detectors/typescript_bridge.py:49-56` (the Node
+their subprocesses over this repository's own fixtures and are outside it. Two calls
+breach the rule today and are declared debt:
+`plugins/arch-compliance/python/acf/adr/citations.py:59-61` (`_git`) and
+`plugins/arch-compliance/python/acf/detectors/typescript_bridge.py:120-126` (the Node
 scanner). Recipe: `grep -rn "text=True" plugins/arch-compliance/python plugins/arch-compliance/hooks`.
 The fix and its test are spec `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` §9,
 follow-up 1. No row: no test enforces this yet.
@@ -297,8 +304,8 @@ check-diff action to that tag. No row: no test enforces this yet.
 Lifted: "When the same operation, constant set, or decision procedure … is needed by more
 than one module, it must have exactly one canonical implementation that every call site
 consumes" (HistoricMansions `GEMINI.md` §7, `hm:GEMINI.md:136`). Current breaches,
-recorded not hidden: two git runners, `plugins/arch-compliance/python/acf/diff.py:17`
-(`run_git`) and `plugins/arch-compliance/python/acf/adr/citations.py:54` (`_git`),
+recorded not hidden: two git runners, `plugins/arch-compliance/python/acf/diff.py:19`
+(`run_git`) and `plugins/arch-compliance/python/acf/adr/citations.py:51` (`_git`),
 consolidated in spec `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` §9 follow-up 1;
 a skill snippet that by-eyes a package helper,
 `plugins/arch-compliance/skills/acf-setup/SKILL.md:137` (by-eye anchor check instead of
@@ -314,7 +321,16 @@ because merging them would make the `test` job install twice or put pytest in ho
 runners: `/acf-setup` step 4 (a developer machine), the `test` job in
 `.github/workflows/ci.yml` (`.[dev]`, for pytest and the TypeScript self-test) and the
 check-diff action (a host's runner, its own virtual environment; spec
-`docs/design/CHECK_DIFF_HOST_WIRING.md` §5). No row: no test enforces this yet.
+`docs/design/CHECK_DIFF_HOST_WIRING.md` §5); the approval command set, encoded twice: the
+approval hook's `APPROVAL_NEEDLES` and the `permissions.ask` rules `/acf-setup` offers the
+user (the rules live in the user's settings, which the plugin cannot import, so the copy
+stays; `plugins/arch-compliance/tests/test_approval_prompt.py` pins the two); the hooks'
+`sys.path` insert, now in three hooks (follow-up 3 of
+`docs/design/HOST_DETECTOR_APPROVAL_PER_REPOSITORY_AT_THE_PROMPT.md` §9); and a second
+"imports only the standard library" check, the AST walk in `test_approval_prompt.py` beside
+the regex in `test_repo_module_imports_only_stdlib`
+(`plugins/arch-compliance/tests/test_repo_paths.py:74-78`), which that follow-up folds
+into one helper. No row: no test enforces this yet.
 
 ## Scoped refactor
 

@@ -21,7 +21,8 @@ Complete these steps in order. Create a todo per step and check each off.
 6. Align ARCHITECTURE.md (prompt if host already has one)
 6b. Write `config/architecture/review.yml` (ask the user for every value)
 7. Write `.acf/enabled` marker
-   - When `mandates.yml` has host rows, show the user the detector files and ask them to run `acf-allow` themselves (one approval per checkout directory; the key is the resolved root, so each clone and each git worktree needs its own `acf-allow`); never run `acf-allow` or add `--trusted-checkout` yourself
+   - When `mandates.yml` has host rows, follow `acf-approve`; one approval covers every worktree of the repository whose host rows and detector files match. Never add `--trusted-checkout`
+   - Offer the user these `permissions.ask` rules for `~/.claude/settings.json`, which back the plugin's approval hook with a documented prompt: `Bash(acf-allow:*)`, `Bash(python -m acf.cli_allow:*)`, `PowerShell(acf-allow:*)`, `PowerShell(python -m acf.cli_allow:*)` and `Edit(~/.acf/**)`. Add them only on the user's yes
 8. Print pre-push / CI snippets
 9. Smoke-run `acf-check-diff --call-site precommit`
 10. Summarize what was written and next steps (`/acf-mandate`, `/architecture-review`)
@@ -182,9 +183,9 @@ Write an empty (or one-line) marker file:
 <host>/.acf/enabled
 ```
 
-Create `.acf/` if needed. `.acf/enabled` turns on the automatic hooks for the built-in detectors: plugin hooks (see below) no-op until this file exists; once present, missing `config/architecture/mandates.yml` is a hard failure. Host detectors (`detector: <path>.py:<callable>` rows) also need each person's `acf-allow`. Do **not** write the marker before mandates are in place.
+Create `.acf/` if needed. `.acf/enabled` turns on the automatic hooks for the built-in detectors: plugin hooks (see below) no-op until this file exists, except the approval prompt, which guards the per-user store in every repository; once present, missing `config/architecture/mandates.yml` is a hard failure. Host detectors (`detector: <path>.py:<callable>` rows) also need each person's approval (`acf-approve`). Do **not** write the marker before mandates are in place.
 
-Suggest adding `.acf/` to git if the team wants hooks enabled for everyone; otherwise document that each clone needs the marker. Say plainly that committing `.acf/` approves no host code: each person runs `acf-allow` themselves.
+Suggest adding `.acf/` to git if the team wants hooks enabled for everyone; otherwise document that each clone needs the marker. Say plainly that committing `.acf/` approves no host code: each person's approval (`acf-approve`) is their own.
 
 ### Hook registration (Claude Code)
 
@@ -193,6 +194,7 @@ The plugin ships `hooks/hooks.json` which registers:
 | Event | Script | Purpose |
 |-------|--------|---------|
 | `SubagentStart` | `hooks/inject_constraints.py --format hook` | Inject host mandates + ARCHITECTURE excerpt into subagent context |
+| `PreToolUse` (`Bash\|PowerShell\|Write\|Edit\|MultiEdit\|NotebookEdit`) | `hooks/approval_prompt.py` | Force a permission prompt around any approval command or edit of the per-user approval store, in every repository whatever `.acf/enabled` says; fails closed |
 | `PostToolUse` (`Write\|Edit\|MultiEdit`) | `hooks/posttooluse_gate.py --format hook` | Run Tier-1 Python/TS detectors, host detectors and host guards on edited paths (rows declaring `hook` or `posttooluse`; edited files outside the repository are not scanned; host detectors and host guards run only with an approval); feed findings back |
 
 No host-side hook copy is required when the plugin is installed — Claude Code loads plugin `hooks/hooks.json` automatically. Manual smoke:
@@ -203,7 +205,7 @@ python "${CLAUDE_PLUGIN_ROOT}/hooks/inject_constraints.py" --repo .
 python "${CLAUDE_PLUGIN_ROOT}/hooks/posttooluse_gate.py" --repo . path/to/edited.py
 ```
 
-With host rows, the second command skips them (with a notice) until the user has run `acf-allow`.
+With host rows, the second command skips them (with a notice) until the user has approved (`acf-approve`).
 
 If `CLAUDE_PLUGIN_ROOT` is unset, use the absolute path to `plugins/arch-compliance` in this marketplace checkout.
 
@@ -257,10 +259,10 @@ fi
 ```
 
 - Put it in a `pre-push` file in the directory `git config core.hooksPath` names, or `.git/hooks/pre-push` when it is unset, or configure the host's hook manager (husky, the pre-commit framework) to run it at pre-push. Place it at the hook's top level, not inside a `( … )` subshell, where `exit` would leave only the subshell. Where the hook already skips some pushes (documentation only, say), put it after that skip.
-- Any non-zero exit blocks the push: a finding, a refusal (a missing `acf-allow`, a TypeScript pack without `npm ci`, a base it cannot resolve) or a crash. Fix the local gate rather than passing over it.
+- Any non-zero exit blocks the push: a finding, a refusal (a missing approval, a TypeScript pack without `npm ci`, a base it cannot resolve) or a crash. Fix the local gate rather than passing over it.
 - `ACF_PREPUSH_OPTIONAL=1` belongs in an environment's own settings (a cloud session's environment, say), never in a committed file, so a fresh clone still refuses. Unset, or any other value, refuses. The opt-out is only as strong as what stops a red CI job from merging: a required status check where the host has one, otherwise the person merging reading the check.
-- With host rows, a pre-push run needs each person's `acf-allow`; the command carries no `--trusted-checkout`.
-- On Windows, run the gate under `PYTHONUTF8=1`: the git runner does not declare its text encoding.
+- With host rows, a pre-push run needs each person's approval (`acf-approve`); the command carries no `--trusted-checkout`.
+- On Windows, run the gate under `PYTHONUTF8=1`: the TypeScript bridge does not declare its text encoding.
 - Known gaps, which the pull request's CI job (a clean checkout of exactly what merges) does not have:
   - the diff is of committed work, but changed files are read from the working tree, so an uncommitted edit can move a reported line, hide a committed violation or, when the file is deleted, skip it;
   - the diff is of the checked-out branch, so `git push origin <another-branch>` checks the wrong commits;
@@ -285,7 +287,7 @@ From the **host** root, run one of:
 acf-check-diff --mode worktree --call-site precommit
 ```
 
-If `mandates.yml` has host rows, the user must run `acf-allow` first; a refusal that names `acf-allow` is not a pass. Do not run `acf-allow` or add `--trusted-checkout` yourself; ask the user to review the detector files and approve them.
+If `mandates.yml` has host rows, the user's approval must exist first; a refusal that names `acf-allow` is not a pass. Approve only through `acf-approve`; never add `--trusted-checkout`.
 
 Success criteria:
 

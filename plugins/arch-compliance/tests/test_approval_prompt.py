@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import ast
+import fnmatch
+import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -166,3 +169,32 @@ def test_hook_imports_only_stdlib_and_acf_repo() -> None:
     assert modules
     for module in modules:
         assert module == "acf.repo" or module.split(".")[0] in sys.stdlib_module_names, module
+
+
+SETUP_SKILL = PLUGIN_ROOT / "skills" / "acf-setup" / "SKILL.md"
+ASK_RULE = re.compile(r"`(Bash|PowerShell|Edit)\([^)`]*\)`")
+
+
+def _needles_and_store_name() -> tuple[tuple[str, ...], str]:
+    spec = importlib.util.spec_from_file_location("approval_prompt_under_test", HOOK)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.APPROVAL_NEEDLES, module.STORE_REL.name
+
+
+def test_ask_rules_match_needles() -> None:
+    needles, store_name = _needles_and_store_name()
+    text = SETUP_SKILL.read_text(encoding="utf-8")
+    rules = [(m.group(1), m.group(0)[len(m.group(1)) + 2 : -2]) for m in ASK_RULE.finditer(text)]
+    assert rules, "acf-setup offers no permissions.ask rule"
+    shell = [arg for tool, arg in rules if tool != "Edit"]
+    edit = [arg for tool, arg in rules if tool == "Edit"]
+    for arg in shell:
+        assert any(n.lower() in arg.lower() for n in needles), arg
+    store = (Path.home() / ".acf" / store_name).as_posix()
+    for arg in edit:
+        glob = arg.replace("~", Path.home().as_posix(), 1)
+        assert fnmatch.fnmatch(store, glob), arg
+    for needle in ("acf-allow", "acf.cli_allow"):
+        assert any(needle in arg for arg in shell), needle
+    assert any(fnmatch.fnmatch(store, arg.replace("~", Path.home().as_posix(), 1)) for arg in edit)
