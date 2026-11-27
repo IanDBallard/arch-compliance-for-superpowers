@@ -4,6 +4,12 @@ Run from the repository root, naming the Claude Code binary to probe:
 
     python docs/design/evidence/HOST_DETECTOR_APPROVAL_PER_REPOSITORY_AT_THE_PROMPT/bypass_hook_probe.py <claude>
 
+On Windows, name the executable itself (an npm install's
+``node_modules/@anthropic-ai/claude-code/bin/claude.exe``), never the ``claude.cmd``
+shim: ``cmd.exe`` cuts the command line at the prompt's newline, so every flag after
+the prompt is dropped and the run falls back to the user's default mode, unnoticed.
+Check that ``permission_mode`` in ``hook_calls`` reads ``bypassPermissions``.
+
 For each variant the probe makes a fresh project directory whose
 ``.claude/settings.json`` holds that variant's hook or rule, then runs
 
