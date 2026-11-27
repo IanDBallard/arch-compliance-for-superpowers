@@ -66,6 +66,7 @@ def file_tool(path: str, tool: str = "Write", mode: str = "default", **extra) ->
         shell("acf-allow --fingerprint abc", tool="PowerShell"),
         shell("python -m acf.cli_allow"),
         shell("cd x && ACF-ALLOW"),
+        shell("echo {} > ~/.acf/approvals.json"),
         file_tool(str(Path.home() / ".acf" / "approvals.json")),
         file_tool(r"C:\Users\x\.acf\APPROVALS.JSON"),
         {"tool_name": "NotebookEdit", "tool_input": {"notebook_path": "/h/.acf/approvals.json"}},
@@ -119,6 +120,19 @@ def test_malformed_json_with_needle_fails_closed(tmp_path) -> None:
 
 def test_invalid_utf8_with_needle_fails_closed(tmp_path) -> None:
     proc = run_hook(b'{"tool_input":{"command":"acf-allow \xff"}}', tmp_path)
+    assert proc.returncode == 2
+    assert proc.stderr.decode("utf-8").startswith("acf: approval hook failed")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"tool_name": "Bash", "tool_input": "acf-allow"},
+        {"tool_name": "Bash", "tool_input": {"command": ["acf-allow"]}},
+    ],
+)
+def test_wrong_shape_with_needle_fails_closed(payload, tmp_path) -> None:
+    proc = run_hook(payload, tmp_path)
     assert proc.returncode == 2
     assert proc.stderr.decode("utf-8").startswith("acf: approval hook failed")
 
