@@ -1,0 +1,91 @@
+2.1.332 (Claude Code)
+{
+  "variant": "control",
+  "exit_code": 0,
+  "call_ran (marker.txt exists)": true,
+  "hook_calls": [
+    {
+      "tool_name": "Bash",
+      "permission_mode": "bypassPermissions",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "permission_denials": [],
+  "final_text": "DONE"
+}
+{
+  "variant": "json_deny",
+  "exit_code": 0,
+  "call_ran (marker.txt exists)": false,
+  "hook_calls": [
+    {
+      "tool_name": "Bash",
+      "permission_mode": "bypassPermissions",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "final_text": "The command was blocked: a PreToolUse hook returned \"probe json_deny\" and the Bash call did not run, so `marker.txt` was not created. I did not retry.\n\nDONE"
+}
+{
+  "variant": "json_ask",
+  "exit_code": 0,
+  "call_ran (marker.txt exists)": false,
+  "hook_calls": [
+    {
+      "tool_name": "Bash",
+      "permission_mode": "bypassPermissions",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "final_text": "DONE"
+}
+{
+  "variant": "exit2",
+  "exit_code": 0,
+  "call_ran (marker.txt exists)": false,
+  "hook_calls": [
+    {
+      "tool_name": "Bash",
+      "permission_mode": "bypassPermissions",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "final_text": "DONE"
+}
+{
+  "variant": "ask_rule",
+  "exit_code": 0,
+  "call_ran (marker.txt exists)": false,
+  "hook_calls": [
+    {
+      "tool_name": "Bash",
+      "permission_mode": "bypassPermissions",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "command": "echo probe > marker.txt"
+    }
+  ],
+  "final_text": "The Bash call was denied. This session has no approval surface, so the permission prompt couldn't be answered, and the command `echo probe > marker.txt` did not run. I didn't retry it. No `marker.txt`"
+}
