@@ -117,7 +117,7 @@ Every ACF exception subclasses `AcfError` and nothing else; no stdlib mixin such
 `acf.repo` is the one declaration of where ACF looks inside a host repository and of the
 per-user approval store's path relative to the home directory (`STORE_REL`), and it
 imports only the standard library and `acf.exceptions` (itself stdlib-only)
-(`plugins/arch-compliance/python/acf/repo.py:1-7`).
+(`plugins/arch-compliance/python/acf/repo.py:1-8`).
 Row: `plugin.one-owner-host-paths`; its test scans `plugins/arch-compliance/python/` and
 `plugins/arch-compliance/hooks/`. The repository-level `tests/` and `scripts/` follow
 the rule by importing the `acf.repo` constants, which review checks. Executable skill snippets
@@ -217,8 +217,8 @@ the item into the tracking target; and an absent closing rule, where step 5 upda
 status cells. Each is reported as
 `<rule>: not declared in ## Post-merge, portable rule applied`. Four defaults elsewhere in the package are outside
 this rule and recorded here: the fail-loud ratchet's baseline path when a row omits
-`params.baseline` (`plugins/arch-compliance/python/acf/repo.py:23-26`), `resolve_repo`
-falling back to the process directory (`plugins/arch-compliance/python/acf/repo.py:32-44`,
+`params.baseline` (`plugins/arch-compliance/python/acf/repo.py:33-36`), `resolve_repo`
+falling back to the process directory (`plugins/arch-compliance/python/acf/repo.py:45-57`,
 documented there as a fallback), the approval key, which is the folder when git reports
 the directory is not a repository (`acf.approval.repo_key`; `describe_approval` prints the
 scope), and the Tier-2 LLM judge's default provider and models
