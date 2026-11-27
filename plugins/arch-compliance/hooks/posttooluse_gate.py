@@ -13,7 +13,8 @@ Behavior:
     edited in-repo paths and print findings; host guards receive every edited
     in-repo path.
   - Host detector rows run repository code, so they run only under a local
-    approval (``acf-allow``) that still matches the rows and detector files.
+    approval (given through ``acf-approve``) that still matches the rows and
+    detector files.
     Without one the hook skips them, runs the built-in rows, and prints one
     notice naming the skipped rows (``additionalContext`` plus ``systemMessage``
     in hook format; stderr otherwise). It never approves anything itself.
@@ -122,7 +123,12 @@ def _gate(
     try:
         from acf.detectors import KNOWN_DETECTORS
         from acf.enforcement import apply_registry, make_line_lookup
-        from acf.exceptions import AcfInputError, DetectorPackError, UnknownDetectorError
+        from acf.exceptions import (
+            AcfInputError,
+            DetectorPackError,
+            GitError,
+            UnknownDetectorError,
+        )
         from acf.finding import Severity
         from acf.registry import HOOK_CALL_SITES, load_mandates
 
@@ -140,7 +146,7 @@ def _gate(
     try:
         registry = load_mandates(mandates_path, known_detectors=KNOWN_DETECTORS, repo_root=repo)
         approval = check_approval(repo, registry, HOOK_CALL_SITES)
-    except (AcfInputError, UnknownDetectorError) as exc:
+    except (AcfInputError, GitError, UnknownDetectorError) as exc:
         print(f"acf: {exc}", file=sys.stderr)
         return failure
 
@@ -150,8 +156,8 @@ def _gate(
         ids = ", ".join(m.id for m in approval_rows(registry))
         notice = (
             f"acf: host detectors not run: {reason(approval.state, store_path())}; "
-            f"rows skipped: {ids}. Ask the user to review the detector files and run "
-            "acf-allow in this repository; do not run it yourself."
+            f"rows skipped: {ids}. To have them run, follow the acf-approve skill; "
+            "the user approves at a permission prompt. Never approve another way."
         )
     # NOT_NEEDED selects no host row at these call sites, so the empty map is never indexed.
     digests = approval.digests

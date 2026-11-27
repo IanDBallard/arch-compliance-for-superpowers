@@ -106,3 +106,14 @@ def test_hooks_import_repo_without_pulling_third_party(tmp_path) -> None:
         )
         assert proc.returncode == 0, f"{hook} exited {proc.returncode}: {proc.stderr}"
         assert "Traceback" not in proc.stderr, f"{hook} raised: {proc.stderr}"
+
+    approval = subprocess.run(
+        [sys.executable, str(HOOKS / "approval_prompt.py")],
+        capture_output=True,
+        text=True,
+        env=env,
+        input='{"tool_name": "Bash", "tool_input": {"command": "acf-allow"}}',
+        cwd=host,
+    )
+    assert approval.returncode == 0, f"approval_prompt.py exited {approval.returncode}: {approval.stderr}"
+    assert '"ask"' in approval.stdout

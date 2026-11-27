@@ -29,6 +29,7 @@ Superpowers owns workflow shape. This plugin owns mandates, gates, audit, and co
 |---|---|
 | `/acf-setup` | Bootstrap host `config/architecture/`, enable hooks marker, smoke the diff gate |
 | `/acf-mandate` | Add / edit / deprecate rows in `mandates.yml` |
+| `/acf-approve` | Approve host detectors for the repository at a Claude Code permission prompt, after a review the agent posts (`acf-approval-status` prints the review without writing) |
 | `/architecture-review` | Faceted audit + optional baseline / drift |
 | `/adversarial-design-review` | Spec-stage adversarial review gate; the host declares `config/architecture/adr.yml` |
 | `/responding-to-adversarial-review` | Answering a blocked adversarial-design-review gate run |
@@ -61,7 +62,7 @@ pytest
 
 CI, here and in hosts, runs the check-diff action (`.github/actions/check-diff`), which installs the plugin and runs `acf-check-diff --call-site ci` itself.
 
-`acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host mandate registry, and host guards see every changed file inside the repository. `--call-site {ci,precommit}` is required: the gates run the active rows whose `call_sites` declare that site. `BLOCK` findings exit non-zero. In CI use `--base` — a fresh checkout has an empty staged/worktree diff. A registry with host rows runs them only after the user has reviewed the detector files and run `acf-allow` (stored in `~/.acf/approvals.json`), or, for `acf-check-diff`, when the invocation passes `--trusted-checkout`, which CI workflows pass because the workflow file is the opt-in (the check-diff action passes it by default); without either, the diff gate refuses.
+`acf-check-diff` scans git-changed `.py` / `.ts` / `.tsx` against the host mandate registry, and host guards see every changed file inside the repository. `--call-site {ci,precommit}` is required: the gates run the active rows whose `call_sites` declare that site. `BLOCK` findings exit non-zero. In CI use `--base` — a fresh checkout has an empty staged/worktree diff. A registry with host rows runs them only after the user has reviewed the detector files and approved them through `acf-approve`, answering a permission prompt (stored in `~/.acf/approvals.json`, one entry per repository), or, for `acf-check-diff`, when the invocation passes `--trusted-checkout`, which CI workflows pass because the workflow file is the opt-in (the check-diff action passes it by default); without either, the diff gate refuses.
 
 Portable Python detectors (enable via profile / `/acf-mandate`):
 
@@ -107,9 +108,18 @@ test a property of a host, not of this plugin, and mean nothing here.
 Plugin `hooks/hooks.json` registers:
 
 - **SubagentStart** — `inject_constraints.py` injects host mandates + an ARCHITECTURE excerpt into subagent context.
-- **PostToolUse** (`Write|Edit|MultiEdit`) — `posttooluse_gate.py` runs the active rows declaring `hook` or `posttooluse` on edited `.py`/`.ts`/`.tsx` files, and host guards on every edited path inside the repository (edited files outside the repository are not scanned). `BLOCK` findings and gate failures exit 2 so Claude receives them as blocking feedback; `WARN` findings come back as additional context. Host rows run only with an approval (`acf-allow`); without one the hook skips them with a notice and runs the built-ins.
+- **PreToolUse** (`Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit`) — `approval_prompt.py` forces a permission prompt around any shell command that mentions approval (`acf-allow`, `acf.cli_allow`) and any file tool aimed at `~/.acf/approvals.json`, and denies them in `bypassPermissions` mode, where no prompt is shown. It runs in every repository whatever `.acf/enabled` says, and it is registered with `"onFailure": "block"`, so a crash or timeout blocks the call instead of passing it; that setting needs Claude Code v2.1.295 or later.
+- **PostToolUse** (`Write|Edit|MultiEdit`) — `posttooluse_gate.py` runs the active rows declaring `hook` or `posttooluse` on edited `.py`/`.ts`/`.tsx` files, and host guards on every edited path inside the repository (edited files outside the repository are not scanned). `BLOCK` findings and gate failures exit 2 so Claude receives them as blocking feedback; `WARN` findings come back as additional context. Host rows run only with an approval (given through `acf-approve`); without one the hook skips them with a notice and runs the built-ins.
 
-Hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; with the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message. Committing `.acf/` approves no host code; each person runs `acf-allow` themselves.
+The other hooks are a true no-op (exit 0, no third-party imports) until `.acf/enabled` exists; the approval prompt is the exception and guards the per-user store in every repository. With the marker present, a missing `config/architecture/mandates.yml` or missing Python deps fail loud with an actionable message. Committing `.acf/` approves no host code; each person approves through `acf-approve`.
+
+### Upgrading to repository-wide, prompt-given approval (v0.3.5)
+
+- The approval is now keyed by the repository, not the checkout folder: the key is the git common directory plus the host's folder inside the repository, so one approval covers every worktree whose active host rows and detector files match what was approved. A directory that is not a git repository is keyed by its folder, as before. Approving different bytes in one worktree makes any worktree still on the old bytes `STALE` until it is approved again.
+- The approval is given at a Claude Code permission prompt. An agent prepares the review with `acf-approval-status` (read-only: key and scope, state, rows, files with SHA-256, the fingerprint, and the limit on imported helpers) and runs `acf-allow --fingerprint <hex>`; your Allow is the approval, your Deny ends it. `acf-allow` refuses, writing nothing, unless the current fingerprint equals `<hex>`. `/acf-approve` is the procedure.
+- The plugin's PreToolUse hook (`approval_prompt.py`) makes those commands prompt, and fails closed (`"onFailure": "block"`, Claude Code v2.1.295 or later). In `bypassPermissions` mode it denies instead. `/acf-setup` offers `permissions.ask` rules for `~/.claude/settings.json` as a documented second line; it adds them only on your yes.
+- Each user approves each git repository once after upgrading. Entries written under a worktree root by an earlier version are not read again for a git repository, and `acf-allow --revoke` does not find them, because it computes the new key. Delete them by hand from `~/.acf/approvals.json`.
+- Run from Claude Code (`CLAUDE_CODE_CHILD_SESSION` is `1`), `acf-allow` without `--fingerprint` is refused. There are two ways through: run `acf-approval-status` and pass the fingerprint it prints as `--fingerprint <hex>`, or run `acf-allow` in your own terminal.
 
 ### Upgrading a host to the check-diff action (v0.3.4)
 

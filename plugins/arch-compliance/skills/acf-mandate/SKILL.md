@@ -136,7 +136,7 @@ Say explicitly: `/acf-mandate` updates registry rows only. Implementing detector
 - Action taken (add/edit/deprecate) and mandate `id`s
 - Validation command result
 - Any missing detector/prompt/auditor stubs
-- Reminder to re-run `acf-check-diff` (with `--call-site ci` or `--call-site precommit`, which selects the rows that run) after meaningful enforcement changes; the re-run needs the user to run `acf-allow` again after a host row or detector file changes (never run it or add `--trusted-checkout` yourself)
+- Reminder to re-run `acf-check-diff` (with `--call-site ci` or `--call-site precommit`, which selects the rows that run) after meaningful enforcement changes; the re-run needs a new approval (`acf-approve`) after a host row or detector file changes; never add `--trusted-checkout`
 
 ## Common mistakes
 

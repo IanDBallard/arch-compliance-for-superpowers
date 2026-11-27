@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from acf.baseline import Baseline, BaselineCell, save_baseline
+from acf.exceptions import GitError
 from acf.review.aggregator import GroupResult
 from acf.review import rollup
 from acf.review.contract import AuditorFinding, AuditorPayload
@@ -119,6 +120,15 @@ def test_provenance_all_zero_commit_of_any_length_is_uncommitted(tmp_path, monke
     monkeypatch.setattr(rollup, "run_git", fake_run_git)
     assert provenance(tmp_path, _finding("a.py"), "abc") == ("uncommitted", None)
     assert [a[0] for a in calls] == ["blame"]
+
+
+def test_provenance_unresolved_on_git_error(tmp_path, monkeypatch):
+    def fake_run_git(repo, *args):
+        raise GitError("x")
+
+    monkeypatch.setattr(rollup, "run_git", fake_run_git)
+    cls, err = provenance(tmp_path, _finding("a.py"), "abc")
+    assert cls == "unresolved" and "x" in err
 
 
 def test_provenance_unresolved_when_baseline_commit_unknown(tmp_path):

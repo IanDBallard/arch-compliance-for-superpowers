@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 
 from acf.approval import (
-    STORE_REL,
     ApprovalState,
     approval_rows,
     check_approval,
@@ -17,18 +16,20 @@ from acf.approval import (
     fingerprint,
     read_store,
     reason,
+    repo_key,
     require_approval,
     store_path,
     write_approval,
 )
 from acf.detectors import KNOWN_DETECTORS
-from acf.exceptions import AcfInputError
+from acf.exceptions import AcfInputError, GitError
 from acf.registry import (
     DIFF_CALL_SITES,
     HOOK_CALL_SITES,
     MandateRegistry,
     load_mandates,
 )
+from acf.repo import STORE_REL
 
 PY_DIR = Path(__file__).resolve().parents[1] / "python"
 
@@ -207,6 +208,7 @@ def test_require_approval_raises_with_refusal_text(tmp_path: Path) -> None:
         "host detectors need approval: no approval for this repository; rows: h0, h1. "
     )
     assert "acf-allow" in message and "--trusted-checkout" in message
+    assert "acf-approve" in message
     write_approval(repo, reg)
     assert require_approval(repo, reg, HOOK_CALL_SITES).state is ApprovalState.APPROVED
 
@@ -226,18 +228,18 @@ def test_revoke_removes_only_that_repo(tmp_path: Path) -> None:
     write_approval(repo_b, _registry(repo_b))
     write_approval(repo_a, _registry(repo_a), revoke=True)
     keys = set(read_store(store_path()).repos)
-    assert keys == {repo_b.resolve().as_posix()}
+    assert keys == {repo_key(repo_b).key}
 
 
 def test_write_approval_preserves_other_repos(tmp_path: Path) -> None:
     repo_a = _repo(tmp_path / "a", [_host("h1", "[hook]")])
     repo_b = _repo(tmp_path / "b", [_host("h1", "[hook]", param="other")])
     write_approval(repo_a, _registry(repo_a))
-    entry_a = read_store(store_path()).repos[repo_a.resolve().as_posix()]
+    entry_a = read_store(store_path()).repos[repo_key(repo_a).key]
     write_approval(repo_b, _registry(repo_b))
     repos = read_store(store_path()).repos
-    assert repos[repo_a.resolve().as_posix()] == entry_a
-    assert set(repos) == {repo_a.resolve().as_posix(), repo_b.resolve().as_posix()}
+    assert repos[repo_key(repo_a).key] == entry_a
+    assert set(repos) == {repo_key(repo_a).key, repo_key(repo_b).key}
     assert not list(store_path().parent.glob("*.tmp"))
 
 
@@ -262,6 +264,137 @@ def test_write_approval_records_the_given_digests(tmp_path: Path) -> None:
     printed = file_digests(repo, rows)
     (repo / "hostdet" / "rules.py").write_text("def check(*a, **k):\n    return [3]\n", encoding="utf-8")
     write_approval(repo, reg, digests=printed)
-    stored = read_store(store_path()).repos[repo.resolve().as_posix()]
+    stored = read_store(store_path()).repos[repo_key(repo).key]
     assert stored.fingerprint == fingerprint(rows, printed)
     assert check_approval(repo, reg, HOOK_CALL_SITES).state is ApprovalState.STALE
+
+
+# --- repository key (#62) ---------------------------------------------------------------
+
+_GIT_ID = ("-c", "user.name=acf-test", "-c", "user.email=acf-test@example.invalid")
+
+
+def _git(cwd: Path, *args: str) -> None:
+    subprocess.run(["git", *_GIT_ID, *args], cwd=cwd, check=True, capture_output=True)
+
+
+def _populate(base: Path, rows: list[str]) -> None:
+    (base / "hostdet").mkdir(parents=True, exist_ok=True)
+    (base / "hostdet" / "rules.py").write_text("def check(*a, **k):\n    return []\n", encoding="utf-8")
+    _write_rows(base, rows)
+
+
+def _git_repo(tmp_path: Path, subs: tuple[str, ...] = ("",)) -> Path:
+    main = tmp_path / "main"
+    main.mkdir(parents=True)
+    _git(main, "init", "-q")
+    for sub in subs:
+        _populate(main / sub if sub else main, [_host("h1", "[hook]")])
+    _git(main, "add", "-A")
+    _git(main, "commit", "-q", "-m", "init")
+    return main
+
+
+def _worktree(main: Path, name: str = "wt") -> Path:
+    wt = main.parent / name
+    _git(main, "worktree", "add", "-q", str(wt), "-b", name)
+    return wt
+
+
+def _state(repo: Path) -> ApprovalState:
+    return check_approval(repo, _registry(repo), HOOK_CALL_SITES).state
+
+
+def test_repo_key_repository_scope_shared_by_worktree(tmp_path: Path) -> None:
+    main = _git_repo(tmp_path)
+    wt = _worktree(main)
+    a, b = repo_key(main), repo_key(wt)
+    assert a.scope == "repository" and b.scope == "repository"
+    assert a.key == b.key
+    assert a.key.endswith("::")
+
+
+def test_repo_key_subfolders_differ_and_match_across_worktrees(tmp_path: Path) -> None:
+    main = _git_repo(tmp_path, ("a", "b"))
+    wt = _worktree(main)
+    assert repo_key(main / "a").key != repo_key(main / "b").key
+    assert repo_key(main / "a").key == repo_key(wt / "a").key
+    assert repo_key(main / "a").key.endswith("::a")
+
+
+def test_repo_key_folder_scope_outside_git(tmp_path: Path) -> None:
+    key = repo_key(tmp_path)
+    assert key.key == tmp_path.resolve().as_posix()
+    assert key.scope == "folder"
+
+
+def test_repo_key_propagates_git_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(repo: Path):
+        raise GitError("cannot compute the approval key")
+
+    monkeypatch.setattr("acf.approval.git_common_dir", boom)
+    with pytest.raises(GitError, match="cannot compute"):
+        repo_key(tmp_path)
+
+
+def test_worktree_approved_by_main_checkout_approval(tmp_path: Path) -> None:
+    main = _git_repo(tmp_path)
+    wt = _worktree(main)
+    write_approval(main, _registry(main))
+    assert _state(wt) is ApprovalState.APPROVED
+    (wt / "hostdet" / "rules.py").write_text("def check(*a, **k):\n    return [1]\n", encoding="utf-8")
+    assert _state(wt) is ApprovalState.STALE
+    assert _state(main) is ApprovalState.APPROVED
+    write_approval(wt, _registry(wt))
+    assert _state(wt) is ApprovalState.APPROVED
+    assert _state(main) is ApprovalState.STALE
+
+
+def test_approving_subfolder_a_leaves_b_unchanged(tmp_path: Path) -> None:
+    main = _git_repo(tmp_path, ("a", "b"))
+    assert _state(main / "b") is ApprovalState.MISSING
+    write_approval(main / "a", _registry(main / "a"))
+    assert _state(main / "a") is ApprovalState.APPROVED
+    assert _state(main / "b") is ApprovalState.MISSING
+    write_approval(main / "b", _registry(main / "b"))
+    (main / "b" / "hostdet" / "rules.py").write_text("def check(*a, **k):\n    return [2]\n", encoding="utf-8")
+    assert _state(main / "a") is ApprovalState.APPROVED
+
+
+def test_separate_repositories_do_not_share(tmp_path: Path) -> None:
+    one = _git_repo(tmp_path / "one")
+    two = _git_repo(tmp_path / "two")
+    write_approval(one, _registry(one))
+    assert _state(one) is ApprovalState.APPROVED
+    assert _state(two) is ApprovalState.MISSING
+
+
+def test_old_root_key_ignored_for_git_repo(tmp_path: Path) -> None:
+    main = _git_repo(tmp_path)
+    reg = _registry(main)
+    write_approval(main, reg)
+    entry = read_store(store_path()).repos[repo_key(main).key]
+    store_path().write_text(
+        '{"version": 1, "repos": {"%s": %s}}'
+        % (main.resolve().as_posix(), entry.model_dump_json()),
+        encoding="utf-8",
+    )
+    assert _state(main) is ApprovalState.MISSING
+
+
+def test_old_root_key_still_used_for_plain_folder(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, [_host("h1", "[hook]")])
+    reg = _registry(repo)
+    write_approval(repo, reg)
+    assert set(read_store(store_path()).repos) == {repo.resolve().as_posix()}
+    assert check_approval(repo, reg, HOOK_CALL_SITES).state is ApprovalState.APPROVED
+
+
+def test_not_needed_runs_no_git(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*args, **kwargs):
+        raise AssertionError("git must not run for NOT_NEEDED")
+
+    monkeypatch.setattr("acf.approval.git_common_dir", boom)
+    monkeypatch.setattr("acf.diff.run_git", boom)
+    repo = _repo(tmp_path, [_manual("m")])
+    assert check_approval(repo, _registry(repo), HOOK_CALL_SITES).state is ApprovalState.NOT_NEEDED

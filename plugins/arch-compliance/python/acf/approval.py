@@ -1,7 +1,8 @@
 """Per-user, fingerprint-bound approval of a repository's host detector rows.
 
-The store lives at ``~/.acf/approvals.json``, outside every repository, keyed by the
-repository's resolved root. One fingerprint covers every active host row and the
+The store lives at ``~/.acf/approvals.json``, outside every repository, keyed by
+``repo_key``: the git common directory and the host's prefix inside it, or the folder
+itself when git reports the directory is not a repository. One fingerprint covers every active host row and the
 files those rows name, so the hook, the diff gate and ``acf-allow`` agree.
 
 ``write_approval`` sits beside ``save_baseline`` (``acf/baseline.py``), which writes an
@@ -23,6 +24,7 @@ from typing import Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from acf.diff import git_common_dir
 from acf.exceptions import AcfInputError
 from acf.loader import load_model_file
 from acf.registry import (
@@ -31,10 +33,7 @@ from acf.registry import (
     MandateRegistry,
     parse_host_detector_ref,
 )
-from acf.repo import RepoTree
-
-#: Relative to ``Path.home()``.
-STORE_REL = Path(".acf") / "approvals.json"
+from acf.repo import STORE_REL, RepoTree
 
 
 class ApprovalEntry(BaseModel):
@@ -61,6 +60,47 @@ class ApprovalState(enum.Enum):
 class Approval:
     state: ApprovalState
     digests: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class RepoKey:
+    key: str
+    scope: Literal["repository", "folder"]
+
+
+def repo_key(repo: Path) -> RepoKey:
+    located = git_common_dir(repo)
+    if located is None:
+        return RepoKey(RepoTree(repo).root.as_posix(), "folder")
+    common, prefix = located
+    return RepoKey(f"{common.as_posix()}::{prefix}", "repository")
+
+
+SCOPE_TEXT: Mapping[str, str] = {
+    "repository": "every worktree of this repository",
+    "folder": "this folder only",
+}
+
+HELPER_LIMIT = (
+    "Note: imported modules are not covered; a change confined to a module a detector "
+    "imports runs under this approval."
+)
+
+
+def describe_approval(
+    repo: Path, rows: list[Mandate], digests: Mapping[str, str]
+) -> list[str]:
+    key = repo_key(repo)
+    lines = [
+        f"repository: {key.key} ({SCOPE_TEXT[key.scope]})",
+        "Approving these host detector rows:",
+    ]
+    lines.extend(f"  {row.id}  {row.detector}" for row in rows)
+    lines.append("and these detector files (SHA-256):")
+    lines.extend(f"  {rel_path}  {digest}" for rel_path, digest in digests.items())
+    lines.append(f"fingerprint: {fingerprint(rows, digests)}")
+    lines.append(HELPER_LIMIT)
+    return lines
 
 
 def store_path() -> Path:
@@ -132,7 +172,7 @@ def check_approval(
         return Approval(ApprovalState.STORE_IN_REPO, {})
     rows = approval_rows(registry)
     digests = file_digests(repo, rows)
-    entry = read_store(store).repos.get(RepoTree(repo).root.as_posix())
+    entry = read_store(store).repos.get(repo_key(repo).key)
     if entry is None:
         return Approval(ApprovalState.MISSING, {})
     if entry.fingerprint != fingerprint(rows, digests):
@@ -149,8 +189,10 @@ def require_approval(
     ids = ", ".join(m.id for m in approval_rows(registry))
     raise AcfInputError(
         f"host detectors need approval: {reason(result.state, store_path())}; rows: {ids}. "
-        "Ask the user to review the detector files and run acf-allow; a CI workflow, "
-        "or a run with --mandates naming another file, passes --trusted-checkout."
+        "Ask the user to approve them: follow the acf-approve skill (acf-approval-status, "
+        "a review for the user, then acf-allow --fingerprint at a permission prompt the "
+        "user answers). A CI workflow, or a run with --mandates naming another file, "
+        "passes --trusted-checkout."
     )
 
 
@@ -164,7 +206,7 @@ def write_approval(
     store = store_path()
     if _store_inside_repo(repo, store):
         raise AcfInputError(reason(ApprovalState.STORE_IN_REPO, store))
-    key = RepoTree(repo).root.as_posix()
+    key = repo_key(repo).key
     data = read_store(store)
     if revoke:
         data.repos.pop(key, None)

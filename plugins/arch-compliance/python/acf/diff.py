@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 
@@ -14,20 +16,71 @@ DiffMode = Literal["staged", "worktree"]
 _HUNK_RE = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
 
 
-def run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run_git(
+    repo: Path, *args: str, env: Mapping[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     """Invoke git and return the completed process, non-zero status included.
 
     The one place that knows how to invoke git. Callers that treat a non-zero
     status as a failure should use ``_git``; callers that need the status as
     data (an exit code that MEANS something, such as ``check-ignore``) use this.
+    Raises ``GitError`` when stdout is not UTF-8, whatever the exit status.
     """
-    return subprocess.run(
+    proc = subprocess.run(
         ["git", *args],
         cwd=repo,
         capture_output=True,
-        text=True,
         check=False,
+        env=env,
     )
+    try:
+        stdout = proc.stdout.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GitError(
+            f"git {' '.join(args)}: output is not UTF-8 at byte {exc.start}"
+        ) from exc
+    stderr = proc.stderr.decode("utf-8", errors="replace")
+    return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+
+
+def git_common_dir(repo: Path) -> tuple[Path, str] | None:
+    """Return ``(common git dir, prefix of repo inside the work tree)``.
+
+    The common dir is identical for a main checkout and each linked worktree.
+    Returns ``None`` only when ``repo`` is not inside a git repository (exit 128
+    with ``not a git repository``); every other failure raises ``GitError``.
+    Git's repository-locating variables are removed from the environment so a
+    hook's inherited ``GIT_DIR`` cannot change the prefix.
+    """
+
+    def fail(detail: str) -> GitError:
+        return GitError(
+            f"cannot compute the approval key for {repo.as_posix()}: "
+            f"git rev-parse failed: {detail}"
+        )
+
+    try:
+        names = run_git(repo, "rev-parse", "--local-env-vars")
+        if names.returncode != 0:
+            raise fail((names.stderr or "").strip() or str(names.returncode))
+        drop = set(names.stdout.split())
+        env = {k: v for k, v in os.environ.items() if k not in drop}
+        env["LC_ALL"] = "C"
+        proc = run_git(
+            repo,
+            "rev-parse", "--path-format=absolute", "--git-common-dir", "--show-prefix",
+            env=env,
+        )
+    except OSError as exc:
+        raise fail(str(exc)) from exc
+    if proc.returncode == 0:
+        lines = proc.stdout.splitlines()
+        if len(lines) == 2:
+            return Path(lines[0]), lines[1].rstrip("/")
+        raise fail(f"unexpected output {proc.stdout!r}")
+    if proc.returncode == 128 and "not a git repository" in proc.stderr:
+        return None
+    raise fail((proc.stderr or "").strip() or str(proc.returncode))
 
 
 def _git(repo: Path, *args: str) -> str:
