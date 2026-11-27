@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from acf.approval import ApprovalState, check_approval, read_store, store_path
+from acf.approval import ApprovalState, check_approval, read_store, repo_key, store_path
 from acf.cli_allow import main
 from acf.detectors import load_gate_registry
 from acf.exceptions import UnknownDetectorError
 from acf.registry import HOOK_CALL_SITES
-from acf.repo import MANDATES_REL, RepoTree
+from acf.repo import MANDATES_REL
 
 PY_DIR = Path(__file__).resolve().parents[1] / "python"
 RULES_SOURCE = "def check(*a, **k):\n    return []\n"
@@ -67,7 +67,7 @@ def test_allow_prints_and_writes(tmp_path: Path, capsys: pytest.CaptureFixture[s
     for fragment in ("host-a", "host-b", "hostdet/rules.py:check", "hostdet/rules.py", digest,
                      "imported modules are not covered"):
         assert fragment in out
-    assert RepoTree(repo).root.as_posix() in read_store(store_path()).repos
+    assert repo_key(repo).key in read_store(store_path()).repos
 
 
 def test_allow_no_host_rows_writes_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -100,7 +100,7 @@ def test_allow_revoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     capsys.readouterr()
     assert main(["--repo", str(repo), "--revoke"]) == 0
     assert "Removed" in capsys.readouterr().out
-    assert RepoTree(repo).root.as_posix() not in read_store(store_path()).repos
+    assert repo_key(repo).key not in read_store(store_path()).repos
 
 
 def test_allow_revoke_without_entry(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

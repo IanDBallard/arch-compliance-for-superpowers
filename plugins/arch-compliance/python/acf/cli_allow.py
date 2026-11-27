@@ -16,6 +16,7 @@ from acf.approval import (
     file_digests,
     read_store,
     reason,
+    repo_key,
     store_path,
     write_approval,
 )
@@ -73,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _revoke(repo: Path) -> int:
     store = store_path()
-    key = RepoTree(repo).root.as_posix()
+    key = repo_key(repo).key
     if key not in read_store(store).repos:
         print(f"No approval recorded for {key}; nothing to remove.")
         return 0

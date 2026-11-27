@@ -1,7 +1,8 @@
-"""Host repository layout: the one declaration of where ACF looks in a host.
+"""Host repository layout: the one declaration of where ACF looks in a host, and of the
+per-user approval store's path relative to the home directory (``STORE_REL``).
 
 It imports only the standard library and ``acf.exceptions`` (itself stdlib-only), on
-purpose. Both hooks import this at module scope, before the
+purpose. The plugin's three hooks import this at module scope, before the
 ``.acf/enabled`` gate decides whether ACF is active at all, so this module must
 never pull in a third-party package.
 """
@@ -13,6 +14,9 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from acf.exceptions import AcfInputError
+
+#: Relative to ``Path.home()``.
+STORE_REL = Path(".acf") / "approvals.json"
 
 #: Host-relative directory holding the mandate registry and the doctrine document.
 CONFIG_DIR = Path("config") / "architecture"
