@@ -2,7 +2,8 @@
 
 Drift, staleness and provenance are report-only; none affects the exit status.
 Every git invocation goes through ``acf.diff.run_git``, which returns the exit
-status as data; a missing ``git`` raises.
+status as data; a missing ``git`` raises, and so does git output that is not UTF-8
+(``GitError``).
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from acf.baseline import (
     render_drift_section,
 )
 from acf.diff import run_git
+from acf.exceptions import GitError
 from acf.repo import RepoTree
 from acf.review.aggregator import GroupResult
 from acf.review.contract import AuditorFinding
@@ -75,9 +77,12 @@ def provenance(
     A line git attributes to no commit (all-zero id), or a path git does not track,
     is ``uncommitted``.
     """
-    blame = run_git(
-        repo, "blame", "--porcelain", "-L", f"{finding.line},{finding.line}", "--", finding.path
-    )
+    try:
+        blame = run_git(
+            repo, "blame", "--porcelain", "-L", f"{finding.line},{finding.line}", "--", finding.path
+        )
+    except GitError as exc:
+        return "unresolved", str(exc)
     if blame.returncode != 0:
         tracked = run_git(repo, "ls-files", "--error-unmatch", "--", finding.path)
         if tracked.returncode != 0:

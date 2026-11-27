@@ -213,7 +213,7 @@ def test_missing_mandates_fails_loud(
 
 
 def test_run_git_reports_nonzero_as_data(tmp_path):
-    """run_git never raises on a non-zero status; the caller decides."""
+    """run_git never raises on a non-zero status; the caller decides; undecodable stdout raises GitError."""
     from acf.diff import run_git
 
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)

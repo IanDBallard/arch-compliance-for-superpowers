@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 
@@ -14,20 +15,31 @@ DiffMode = Literal["staged", "worktree"]
 _HUNK_RE = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
 
 
-def run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run_git(
+    repo: Path, *args: str, env: Mapping[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     """Invoke git and return the completed process, non-zero status included.
 
     The one place that knows how to invoke git. Callers that treat a non-zero
     status as a failure should use ``_git``; callers that need the status as
     data (an exit code that MEANS something, such as ``check-ignore``) use this.
+    Raises ``GitError`` when stdout is not UTF-8, whatever the exit status.
     """
-    return subprocess.run(
+    proc = subprocess.run(
         ["git", *args],
         cwd=repo,
         capture_output=True,
-        text=True,
         check=False,
+        env=env,
     )
+    try:
+        stdout = proc.stdout.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GitError(
+            f"git {' '.join(args)}: output is not UTF-8 at byte {exc.start}"
+        ) from exc
+    stderr = proc.stderr.decode("utf-8", errors="replace")
+    return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
 
 def _git(repo: Path, *args: str) -> str:
