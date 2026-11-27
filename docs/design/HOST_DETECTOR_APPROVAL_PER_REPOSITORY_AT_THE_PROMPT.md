@@ -1,6 +1,6 @@
 # Host Detector Approval per Repository, Given at the Permission Prompt
 
-**Status:** Draft (v3)
+**Status:** Draft (v4)
 **Adversarial review:** in progress
 **Date:** 2026-11-26
 **Spec kinds:** `feature`
@@ -107,7 +107,7 @@ G4 means `run_git` (`plugins/arch-compliance/python/acf/diff.py:24-30`, `text=Tr
    - An entry written under a worktree root before this change is never read again for a git repository, because its key is no longer computed. It still matches for a non-git folder, whose key is unchanged.
    - Each user approves each git repository once after upgrading.
    - Reading old root keys as a fallback would be the compatibility shim `## No shims` forbids (`ARCHITECTURE.md:53-55`, *"compatibility shims … are forbidden"*).
-   - Old entries are inert data; the README's upgrade note says they can be deleted.
+   - Old entries are inert data; the README's upgrade note says they can be deleted. No command deletes one: `acf-allow --revoke` computes the new key (`cli_allow.py:74-83`, with §5.1's change at `:76`), so in a git repository it does not find the old root-keyed entry. The note tells the user to remove such entries from `~/.acf/approvals.json` by hand; the agent may not (§5.6 step 5).
    - #62's own text proposed reading old keys as a migration; this design declines that for the reason above.
 3. **An agent may start `acf-allow`, and only the user's answer at a Claude Code permission prompt lets it run.**
    - The agent prepares a review (Decision 6), then runs `acf-allow --fingerprint <hex>`.
@@ -145,8 +145,9 @@ G4 means `run_git` (`plugins/arch-compliance/python/acf/diff.py:24-30`, `text=Tr
   - The hook matches text. Three things pass it: a script the agent writes that imports `acf.approval.write_approval`, a command that builds the string `acf-allow` at run time, and a tool the hook does not match.
   - The first clause of the cleared spec's residual still holds and is accepted here: *"Whoever can write the user's home directory, or run `acf-allow`, can approve. Claude Code's tool permissions govern an agent doing either"* (`HOST_DETECTOR_LOCAL_APPROVAL.md:84`).
   - Where no managed settings or Team or Enterprise login restrict them, a user-installed Claude Code mod that handles `tool.check` can approve a call the hook sent to the prompt, or one an ask rule matched *(external, permissions.md)*. The source excerpt shows that path: the hook's deny passes through the mod checks before it is returned (`hook_deny_source_probe.out:14`). Installing such a mod is the user's choice, like the deny rule two bullets down.
+  - A command a skill injects when it loads fires the `PreSkillShellCommand` event, not `PreToolUse`, after the injected-command permission check, and also in `bypassPermissions` mode *(external, hooks.md)*. The approval hook is registered under `PreToolUse` only (§5.4). So an agent that writes a skill whose injected command is `acf-allow --fingerprint <hex>` and invokes it is not seen by the hook. Whether Decision 7's ask rules apply to that check is *(unverified)*. Registering the same script under `PreSkillShellCommand` is follow-up 2 in §9.
   - This design makes the honest path work remotely and the naive path prompt. It does not make the dishonest path impossible.
-- **Imported helpers and executed tools stay outside the fingerprint** (`HOST_DETECTOR_LOCAL_APPROVAL.md:83`).
+- **Imported helpers and executed tools stay outside the fingerprint** (`HOST_DETECTOR_LOCAL_APPROVAL.md:83`). That residual cites `host.py:59` for the `sys.path` append; the append is now at `plugins/arch-compliance/python/acf/detectors/host.py:82`.
   - Per-folder keying never covered them either: `git checkout` of another branch in an approved folder runs that branch's helpers under the existing approval.
   - An example in `cy:`: `cy:config/architecture/detectors/eslint_rules.py:58-60` runs `node` on the repository's ESLint with the repository's configuration, none of it fingerprinted.
   - `describe_approval` keeps printing the limit, and `acf-approve` has the agent say what each detector executes.
@@ -166,7 +167,9 @@ G4 means `run_git` (`plugins/arch-compliance/python/acf/diff.py:24-30`, `text=Tr
 
 **`run_git` decodes UTF-8 and fails loud** (`plugins/arch-compliance/python/acf/diff.py:17-30`).
 - It captures bytes and decodes them itself: stdout as UTF-8 in strict mode, stderr as UTF-8 with `errors="replace"`, since stderr is only diagnostic text.
-- A stdout that is not UTF-8 raises `GitError` naming the command and the byte offset, on every platform. This replaces the silent `None` of G4.
+- A stdout that is not UTF-8 raises `GitError` naming the command and the byte offset, on every platform, whatever the exit status. This replaces the silent `None` of G4.
+- Its docstring (`diff.py:18-23`) keeps *"return the completed process, non-zero status included"* and adds that undecodable stdout raises `GitError`. The docstring of `test_run_git_reports_nonzero_as_data` (`plugins/arch-compliance/tests/test_diff_cli.py:216`, *"run_git never raises on a non-zero status; the caller decides"*) stays true and gains the same exception.
+- `git diff -U0` (`diff.py:68`, through `added_lines`) prints file content, and `acf-check-diff` runs it for every changed in-repository file before its suffix filter (`cli_check_diff.py:148`). So a changed file whose content is not UTF-8 now makes the diff gate fail with `GitError` naming the command (§7).
 - It gains a keyword-only `env: Mapping[str, str] | None = None`, passed to `subprocess.run`.
 - Its return type stays `subprocess.CompletedProcess[str]`.
 - This lands the `run_git` part of `## Declared text decoding`. §5.7 removes `run_git` from that section's declared debt and from its recipe's expected hits. The other two calls there, `adr/citations.py` `_git` and the TypeScript bridge, stay declared debt under `docs/design/PLUGIN_SELF_HOSTING_AND_DOCTRINE.md` §9 follow-up 1.
@@ -208,7 +211,7 @@ The folder key for a non-git directory is recorded in `## Declared, never defaul
 4. `fingerprint: <hex>`.
 5. The imported-helper limit (`cli_allow.py:27-30`, moved to `acf.approval.HELPER_LIMIT`).
 
-`acf-allow` prints these lines in place of its own loop (`cli_allow.py:59-65`). Its `digests = file_digests(repo, rows)` at `:58` stays, since both `describe_approval` and the `--fingerprint` check consume it. `acf-approval-status` prints them after the state.
+`acf-allow` prints these lines in place of its own loop and helper note (`cli_allow.py:59-65`). Its `digests = file_digests(repo, rows)` (`:58`) stays, since both `describe_approval` and the `--fingerprint` check consume it; the store write that follows is `write_approval(repo, registry, digests=digests)` at `:66`. `acf-approval-status` prints them after the state.
 
 **`acf-approval-status`** (new console script, `plugins/arch-compliance/python/acf/cli_approval_status.py`).
 - `pyproject.toml:18-21` gains `acf-approval-status = "acf.cli_approval_status:main"`.
@@ -221,7 +224,7 @@ The folder key for a non-git directory is recorded in `## Declared, never defaul
 
 ### 5.3 `acf-allow` (`plugins/arch-compliance/python/acf/cli_allow.py`)
 
-1. **New argument `--fingerprint HEX`.** After `digests = file_digests(repo, rows)` (`:58`), when it is given and `HEX != fingerprint(rows, digests)`: stderr `acf: the host rows or detector files changed since the review (reviewed <HEX>, now <current>); nothing approved`, exit `1`, store untouched.
+1. **New argument `--fingerprint HEX`.** Between `digests = file_digests(repo, rows)` (`:58`) and `write_approval` (`:66`), when it is given and `HEX != fingerprint(rows, digests)`: stderr `acf: the host rows or detector files changed since the review (reviewed <HEX>, now <current>); nothing approved`, exit `1`, store untouched.
 2. **Refusal under Claude Code.** When `os.environ.get("CLAUDE_CODE_CHILD_SESSION") == "1"` and neither `--fingerprint` nor `--revoke` is given: stderr `acf: run from Claude Code, acf-allow needs --fingerprint: run acf-approval-status and pass the fingerprint it prints, or run acf-allow in a terminal outside Claude Code`, exit `1`.
    - This also applies when the user types `! acf-allow` in a local session, if Claude Code sets the variable for `!` commands *(unverified)*.
    - The message tells them the two ways through, and the README upgrade note says so.
@@ -239,7 +242,7 @@ It is registered in `plugins/arch-compliance/hooks/hooks.json` under a new `PreT
 
 *(external, tools-reference: `PowerShell` is a tool name. permissions.md calls `MultiEdit` legacy, so listing it is harmless if it never matches.)*
 
-It imports the standard library and `acf.repo` only, putting `plugins/arch-compliance/python` on `sys.path` as `posttooluse_gate.py:38-41` does. So it costs one interpreter start, cannot fail on a missing third-party dependency, and runs the same in a repository without `.acf/enabled`. Behaviour:
+It imports the standard library and `acf.repo` only, putting `plugins/arch-compliance/python` on `sys.path` as `posttooluse_gate.py:37-41` does. That `sys.path` block is then in three hooks (`posttooluse_gate.py:37-41`, `plugins/arch-compliance/hooks/inject_constraints.py:25-29` and this one); §5.7 records the copy and §9 follow-up 3 consolidates it. So it costs one interpreter start, cannot fail on a missing third-party dependency, and runs the same in a repository without `.acf/enabled`. Behaviour:
 
 1. Read stdin as bytes. If none of the needles occurs in the raw bytes (compared case-insensitively), exit `0` at once. This is the common path.
 2. Parse the JSON as UTF-8. The subject depends on the tool:
@@ -297,7 +300,7 @@ Recipe: `grep -rn "acf-allow\|resolved root\|per checkout\|no-op\|\.acf/enabled"
 
 | File | Change |
 | --- | --- |
-| `config/architecture/ARCHITECTURE.md:179-186` (`**Trust boundary.**`) | The approval is keyed by the repository's git common directory and the host's prefix (the folder for a non-git directory), so it covers every worktree whose host rows and files match. An agent may start `acf-allow --fingerprint`; the plugin's PreToolUse hook makes it prompt, and the user's answer is the approval. The closing line (`:188`) gains `test_approval_prompt.py` and `test_cli_approval_status.py`. |
+| `config/architecture/ARCHITECTURE.md:179-186` (`**Trust boundary.**`) | The approval is keyed by the repository's git common directory and the host's prefix (the folder for a non-git directory), so it covers every worktree whose host rows and files match. An agent may start `acf-allow --fingerprint`; the plugin's PreToolUse hook makes it prompt, and the user's answer is the approval. The closing line (`:188`) gains `test_approval_prompt.py`, `test_cli_approval_status.py` and `test_git_runner.py` (which pins G1 to G3, behind the repository key). |
 | `config/architecture/ARCHITECTURE.md:213-228` (`## Declared, never defaulted`) | *"Three defaults elsewhere in the package"* becomes *"Four defaults"*, adding: the approval key is the folder when git reports the directory is not a repository (`acf.approval.repo_key`), and `describe_approval` prints the scope. |
 | `config/architecture/ARCHITECTURE.md:270-277` (`## Declared text decoding`) | `run_git` leaves the declared debt: *"Three calls breach the rule today"* becomes *"Two calls"*, naming `adr/citations.py` `_git` and the TypeScript bridge. Their stale line citations are corrected while the sentence is rewritten: `citations.py:62-65` becomes `:59-61`, and `typescript_bridge.py:49-56` becomes `:120-126`. |
 | `plugins/arch-compliance/skills/acf-setup/SKILL.md:263` (Windows `PYTHONUTF8=1` note) | The reason *"the git runner does not declare its text encoding"* becomes *"the TypeScript bridge does not declare its text encoding"* (still declared debt). The instruction itself stays. |
@@ -305,7 +308,7 @@ Recipe: `grep -rn "acf-allow\|resolved root\|per checkout\|no-op\|\.acf/enabled"
 | `plugins/arch-compliance/python/acf/repo.py:1-6` (module docstring) and the new `STORE_REL` line | The first line adds the per-user approval store's home-relative path, which the approval hook needs without third-party imports. *"Both hooks import this"* becomes *"The plugin's three hooks import this"*. `STORE_REL` keeps its comment *"Relative to ``Path.home()``"* (`approval.py:36`). |
 | `config/architecture/ARCHITECTURE.md:117-119` (`## One owner for host paths`) | *"the one declaration of where ACF looks inside a host repository"* adds *"and of the per-user approval store's path relative to the home directory (`STORE_REL`)"*. |
 | `plugins/arch-compliance/python/acf/review/rollup.py:4-5` (module docstring) | The `GitError` sentence of §5.1. |
-| `config/architecture/ARCHITECTURE.md:299-302` (`## Single point of definition`) | Record the approval command set's second encoding: the hook's `APPROVAL_NEEDLES` and the `permissions.ask` rules `/acf-setup` offers (Decision 7). The rules live in the user's settings, which the plugin cannot import, so the copy stays. `test_approval_prompt.py` pins the two (§6.3). The git-runner sentence keeps its substance; its citation `citations.py:54` becomes `:51`, where `_git` is defined. |
+| `config/architecture/ARCHITECTURE.md:299-302` (`## Single point of definition`) | Record the approval command set's second encoding: the hook's `APPROVAL_NEEDLES` and the `permissions.ask` rules `/acf-setup` offers (Decision 7). The rules live in the user's settings, which the plugin cannot import, so the copy stays. `test_approval_prompt.py` pins the two (§6.3). Also record two further copies this change makes: the hooks' `sys.path` insert, now in three hooks (§5.4, follow-up 3), and a second "imports only the standard library" check, the AST walk of §6.3 beside the regex in `test_repo_module_imports_only_stdlib` (`test_repo_paths.py:74-78`), which follow-up 3 also folds into one helper. The git-runner sentence keeps its substance; its citation `citations.py:54` becomes `:51`, where `_git` is defined. |
 | `config/architecture/ARCHITECTURE.md:236-240` (`## Prose names no host`, coverage) | *"the other two skills … `acf-mandate` and `acf-setup`, have no row yet"* names `acf-approve` too: three skills, no row yet. |
 | `plugins/arch-compliance/python/acf/approval.py:3-5` (module docstring) | *"keyed by the repository's resolved root"* becomes keyed by `repo_key` (git common directory and prefix, or the folder). |
 | `plugins/arch-compliance/hooks/posttooluse_gate.py:16-19` (module docstring) | *"(``acf-allow``)"* becomes *"(given through ``acf-approve``)"*. |
@@ -318,7 +321,7 @@ Recipe: `grep -rn "acf-allow\|resolved root\|per checkout\|no-op\|\.acf/enabled"
 | `plugins/arch-compliance/skills/acf-mandate/SKILL.md:139` | The re-run needs a new approval (`acf-approve`) after a host row or detector file changes; never add `--trusted-checkout`. |
 | `README.md:26-35` (skills table), `:64`, `:105-110` (hooks) | `acf-approve` and `acf-approval-status`, and the PreToolUse hook with its `onFailure` minimum Claude Code version. The clauses at `:64` and `:110` that have the user run `acf-allow` become approval through `acf-approve` at a permission prompt. |
 | `README.md:112` | *"Hooks are a true no-op … until `.acf/enabled` exists"* gains the approval-prompt exception; *"each person runs `acf-allow` themselves"* becomes *"each person approves through `acf-approve`"*. |
-| `README.md`, new upgrade note `### Upgrading to repository-wide, prompt-given approval (v0.3.5)` before `:114` | The key, the prompt channel, `acf-approval-status`, the hook and its minimum version, one re-approval per repository after upgrading, old entries deletable, and the `CLAUDE_CODE_CHILD_SESSION` refusal with its two ways through. `:143`'s *"One approval per checkout directory"* sentence is historical and stays under its v0.2.5 heading. |
+| `README.md`, new upgrade note `### Upgrading to repository-wide, prompt-given approval (v0.3.5)` before `:114` | The key, the prompt channel, `acf-approval-status`, the hook and its minimum version, one re-approval per repository after upgrading, old entries deletable by hand from `~/.acf/approvals.json` (`acf-allow --revoke` does not find them, Decision 2), and the `CLAUDE_CODE_CHILD_SESSION` refusal with its two ways through. `:143`'s *"One approval per checkout directory"* sentence is historical and stays under its v0.2.5 heading. |
 | `docs/guides/SUPERPOWERS_COMPLEMENT.md:89` | *"Hooks are a true no-op until the host has `.acf/enabled`"* gains the approval-prompt exception; *"(`acf-allow`, which the user runs after reviewing the detector files)"* becomes the prompt-given approval through `acf-approve`. |
 | `docs/design/CHECK_DIFF_HOST_WIRING.md:141`, `:330-331` and `:333` | Left as written. They are an Approved spec's record of the v0.3.4 text: `:141` and `:330-331` say the git runner does not declare its text encoding, and `:333` has each person run `acf-allow`. The live text they describe (the `/acf-setup` note at `SKILL.md:262-263` and `README.md`) is updated by the rows above. |
 | `pyproject.toml:3`, `plugins/arch-compliance/.claude-plugin/plugin.json:3` | `0.3.4` → `0.3.5` (`ARCHITECTURE.md:283-284`). |
@@ -430,7 +433,7 @@ The tests that assert `acf-allow` in a gate message are `test_approval.py:209`, 
 | With `onFailure: "block"`, a broken hook or a missing `python` blocks every `Bash`, `PowerShell` and file-tool call in every repository. | The hook's common path is one byte scan, and its tests run it. The plugin's other hooks already need `python` on PATH (`hooks.json:2`). The failure is loud, not silent, and uninstalling the plugin clears it. |
 | Commands that only mention a needle prompt: `grep -n acf-allow README.md`, or a `git commit -m` whose message names `acf-allow`. In `bypassPermissions` mode the hook denies them instead. | Accepted: the reason says what allowing does, and in a host that is rare. In this repository it is common while editing approval prose; there, leave bypass mode or rephrase the message. |
 | Every user must approve each git repository once after upgrading. | One prompt per repository, and the README note says so. |
-| A host whose git output is not UTF-8 now gets `GitError` from the diff gate's existing git calls, where the locale codec may have decoded it. | On Windows the locale codec already lost such output without an error (G4). CI on Linux and the documented `PYTHONUTF8=1` runs already decode UTF-8, so for them nothing changes. The error names the command. |
+| A host whose git output is not UTF-8 now gets `GitError` from the diff gate's existing git calls. That includes a changed file whose content is not UTF-8, such as a `cp1252` `.txt`, `.csv` or `.ini`, because `git diff -U0` prints its content (§5.1). Under `cp1252`, the locale codec decoded every byte except the five it leaves undefined, and `added_lines` reads only the ASCII hunk headers, so on Windows most such files used to pass and now fail the gate. | Accepted. The gate fails loud and the error names the command, where G4 shows the same codec can also return `None` or wrong text without an error. A Linux CI run with a UTF-8 locale already decodes strictly. The host converts the file to UTF-8, or the file's handling is a separate design. |
 | A machine whose git is older than 2.31 now gets `GitError` from the key, where it had a folder approval. | Git 2.31 shipped in March 2021. The error carries git's own message, which names the unknown option. |
 | The hook's `deny` in bypass mode rests on Claude Code 2.1.330's source (Decision 4), not on a live run, and a later build could change it. | §8 item 4 runs `bypass_hook_probe.py` against the installed build. Decision 7's ask rule is the documented second line. |
 | Remote Control's handling of a hook-raised `ask` prompt is *(unverified)*. | §8 item 3 tests it. If it fails, the design still fixes #62 and keeps the terminal path. |
@@ -463,3 +466,6 @@ The tests that assert `acf-allow` in a gate message are `test_approval.py:209`, 
 
 **Follow-ups, filed as issues when this merges:**
 1. The diff gate's own `git diff` calls inherit `GIT_DIR` from a linked worktree's `pre-push` hook (G3). For a subfolder host they may diff against the wrong tree. Whether to strip the variables in `run_git` for every call is a separate design.
+2. Register `approval_prompt.py` under `PreSkillShellCommand` as well as `PreToolUse`, so a command a skill injects at load time is matched (§4). Per hooks.md, that event carries the same `tool_input.command` and `permission_mode` and treats `ask` as a block *(external)*.
+3. One stdlib-only module in `plugins/arch-compliance/hooks/` that owns the hooks' `sys.path` insert, imported by the three hooks, and one helper for the "imports only the standard library" check used by `test_repo_paths.py` and `test_approval_prompt.py` (§5.7).
+4. One preparer in `acf.approval` that returns the registry, the approval rows and the digests, with the "no host rows" outcome, consumed by `acf-allow` and `acf-approval-status`; today each repeats `load_gate_registry`, `approval_rows`, the empty-rows branch and `file_digests` (`cli_allow.py:50-58`, §5.2).
