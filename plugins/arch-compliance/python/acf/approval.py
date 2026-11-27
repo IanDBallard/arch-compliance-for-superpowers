@@ -162,8 +162,10 @@ def require_approval(
     ids = ", ".join(m.id for m in approval_rows(registry))
     raise AcfInputError(
         f"host detectors need approval: {reason(result.state, store_path())}; rows: {ids}. "
-        "Ask the user to review the detector files and run acf-allow; a CI workflow, "
-        "or a run with --mandates naming another file, passes --trusted-checkout."
+        "Ask the user to approve them: follow the acf-approve skill (acf-approval-status, "
+        "a review for the user, then acf-allow --fingerprint at a permission prompt the "
+        "user answers). A CI workflow, or a run with --mandates naming another file, "
+        "passes --trusted-checkout."
     )
 
 

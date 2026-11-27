@@ -208,6 +208,7 @@ def test_require_approval_raises_with_refusal_text(tmp_path: Path) -> None:
         "host detectors need approval: no approval for this repository; rows: h0, h1. "
     )
     assert "acf-allow" in message and "--trusted-checkout" in message
+    assert "acf-approve" in message
     write_approval(repo, reg)
     assert require_approval(repo, reg, HOOK_CALL_SITES).state is ApprovalState.APPROVED
 

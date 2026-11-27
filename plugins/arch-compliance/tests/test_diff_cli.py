@@ -398,6 +398,7 @@ def test_host_rows_unapproved_refused(
     err = capsys.readouterr().err
     assert code == 1
     assert "acf-allow" in err
+    assert "acf-approve" in err
     assert "--trusted-checkout" in err
     assert not marker.exists()
 

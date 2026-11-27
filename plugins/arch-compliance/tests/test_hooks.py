@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.util
+import io
 import json
 import os
 import re
@@ -13,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from acf.approval import write_approval
+from acf.exceptions import GitError
 from acf.detectors import load_gate_registry
 from acf.repo import MANDATES_REL
 
@@ -551,7 +554,7 @@ def test_gate_unapproved_hook_skips_host_rows_with_notice(tmp_path: Path) -> Non
     context = out["hookSpecificOutput"]["additionalContext"]
     assert "no-shims.hasattr" in context
     for text in (context, out["systemMessage"]):
-        assert "acf-allow" in text
+        assert "acf-approve" in text
         assert "host.ast-marker" in text
     assert context.startswith(_NOTICE_HEAD)
     assert "no approval for this repository" in context
@@ -683,3 +686,28 @@ def test_gate_hook_deleted_detector_file_exits_2(tmp_path: Path) -> None:
     proc = _run(GATE, "--format", "hook", cwd=repo, stdin=_hook_payload(repo, edited))
     assert proc.returncode == 2, proc.stdout + proc.stderr
     assert any(line.startswith("acf:") for line in proc.stderr.splitlines()), proc.stderr
+
+
+def test_posttooluse_reports_key_git_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, _ = _unapproved_repo(tmp_path)
+    edited = repo / "a.py"
+    edited.write_text("x = 1\n", encoding="utf-8")
+
+    def _raise(*_args: object, **_kwargs: object) -> None:
+        raise GitError("cannot compute the approval key for x: git rev-parse failed: boom")
+
+    monkeypatch.setattr("acf.approval.check_approval", _raise)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(_hook_payload(repo, edited)))
+    spec = importlib.util.spec_from_file_location("posttooluse_gate_under_test", GATE)
+    assert spec is not None and spec.loader is not None
+    hook = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hook)
+
+    code = hook.main(["--format", "hook"])
+
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "acf: cannot compute the approval key" in err
+    assert "Traceback" not in err
