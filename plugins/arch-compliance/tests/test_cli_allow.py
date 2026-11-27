@@ -8,10 +8,20 @@ from pathlib import Path
 
 import pytest
 
-from acf.approval import ApprovalState, check_approval, read_store, repo_key, store_path
+from acf.approval import (
+    ApprovalState,
+    approval_rows,
+    check_approval,
+    describe_approval,
+    file_digests,
+    fingerprint,
+    read_store,
+    repo_key,
+    store_path,
+)
 from acf.cli_allow import main
 from acf.detectors import load_gate_registry
-from acf.exceptions import UnknownDetectorError
+from acf.exceptions import GitError, UnknownDetectorError
 from acf.registry import HOOK_CALL_SITES
 from acf.repo import MANDATES_REL
 
@@ -135,3 +145,94 @@ def test_detectors_import_does_not_import_httpx() -> None:
         check=True,
     )
     assert result.stdout.strip() == "False"
+
+
+def _git_init(repo: Path) -> None:
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+
+
+def _current(repo: Path) -> str:
+    registry = load_gate_registry(repo, repo / MANDATES_REL)
+    rows = approval_rows(registry)
+    return fingerprint(rows, file_digests(repo, rows))
+
+
+def _store_bytes() -> bytes | None:
+    store = store_path()
+    return store.read_bytes() if store.exists() else None
+
+
+def test_fingerprint_match_writes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = _repo(tmp_path, [_host("host-a")])
+    _git_init(repo)
+    assert main(["--repo", str(repo), "--fingerprint", _current(repo)]) == 0
+    assert repo_key(repo).key in read_store(store_path()).repos
+    assert "every worktree of this repository" in capsys.readouterr().out
+
+
+def test_fingerprint_mismatch_refuses(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = _repo(tmp_path, [_host("host-a")])
+    before = _store_bytes()
+    assert main(["--repo", str(repo), "--fingerprint", "deadbeef"]) == 1
+    err = capsys.readouterr().err
+    assert "reviewed deadbeef" in err
+    assert _current(repo) in err
+    assert "nothing approved" in err
+    assert _store_bytes() == before
+
+
+def test_child_session_requires_fingerprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _repo(tmp_path, [_host("host-a")])
+    monkeypatch.setenv("CLAUDE_CODE_CHILD_SESSION", "1")
+    assert main(["--repo", str(repo)]) == 1
+    assert "needs --fingerprint" in capsys.readouterr().err
+    assert _store_bytes() is None
+    assert main(["--repo", str(repo), "--fingerprint", _current(repo)]) == 0
+    assert repo_key(repo).key in read_store(store_path()).repos
+
+
+def test_child_session_revoke_without_fingerprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path, [_host("host-a")])
+    assert main(["--repo", str(repo)]) == 0
+    monkeypatch.setenv("CLAUDE_CODE_CHILD_SESSION", "1")
+    assert main(["--repo", str(repo), "--revoke"]) == 0
+    assert repo_key(repo).key not in read_store(store_path()).repos
+
+
+def test_child_session_revoke_ignores_fingerprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path, [_host("host-a")])
+    assert main(["--repo", str(repo)]) == 0
+    monkeypatch.setenv("CLAUDE_CODE_CHILD_SESSION", "1")
+    assert main(["--repo", str(repo), "--revoke", "--fingerprint", "bad"]) == 0
+    assert repo_key(repo).key not in read_store(store_path()).repos
+
+
+def test_allow_reports_key_git_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _repo(tmp_path, [_host("host-a")])
+
+    def boom(_repo: Path) -> None:
+        raise GitError("cannot compute the approval key for x: y")
+
+    monkeypatch.setattr("acf.approval.git_common_dir", boom)
+    assert main(["--repo", str(repo)]) == 1
+    assert "acf: cannot compute the approval key" in capsys.readouterr().err
+
+
+def test_allow_review_lines_equal_describe_approval(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _repo(tmp_path, [_host("host-a"), _host("host-b")])
+    assert main(["--repo", str(repo)]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    rows = approval_rows(load_gate_registry(repo, repo / MANDATES_REL))
+    expected = describe_approval(repo, rows, file_digests(repo, rows))
+    assert lines[:-1] == expected
+    assert lines[-1].startswith(f"Approved {repo_key(repo).key} (this folder only) in ")

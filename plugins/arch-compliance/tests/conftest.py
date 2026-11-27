@@ -15,6 +15,7 @@ def _isolated_home(monkeypatch, tmp_path_factory):
     monkeypatch.setenv("PYTHONUSERBASE", userbase)
     monkeypatch.setenv("HOME", home)
     monkeypatch.setenv("USERPROFILE", home)
+    monkeypatch.delenv("CLAUDE_CODE_CHILD_SESSION", raising=False)
 
 
 @pytest.fixture

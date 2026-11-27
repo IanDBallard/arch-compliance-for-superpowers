@@ -76,6 +76,33 @@ def repo_key(repo: Path) -> RepoKey:
     return RepoKey(f"{common.as_posix()}::{prefix}", "repository")
 
 
+SCOPE_TEXT: Mapping[str, str] = {
+    "repository": "every worktree of this repository",
+    "folder": "this folder only",
+}
+
+HELPER_LIMIT = (
+    "Note: imported modules are not covered; a change confined to a module a detector "
+    "imports runs under this approval."
+)
+
+
+def describe_approval(
+    repo: Path, rows: list[Mandate], digests: Mapping[str, str]
+) -> list[str]:
+    key = repo_key(repo)
+    lines = [
+        f"repository: {key.key} ({SCOPE_TEXT[key.scope]})",
+        "Approving these host detector rows:",
+    ]
+    lines.extend(f"  {row.id}  {row.detector}" for row in rows)
+    lines.append("and these detector files (SHA-256):")
+    lines.extend(f"  {rel_path}  {digest}" for rel_path, digest in digests.items())
+    lines.append(f"fingerprint: {fingerprint(rows, digests)}")
+    lines.append(HELPER_LIMIT)
+    return lines
+
+
 def store_path() -> Path:
     try:
         return Path.home() / STORE_REL
