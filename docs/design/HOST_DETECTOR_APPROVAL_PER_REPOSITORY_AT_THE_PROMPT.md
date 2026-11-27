@@ -1,8 +1,10 @@
 # Host Detector Approval per Repository, Given at the Permission Prompt
 
 **Status:** Draft (v4)
-**Adversarial review:** in progress
-**Date:** 2026-11-26
+**Adversarial review:** v4 — 2026-11-27, verification pass over the v3 full run
+(BLOCKED; all blocking findings precision-class, absorbed and re-measured),
+user-approved (repo @ 8254a4d)
+**Date:** 2026-11-27
 **Spec kinds:** `feature`
 **Repo:** `IanDBallard/arch-compliance-for-superpowers`, `main` at `58ed65c` (release 0.3.4), branch `feat/approval-by-repository`.
 **Issues:** #62 (approvals keyed by worktree root, so each worktree of one repository needs its own `acf-allow`).
